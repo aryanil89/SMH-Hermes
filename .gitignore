@@ -1,0 +1,40 @@
+# Secrets
+.env
+.env.*
+!.env.example
+!.env_boards.example
+*token*
+*.pem
+*.key
+credentials*
+
+# Node
+node_modules/
+dist/
+build/
+*.log
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# NPU / model build artifacts (large, device-specific, rebuildable)
+*.bin
+*.dlc
+*.pte
+*.onnx
+*.gguf
+bundles/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings (machine-specific, not shared)
+.claude/settings.local.json

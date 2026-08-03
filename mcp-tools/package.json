@@ -1,0 +1,28 @@
+{
+  "name": "smh-hermes-mcp-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP servers exposing datacenter-health tools (network/storage/compute mocked, environmental real via Arduino UNO Q) for Hermes Agent.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start:network": "node dist/servers/network-server.js",
+    "start:storage": "node dist/servers/storage-server.js",
+    "start:compute": "node dist/servers/compute-server.js",
+    "start:environmental": "node dist/servers/environmental-server.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
