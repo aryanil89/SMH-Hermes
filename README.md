@@ -13,6 +13,6 @@ Copilot+ PC, wired to infra tools via MCP, reachable from a Samsung Galaxy S25+ 
   UNO Q, and the QUAD SDK are each actually used
 
 ## Layout
-- `mcp-tools/` — MCP servers (TypeScript) wiring storage (real, via UNO Q), CI/CD, dependency-graph, and topology (mocked) data into the agent
-- `uno-q/` — Arduino UNO Q deployment config, driven via QUAD's `quad-unoq` skill, backing the storage-capacity tool with real hardware telemetry (bonus, not on the critical path)
+- `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/server (mocked) and environmental/physical (real, via UNO Q) datacenter health data into the agent, plus a proactive-alert cron skill
+- `uno-q/` — Arduino UNO Q deployment config, driven via QUAD's `quad-unoq` skill, backing the environmental/physical-monitoring tool with real sensor data (bonus, not on the critical path)
 - `phone/` — Samsung Galaxy S25+ stretch goal: second on-device GenieX/Qwen3-4B instance for a two-device demo beat
