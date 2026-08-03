@@ -2,16 +2,17 @@
 Project Hermes developed for Snapdragon Multiverse Hackathon 2026
 
 On-device, self-improving AI agent for infrastructure operations. Runs [Hermes Agent](https://github.com/nousresearch/hermes-agent)
-+ an NPU-accelerated LLM entirely on a Snapdragon X Elite Copilot+ PC, wired to live infra tools
-via MCP, reachable from a phone over a messaging gateway.
++ Qwen3-4B-Instruct, NPU-accelerated via Qualcomm GenieX, entirely on a Snapdragon X Elite
+Copilot+ PC, wired to infra tools via MCP, reachable from a Samsung Galaxy S25+ over Telegram.
 
 ## Docs
-- [Requirements](docs/REQUIREMENTS.md) — what we're building and why
+- [Requirements](docs/REQUIREMENTS.md) — the original pitch (see the note at the top — architecture has since changed)
 - [Feasibility analysis](docs/FEASIBILITY.md) — reality check against the pitch's technical claims
-- [Hardware utilization plan](docs/HARDWARE_UTILIZATION.md) — how the Snapdragon X Elite laptop,
-  Samsung Galaxy S25+, Arduino UNO Q, and the QUAD SDK are each actually used
+- [Hardware utilization plan](docs/HARDWARE_UTILIZATION.md) — **the finalized architecture**: where
+  the LLM runs, which model, and how the Snapdragon X Elite laptop, Samsung Galaxy S25+, Arduino
+  UNO Q, and the QUAD SDK are each actually used
 
 ## Layout
-- `shim/` — Python/FastAPI adapter exposing an OpenAI-compatible endpoint over QUAD's `quad serve` NPU inference server
-- `mcp-tools/` — MCP servers (TypeScript) wiring storage, CI/CD, dependency-graph, and infra-topology data into the agent
-- `uno-q/` — Arduino UNO Q deployment config, driven via QUAD's `quad-unoq` skill, backing one live infra-tool with real hardware
+- `mcp-tools/` — MCP servers (TypeScript) wiring storage (real, via UNO Q), CI/CD, dependency-graph, and topology (mocked) data into the agent
+- `uno-q/` — Arduino UNO Q deployment config, driven via QUAD's `quad-unoq` skill, backing the storage-capacity tool with real hardware telemetry (bonus, not on the critical path)
+- `phone/` — Samsung Galaxy S25+ stretch goal: second on-device GenieX/Qwen3-4B instance for a two-device demo beat

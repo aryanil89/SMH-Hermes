@@ -1,5 +1,9 @@
 # Hermes — Requirements
 
+> **Note**: this page records the *original pitch* as given. The finalized architecture
+> (Ollama→GenieX, Phi-4-mini→Qwen3-4B, mock/real data split, hardware roles) is in
+> [HARDWARE_UTILIZATION.md](HARDWARE_UTILIZATION.md) — read that for what's actually being built.
+
 ## Problem
 Infrastructure on-call engineers need fast, contextual answers during incidents (dashboards, logs,
 tickets) without sending operational data to the cloud or eating cloud-latency during an outage.
