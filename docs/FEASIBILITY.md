@@ -13,12 +13,19 @@ that includes Telegram out of the box. It also accepts a custom OpenAI-compatibl
 which is exactly what a local Ollama/Foundry server exposes, so wiring it to a fully local model
 is a supported, documented path, not a hack.
 
-**Risk — Windows on ARM**: the official native Windows installer builds an `x64.exe` (NSIS).
+**Risk — Windows on ARM**: ~~the official native Windows installer builds an `x64.exe` (NSIS).
 There is no confirmed native Windows-ARM64 build. The documented Windows path Nous itself
-recommends is WSL2. WSL2 on an ARM64 Windows host runs an ARM64 Linux kernel, and both Node 22
-and Python 3.11 (Hermes's runtime deps) ship arm64 Linux builds, so this should work — but it is
-untested by us and must be the very first thing verified on Day 1, before anything else is built
-on top of it.
+recommends is WSL2.~~
+
+> **RESOLVED / OUTDATED as of 2026-08-03** — this was the plan's #1 risk and it no longer applies.
+> Nous's platform-support doc lists Windows 10/11 **aarch64 as Tier 1**, `install.ps1` has dedicated
+> native-ARM64 logic, and the native Windows guide (added ~2026-05-08) is now the primary path with
+> WSL2 as an alternative. See [AUDIT_2026-08-03.md](AUDIT_2026-08-03.md) §2.2. **Hermes runs native
+> on Windows ARM64.** One consequence worth recording: had we stayed on WSL2, GenieX's
+> `127.0.0.1:18181` would **not** have been reachable from inside the WSL2 VM without mirrored
+> networking or the Windows host IP — a cross-boundary problem the native path avoids entirely.
+> Current risk in this area is not the platform but installer churn: Hermes's Node 26 requirement
+> landed 2026-08-02, so pin whatever the installer produces and don't upgrade mid-week.
 
 ### Phi-4-mini (Microsoft) — ✅ real, fits
 MIT-licensed, 3.8B params, genuinely small enough for on-device use. No issues here.
@@ -30,9 +37,20 @@ This is the central technical claim of the pitch, and it does not hold up:
 - llama.cpp's QNN/Hexagon-NPU backend (which Ollama would need) is still work-in-progress and,
   as of the most recent report found, doesn't yet implement `MUL_MAT` — the single most
   important op for LLM inference. It is not usable for real inference today.
+  > **Partly superseded 2026-08-03**: the conclusion (don't use Ollama) stands, but this specific
+  > reasoning is now too strong. GenieX ships a llama.cpp Hexagon backend that **does** offload real
+  > inference — measured CPU load dropped to 12–17% with GGUF `Q4_0`. The catch is precision: `Q4_K_M`
+  > silently falls back to CPU. See [NPU_SPIKE_RESULTS.md](NPU_SPIKE_RESULTS.md). The backend is
+  > experimental, not absent.
 - So "Hermes + Ollama + Phi-4 on the NPU" on Day 1 is not something that can actually be built —
   it would silently fall back to CPU, and the pitch's core differentiator (NPU-accelerated,
   not just "runs locally") would be false on stage.
+
+> **Superseded — what was actually done**: neither Foundry Local nor Nexa was adopted. The final
+> choice is **Qualcomm GenieX** serving `Qwen3-4B-Instruct-2507` GGUF `Q4_0`, and the Day-1 go/no-go
+> spike below *was* run and passed. Read [NPU_SPIKE_RESULTS.md](NPU_SPIKE_RESULTS.md) and
+> [HARDWARE_UTILIZATION.md](HARDWARE_UTILIZATION.md) for the outcome; the analysis below is retained
+> as the reasoning that led there.
 
 **Fix**: swap Ollama for **Microsoft Foundry Local** (ONNX Runtime + QNN execution provider,
 Microsoft's own Copilot+ PC NPU stack) or the **Nexa SDK**, both of which ship an NPU-quantized

@@ -1,0 +1,17 @@
+[Unit]
+Description=Hermes sensor-logger App Lab app (Modulino Buttons/Distance/Thermo)
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=arduino
+ExecStart=/usr/bin/arduino-app-cli app start /home/arduino/ArduinoApps/hermes-sensor-logger
+ExecStop=/usr/bin/arduino-app-cli app stop /home/arduino/ArduinoApps/hermes-sensor-logger
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

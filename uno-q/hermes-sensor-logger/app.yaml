@@ -1,0 +1,18 @@
+# app.yaml: The main configuration file for your Arduino App.
+# This file describes the application's metadata and properties.
+
+# The user-visible name of the application.
+name: hermes-sensor-logger
+
+# A brief description of what the application does.
+description: "Reads Modulino Buttons/Distance/Thermo every 10s and logs JSON to the laptop over Tailscale SSH"
+
+# The icon for the application, can be an emoji or a short string.
+icon: 📡
+
+# A list of network ports that the application exposes.
+# Example: [80, 443]
+ports: []
+
+# A list of bricks used by this application.
+bricks: []

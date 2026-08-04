@@ -1,0 +1,2 @@
+# Runtime state for the environmental-watch cron skill (see src/alert-skill) -- not source.
+.state/

@@ -1,0 +1,181 @@
+# Architecture — end-to-end flow
+
+Diagrams for how the pieces are actually wired: the runtime demo path, the two request flows,
+and where QUAD sits relative to all of it. Terms are defined in [GLOSSARY.md](GLOSSARY.md);
+status detail lives in [../PROGRESS.md](../PROGRESS.md) — the `❌`/`⚠️` markers here just point at
+items tracked there and in [REVIEW_AND_SENSOR_PLAN_2026-08-03.md](REVIEW_AND_SENSOR_PLAN_2026-08-03.md).
+
+**The one structural fact everything else follows from:** the build-time graph (§3) and the runtime
+graph (§1) are **disjoint** — they share the laptop and nothing else. No QUAD output is in the demo
+path. That is why QUAD's hosted cloud server doesn't compromise the on-device pitch, and also why
+the never-run profiling step costs scoring points without costing any function.
+
+---
+
+## §1 Runtime — what runs during the demo
+
+```mermaid
+flowchart TD
+    subgraph board["Arduino UNO Q  (sensing tier)"]
+        TH["Modulino Thermo — temp + humidity"]
+        DI["Modulino Distance — mm (water level, surfaced as distanceMm)"]
+        BU["Modulino Buttons — A / B / C"]
+        MCU["STM32 sketch.ino"]
+        PY["main.py (App Lab container)"]
+        LOG["sensor_log.jsonl"]
+        PUSH["push_sensor_log.sh — scp every 10s"]
+        TH -->|"I2C on Wire1 (Qwiic)"| MCU
+        DI -->|"I2C on Wire1 (Qwiic)"| MCU
+        BU -->|"I2C on Wire1 (Qwiic)"| MCU
+        MCU -->|"Bridge.notify — periodic sensor_tick ~10s + one event per button press"| PY
+        PY --> LOG
+        LOG --> PUSH
+    end
+
+    subgraph laptop["Snapdragon X Elite laptop  (reasoning tier)"]
+        FILE["arduino_uno_q-sensor_log.json"]
+        ENV["environmental server — REAL"]
+        NET["network server — mock"]
+        STO["storage server — mock"]
+        COM["compute server — mock"]
+        HA["Hermes Agent — MCP client, skills, memory, cron"]
+        GX["GenieX serve — 127.0.0.1:18181  ✅ running"]
+        MOD["Qwen3-4B-Instruct-2507 — GGUF Q4_0, 64K ctx"]
+        NPU["Hexagon NPU v73 — CPU stays at 12-17%"]
+        FILE --> ENV
+        ENV -->|stdio| HA
+        NET -->|stdio| HA
+        STO -->|stdio| HA
+        COM -->|stdio| HA
+        HA -->|"POST /v1/chat/completions"| GX
+        GX -->|"llama.cpp Hexagon backend"| MOD
+        MOD --> NPU
+    end
+
+    subgraph phone["Galaxy S25+  (mobility tier)"]
+        TG["Telegram app"]
+    end
+
+    PUSH -->|"scp over Tailscale — LAN/VPN, no cloud"| FILE
+    HA <-->|"Telegram Bot API  ☁️ ONLY cloud hop  ✅ wired, outbound verified"| TG
+```
+
+> Telegram round-trip caveats (found during wiring — details in [../PROGRESS.md](../PROGRESS.md)
+> NEXT 4): Hermes must run **non-streaming** against GenieX (`HERMES_FORCE_NONSTREAM=1`; a local
+> patch that `hermes update` would revert), and a phone reply takes **2–4 minutes** — scope demo
+> questions to one tool call.
+
+Everything inside the laptop box survives a WiFi cut — that is the scoped offline demo beat.
+Telegram (and only Telegram) needs the internet.
+
+## §2 The two request paths
+
+### Reactive — a human asks
+
+```mermaid
+sequenceDiagram
+    participant P as Phone (Telegram)
+    participant H as Hermes Agent
+    participant G as GenieX :18181
+    participant E as environmental server
+    participant F as sensor log file
+
+    P->>H: "what's the temperature in rack B1?"  (cloud hop)
+    H->>G: POST /v1/chat/completions + tool definitions
+    G-->>H: finish_reason tool_calls (model asks for the tool)
+    H->>E: get_environmental_status (stdio)
+    E->>F: read newest line (1h staleness guard)
+    F-->>E: temp / humidity / leak + ageSeconds
+    E-->>H: reading (source real or mock + fallbackReason)
+    H->>G: tool result back into context
+    G-->>H: natural-language answer
+    H-->>P: reply via Telegram (cloud hop)
+    Note over H,F: Everything between Hermes and the file is local — works with WiFi off
+```
+
+### Proactive — nobody asked
+
+```mermaid
+sequenceDiagram
+    participant C as hermes cron every 5m — no-agent
+    participant S as environmental-watch.py
+    participant K as check-environmental.js
+    participant D as decideAlert
+    participant P as Phone (Telegram)
+
+    C->>S: tick
+    S->>K: run script
+    K->>D: current status + persisted state
+    alt threshold crossed or recovered
+        D-->>K: ALERT status + message
+        K-->>S: "ALERT critical ..."
+        S->>P: push message via gateway  ☁️
+    else nothing changed
+        D-->>K: NO_ALERT
+        K-->>S: "NO_ALERT"
+        Note over S: stays silent — the normal outcome on most ticks
+    end
+    Note over C,D: Edge-triggered with cooldown + recovery — not "alert every tick".<br/>Deliberately NOT cron --deliver, which would message on every tick.
+```
+
+## §3 Build-time — QUAD, a separate graph entirely
+
+```mermaid
+flowchart LR
+    subgraph dev["Developer machine"]
+        CC["Claude Code — MCP client"]
+    end
+
+    subgraph quad["Hosted QUAD MCP server — quad.infra.foundries.io"]
+        HD["hardware_detect  ✅ used — X1E80100 / Hexagon v73 validated"]
+        AS["aihub_select  ➖ superseded — geniex pulled the bundle instead"]
+        CM["convert_model  ➖ not needed — prebuilt bundle exists"]
+        PW["profile_workload  ❌ never called — the 40-point gap"]
+        OW["orchestrate_workload  ❌ never called"]
+        GC["generate_code  ➖ not needed"]
+        PD["profile_device  ⬜ available — the route for UNO Q telemetry"]
+    end
+
+    BUNDLE["qualcomm/Qwen3-4B-Instruct-2507 W4A16 — 3.0 GiB, cached, NOT the served model"]
+
+    CC -->|"sse-http + bearer token"| quad
+    PW -.->|would read| BUNDLE
+    OW -.->|would read| BUNDLE
+```
+
+**Nothing in this diagram appears in §1.** QUAD's job ends before the demo starts — "model
+converted, verified on the NPU, profiled" — and in this project even the convert step was
+unnecessary because a prebuilt AI Hub bundle existed.
+
+Live blocker: the `mcp__quad__*` tools are registered (`claude mcp list` → ✔ Connected) but **not
+loaded in the current Claude Code session** — a session restart is the precondition for any
+profiling run ([../PROGRESS.md](../PROGRESS.md) NEXT item 7).
+
+## §4 One model, two artifacts
+
+The same Qwen3-4B-Instruct-2507 exists on this laptop as two artifacts with incompatible
+capabilities — conflating them is the most common confusion in this project:
+
+| | **W4A16 bundle** (qairt path) | **GGUF Q4_0** (llama.cpp path) |
+|---|---|---|
+| Context | fixed 4K | **64K** (`--nctx 65536`) |
+| Tool calls | ❌ not parsed | ✅ structured `tool_calls` |
+| NPU | ✅ (qairt) | ✅ (Q4_0 only — Q4_K_M silently falls back to CPU) |
+| Role | **profiling / benchmark target** | **serves Hermes** |
+| Status | **profiled per-op on Hexagon v73** — [BENCHMARKS.md](BENCHMARKS.md) | live on `:18181` |
+
+Consequence for the writeup and the demo: **profile the bundle, serve the GGUF — and say so
+explicitly**, so the benchmark doesn't read as a bait-and-switch. Evidence:
+[NPU_SPIKE_RESULTS.md](NPU_SPIKE_RESULTS.md).
+
+## §5 Gap summary — every marker above, tracked elsewhere
+
+| Marker | What | Tracked as |
+|---|---|---|
+| ✅ periodic sensor sampling | **CR-1 closed** — the sketch emits a `sensor_tick` ~every 10 s *in addition to* button events, so the tool no longer degrades to mock between presses | [REVIEW_AND_SENSOR_PLAN_2026-08-03.md](REVIEW_AND_SENSOR_PLAN_2026-08-03.md) |
+| ✅ `distance_mm` surfaced | **CR-2 closed** — reaches the laptop and is reported as `distanceMm` / "water-level distance". Level-based leak detection is implemented but **off** until `UNOQ_LEAK_DISTANCE_MM` is calibrated | same doc |
+| ⚠️ Telegram round-trip constraints | wired ✅, but requires the non-streaming local patch (`HERMES_FORCE_NONSTREAM=1`, reverted by `hermes update`) and replies take 2–4 min | [../PROGRESS.md](../PROGRESS.md) NEXT 4 |
+| ⚠️ NPU claim now measured, but not by `profile_workload` | The bundle **is** profiled per-op on Hexagon (prefill/decode latency + HTP cycle counts). `profile_workload` itself was unusable — the QUAD server is a remote x86 VM with no Hexagon and no access to local disk — so the numbers come from `qnn-net-run` + `qnn-profile-viewer`, driven by `profile_device_plan` | [BENCHMARKS.md](BENCHMARKS.md), [../PROGRESS.md](../PROGRESS.md) NEXT 7 |
+| ⚠️ cron alert job created, and its first design was broken | The proactive path runs as a `--no-agent` **Python** script every 5 min. The original `.sh` wrapper failed *every scheduled tick* (WSL had no `/bin/bash`); fixed 2026-08-04. Verify via a real tick, never a one-off run | [E2E_TEST.md](E2E_TEST.md) §7, [../PROGRESS.md](../PROGRESS.md) NEXT 6 |
+
+This section is a pointer, not a tracker — status truth lives in PROGRESS.md.

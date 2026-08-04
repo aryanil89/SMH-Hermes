@@ -7,6 +7,13 @@
 *.pem
 *.key
 credentials*
+telegram_info
+
+# Qualcomm-internal material — must NOT reach a public repo.
+# The hackathon deck is marked "Confidential - Qualcomm Technologies, Inc. ... May Contain Trade
+# Secrets" and slide 16 carries event WiFi + laptop credentials. Cite it in docs; don't commit it.
+docs/*.pdf
+*Internal*.pdf
 
 # Node
 node_modules/
