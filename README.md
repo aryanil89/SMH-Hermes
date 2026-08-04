@@ -1,12 +1,32 @@
-# SMH-Hermes
-Project Hermes developed for Snapdragon Multiverse Hackathon 2026
+# Hermes: On-Device AI Operations Engineer
+Project Hermes — Snapdragon Multiverse Hackathon 2026
 
-On-device, self-improving AI agent for infrastructure operations. Runs [Hermes Agent](https://github.com/nousresearch/hermes-agent)
-+ Qwen3-4B-Instruct-2507, NPU-accelerated via Qualcomm GenieX, entirely on a Snapdragon X Elite
-Copilot+ PC, wired to infra tools via MCP, reachable from a Samsung Galaxy S25+ over Telegram.
+Hermes is an AI operations engineer that runs **entirely on a Snapdragon X Elite** — no cloud AI, no
+data leaving the laptop. It correlates real physical sensor signals with infrastructure telemetry to
+tell an on-call engineer what is wrong, why it matters, and what to do next.
+
+**What it is:** a local reasoning layer over signals an ops team already has — it correlates,
+prioritises, explains and recommends.
+**What it is not:** a replacement for monitoring, DCIM or sensors. Datacenters have those already.
+Hermes does not collect the signals; it judges them.
+
+The intelligence is offline: the model, the reasoning, the tool calls and the sensor path all run on
+the device, and you can prove it by cutting the WiFi mid-demo. The one internet hop is the phone
+notification — a message relay, not intelligence, and a swappable adapter (Slack, Teams, Discord,
+WhatsApp and Signal are all supported by the same gateway; we demo on Telegram).
+
+Built on [Hermes Agent](https://github.com/nousresearch/hermes-agent) + Qwen3-4B-Instruct-2507,
+NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP tool servers.
+
+> **Disclosure:** network, storage and compute telemetry are **simulated** with realistic data
+> patterns; the environmental path is **live** from an Arduino UNO Q. The MCP adapters are the seam —
+> the same tools can be pointed at real DCIM/BMS/SNMP without touching the reasoning layer. We
+> measured the simulator's own false-positive rate and recalibrated it — see
+> [docs/REVIEW_3_2026-08-04.md](docs/REVIEW_3_2026-08-04.md) §2.
 
 ## Status
 **[PROGRESS.md](PROGRESS.md)** — the living done/next map. Read this first.
+**[docs/POSITIONING.md](docs/POSITIONING.md)** — the approved wording: pitch, offline claim, judge answers.
 
 ## Run it yourself — the whole flow, in start order
 
@@ -23,16 +43,92 @@ and how to know it worked. The flow being started:
                                   [5] cron watchdog → proactive Telegram alerts
 ```
 
-### 0. One-time install (already done on the demo laptop)
+### 0. Setting this up on a fresh machine
 
-| Piece | How it got there |
+Already provisioned on the demo laptop — skip to step 1 there. These are the reproducible steps
+for anywhere else.
+
+**Prerequisites**
+
+| Need | Note |
 |---|---|
-| GenieX CLI v0.3.18 | Windows installer → `%LOCALAPPDATA%\GenieX CLI\geniex.exe` (on PATH) |
-| Model | `geniex pull unsloth/Qwen3-4B-Instruct-2507-GGUF` — **Q4_0 precision is load-bearing**: Q4_K_M silently falls back to CPU |
-| Hermes Agent | native ARM64 `install.ps1` → `%LOCALAPPDATA%\hermes\`; `HERMES_FORCE_NONSTREAM=1` in its `.env` plus a local patch in `agent/conversation_loop.py` — **do not run `hermes update`, it reverts the patch** |
-| MCP tools | `cd mcp-tools && npm install && npm run build` (Node 18+); verify with `npm test` (60/60) |
-| UNO Q app | `uno-q/hermes-sensor-logger/` deployed on the board, auto-starts via systemd |
-| Telegram bot | token from BotFather in Hermes's `.env` (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_HOME_CHANNEL`) |
+| **Windows on ARM64** (Snapdragon X Elite / Copilot+) | The GenieX NPU path is win-arm64 only. An x64 machine can run everything *except* NPU inference |
+| **Node 18+** | For the MCP tool servers (verified on v24.18) |
+| **`adb`** | Only for the USB sensor transport. It ships inside the scrcpy package: `winget install Genymobile.scrcpy` — this is not obvious |
+| **Telegram bot token** | From [@BotFather](https://t.me/BotFather); your numeric id from @userinfobot |
+| QAIRT SDK 2.32+ *(optional)* | Only to re-run the NPU profiling in `bench/` |
+| ~10 GB disk | Model artifacts: Q4_0 GGUF ~4.5 GB, W4A16 bundle ~3 GB |
+
+**Install, in order**
+
+```powershell
+# 1. GenieX + the model. Q4_0 is load-bearing: Q4_K_M silently falls back to CPU.
+#    Installer → %LOCALAPPDATA%\GenieX CLI\geniex.exe
+& "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" pull unsloth/Qwen3-4B-Instruct-2507-GGUF
+& "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" ls          # expect the Q4_0 precision listed
+
+# 2. MCP tool servers
+cd mcp-tools; npm install; npm run build; npm test      # expect 60/60 passing
+cd ..
+
+# 3. Hermes Agent — native ARM64 installer → %LOCALAPPDATA%\hermes\  (this is HERMES_HOME;
+#    there is NO ~/.hermes on Windows). Then apply the non-streaming patch, see step 5.
+.\install.ps1                                            # from the hermes-agent release
+
+# 4. Secrets
+copy hermes.env.example "$env:LOCALAPPDATA\hermes\.env"  # then edit in your token + user id
+```
+
+**5. Wire Hermes to GenieX and register the tools** — edit `%LOCALAPPDATA%\hermes\config.yaml`.
+This file is the heart of the setup and cannot be inferred; these are the only parts that matter:
+
+```yaml
+model:
+  default: unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_0
+  provider: custom                        # "custom" = an OpenAI-compatible endpoint
+  base_url: http://127.0.0.1:18181/v1     # GenieX
+  context_length: 65536                   # Hermes hard-requires >= 64K or it refuses the model
+
+mcp_servers:                              # absolute paths — see "Paths to change" below
+  network:
+    command: node
+    args: [ "<REPO>\\mcp-tools\\dist\\servers\\network-server.js" ]
+  storage:
+    command: node
+    args: [ "<REPO>\\mcp-tools\\dist\\servers\\storage-server.js" ]
+  compute:
+    command: node
+    args: [ "<REPO>\\mcp-tools\\dist\\servers\\compute-server.js" ]
+  environmental:
+    command: node
+    args: [ "<REPO>\\mcp-tools\\dist\\servers\\environmental-server.js" ]
+    env:
+      UNOQ_SENSOR_LOG: "<REPO>\\arduino_uno_q-sensor_log.json"
+      UNOQ_LOG_MAX_AGE_S: "180"           # older than this -> honest mock, not stale "real"
+      # UNOQ_LEAK_DISTANCE_MM: "150"      # water-level leak threshold; unset = level detection off
+```
+
+**6. Proactive alert job** (see [mcp-tools/cron/](mcp-tools/cron/)):
+
+```powershell
+copy mcp-tools\cron\environmental-watch.py "$env:LOCALAPPDATA\hermes\scripts\"
+hermes cron create --schedule "every 5m" --name "Environmental watch" `
+  --script environmental-watch.py --no-agent --deliver telegram
+```
+
+**7. UNO Q app** — deploy `uno-q/hermes-sensor-logger/` to the board (see
+[uno-q/README.md](uno-q/README.md)); it auto-starts via systemd.
+
+#### Paths to change when moving machines
+
+Every absolute path lives in exactly four places — grep for `C:\Users\qc_de` to find them all:
+
+| Where | What |
+|---|---|
+| `%LOCALAPPDATA%\hermes\config.yaml` | 4 × `mcp_servers` args + `UNOQ_SENSOR_LOG` |
+| `%LOCALAPPDATA%\hermes\scripts\environmental-watch.py` | `REPO_ROOT` (or set `SMH_HERMES_ROOT` instead of editing) |
+| `bench/bench.py` | `SDK`, `GX`, `BUNDLE` constants — only if profiling |
+| `docs/` | Illustrative paths in prose; harmless if left |
 
 ### 1. Model server — GenieX on the Hexagon NPU
 
@@ -147,6 +243,26 @@ hermes gateway status                                             # [4] telegram
 hermes cron list                                                  # [5] Environmental watch active
 ```
 
+## Troubleshooting — symptom → cause
+
+Every row here cost us real time; none are hypothetical.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Telegram **questions** fail — *"model provider failed after retries"*; log shows `APIConnectionError … 127.0.0.1:18181` | **GenieX isn't running.** Nothing auto-starts it after a reboot | Redo step 1. Note the **cron alerts keep arriving while this is broken** — they never call the model, so "alerts are fine" is *not* evidence the agent is fine |
+| Replies never finalize; Hermes retries forever | The non-streaming patch was reverted — usually by `hermes update` | Re-apply the patch and keep `HERMES_FORCE_NONSTREAM=1` |
+| `"source": "mock"`, reason *"sensor log is stale"* | Board clock is wrong. The UNO Q has **no RTC battery**, so every power-up without network resumes hours behind and its timestamps look ancient | Set the clock — step 2 ⚠️. **Do this after every board boot on the USB path** |
+| An alert arrives with plausible-but-invented numbers | Same as above. The mock fallback labels itself honestly, but the *severity* still reads as real | Check `source` before trusting any alert. `mock` = the physical path is down |
+| Model answers but `tool_calls` is `null` | Wrong quantization — Q4_K_M | Use **Q4_0** |
+| `SDKError(Model loading failed)` on tool-enabled requests | `--compute gpu` | Use `--compute npu` |
+| Cron job fails every tick: `WSL (9 - Relay) … execvpe(/bin/bash) failed` | The job points at a `.sh`. Hermes picks the interpreter by **file extension**; `bash` here resolves only to WSL launchers, whose default distro has no `/bin/bash` | Use the `.py` wrapper (`--script environmental-watch.py`) |
+| Cron passes when run by hand, fails on schedule | You verified a path the runtime doesn't use | Verify via a **real tick** — `last_status` in `cron\jobs.json` — never a one-off run |
+| Priming the alert state changes nothing | PowerShell 5.1 `Set-Content -Encoding utf8` writes a **BOM**; `JSON.parse` fails and `readState` silently defaults to `ok` | `[System.IO.File]::WriteAllText($p, $json, (New-Object System.Text.UTF8Encoding($false)))` |
+| `geniex` / `hermes` "not recognized" | Neither is on every shell's PATH | Use the full path, or `Set-Alias` (step 3) |
+| `adb` not found | It ships inside the scrcpy package | `winget install Genymobile.scrcpy` |
+
+Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TEST.md)**.
+
 ## Docs
 - **[Glossary — who does what](docs/GLOSSARY.md)** — new to GenieX / QAIRT / QUAD / MCP? **Start
   here.** Every term with its one job, the five-layer stack, build-time vs demo-time, a request
@@ -154,6 +270,12 @@ hermes cron list                                                  # [5] Environm
 - **[Architecture — end-to-end flow](docs/ARCHITECTURE.md)** — diagrams: the runtime demo path
   (sensors → agent → NPU → phone), both request flows (reactive + proactive), where QUAD sits and
   why it's a separate graph, and the one-model-two-artifacts table
+- **[End-to-end test procedure](docs/E2E_TEST.md)** — board → phone, layer by layer, with a
+  "Test / Expect / If it fails" per layer, the traps that produce a false pass, and a 60-second
+  pre-stage smoke check
+- [Response to the GPT review](docs/FEEDBACK_RESPONSE_2026-08-04.md) — accept/reject verdict on all
+  30 proposed improvements, the four that don't survive scrutiny (latency budget, uncoupled
+  simulators, additive risk double-counting, uncalibrated confidence), and the remaining build list
 - [Requirements](docs/REQUIREMENTS.md) — the original pitch (see the note at the top — architecture has since changed)
 - [Feasibility analysis](docs/FEASIBILITY.md) — reality check against the pitch's technical claims
 - [Hardware utilization plan](docs/HARDWARE_UTILIZATION.md) — **the finalized architecture**: where
@@ -181,4 +303,6 @@ hermes cron list                                                  # [5] Environm
 - `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive cron watchdog
 - `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic `sensor_tick` + button events over two Bridge channels), the USB `pull_sensor_log.ps1` transport fallback, and deployment/bring-up docs
 - `bench/` — NPU profiling harness (qnn-net-run against the W4A16 bundle); results in [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
+- `hermes.env.example` — template for Hermes's own `.env` (copy to `%LOCALAPPDATA%\hermes\.env`); the
+  only five settings that matter, everything else in Hermes's stock file can stay untouched
 - `phone/` — Samsung Galaxy S25+ stretch goal: second on-device GenieX/Qwen3-4B instance for a two-device demo beat (not implemented)
