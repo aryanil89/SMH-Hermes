@@ -173,9 +173,15 @@ adb shell "docker run --rm --user 0 --cap-add SYS_TIME --entrypoint date ghcr.io
 **Worked when:** `arduino_uno_q-sensor_log.json` at the repo root gets a fresh `sensor_tick` line
 every ~10–20s. If you edited the board app, redeploy with:
 ```powershell
-adb push uno-q\hermes-sensor-logger\sketch.ino /home/arduino/ArduinoApps/hermes-sensor-logger/sketch/sketch.ino
-adb push uno-q\hermes-sensor-logger\main.py /home/arduino/ArduinoApps/hermes-sensor-logger/python/main.py
+adb push uno-q\hermes-sensor-logger\sketch\sketch.ino /home/arduino/ArduinoApps/hermes-sensor-logger/sketch/sketch.ino
+adb push uno-q\hermes-sensor-logger\python\main.py /home/arduino/ArduinoApps/hermes-sensor-logger/python/main.py
 adb shell "arduino-app-cli app restart user:hermes-sensor-logger"    # no sudo needed, ~1 min
+```
+From a macOS/Linux dev machine (same commands, forward slashes):
+```bash
+adb push uno-q/hermes-sensor-logger/sketch/sketch.ino /home/arduino/ArduinoApps/hermes-sensor-logger/sketch/sketch.ino
+adb push uno-q/hermes-sensor-logger/python/main.py /home/arduino/ArduinoApps/hermes-sensor-logger/python/main.py
+adb shell "arduino-app-cli app restart user:hermes-sensor-logger"
 ```
 
 ### MCP tool servers — nothing to start

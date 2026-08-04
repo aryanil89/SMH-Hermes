@@ -28,6 +28,18 @@ affects what's shown on the matrix, not what's logged.
 
 ## Files
 
+This folder mirrors the board's app directory (`/home/arduino/ArduinoApps/hermes-sensor-logger/`)
+one-for-one, so a redeploy is a straight path-for-path `adb push` with no rewriting:
+
+```
+app.yaml              sketch/sketch.ino     python/main.py
+push_sensor_log.sh    sketch/sketch.yaml
+```
+
+Keep it that way — flattening `sketch/` or `python/` here breaks the push commands below.
+(The two `.service` units live here for reference only; on the board they belong in
+`/etc/systemd/system/`, not in the app directory.)
+
 - `sketch/sketch.ino` — runs on the UNO Q's STM32U5 (Zephyr) side.
   - Reads the three Modulino modules over `Wire1` (the Qwiic bus — separate from the Linux side's
     internal I2C buses) every 300ms, purely to keep the on-board display live.
@@ -134,11 +146,18 @@ re-auth Tailscale (`tailscale status` on the board currently says logged out).
 
 ## Rebuilding / redeploying
 
+Run from this directory (`uno-q/hermes-sensor-logger/`), with the board on USB:
+
 ```bash
-adb push sketch/sketch.yaml sketch/sketch.ino //home/arduino/ArduinoApps/hermes-sensor-logger/sketch/
-adb push python/main.py //home/arduino/ArduinoApps/hermes-sensor-logger/python/main.py
+adb push sketch/sketch.yaml sketch/sketch.ino /home/arduino/ArduinoApps/hermes-sensor-logger/sketch/
+adb push python/main.py /home/arduino/ArduinoApps/hermes-sensor-logger/python/main.py
 adb shell arduino-app-cli app restart /home/arduino/ArduinoApps/hermes-sensor-logger
 ```
 
-(On Windows/Git Bash, prefix remote paths with an extra `/` — e.g. `//home/...` — to stop MSYS
-from rewriting them into a Windows path.)
+`adb devices -l` should list the board as `2397021105 … device` first; `unauthorized` or an empty
+list means the cable or the USB-C port, not the app. A sketch change triggers a recompile on the
+board, so the restart takes ~1 min; a `python/main.py`-only change restarts in seconds.
+
+(**On Windows/Git Bash only**, prefix the remote paths with an extra `/` — e.g.
+`//home/arduino/...` — to stop MSYS from rewriting them into a Windows path. On macOS/Linux use
+the single-slash paths above as written.)

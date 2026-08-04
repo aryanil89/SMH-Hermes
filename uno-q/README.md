@@ -34,6 +34,38 @@ laptop — event-driven, not a fixed poll interval. Full writeup:
 
 1. **WiFi**: `nmcli dev wifi connect "HaQathon" password "..."` from a Linux shell reached over
    ADB (`adb shell` — no App Lab GUI needed). Profile auto-connects on boot by default.
+
+   **Roaming (added 2026-08-04):** the board carries five saved profiles so it comes up on its own
+   at other locations. NetworkManager activates the highest-priority profile whose SSID is in
+   range, so the venue network still wins wherever it exists, and the phone hotspot is last so it
+   only burns cellular data when nothing else is available:
+
+   | Priority | SSID | Security |
+   |---|---|---|
+   | 100 | `HaQathon` | WPA3 (`sae`) |
+   | 50 | `Hydra` | WPA2 (`wpa-psk`) |
+   | 40 | `Gould-Guest` | WPA2 (`wpa-psk`) |
+   | 30 | `Acharya` | WPA2 (`wpa-psk`) |
+   | 10 | `Chris' iPhone` | WPA2 (`wpa-psk`) |
+
+   Passwords are stored only in the board's NetworkManager keystore
+   (`/etc/NetworkManager/system-connections/`, root-readable) — deliberately **not** in this repo.
+   To add another network or change a priority:
+
+   ```bash
+   adb shell 'nmcli con add type wifi con-name "SSID" ifname wlan0 ssid "SSID" -- \
+     wifi-sec.key-mgmt wpa-psk wifi-sec.psk "PASSWORD" \
+     connection.autoconnect yes connection.autoconnect-priority 20'
+   adb shell 'nmcli con mod "SSID" connection.autoconnect-priority 60'   # reorder
+   adb shell 'nmcli -f AUTOCONNECT-PRIORITY,NAME,ACTIVE con show'        # review
+   ```
+
+   Notes: a WPA-PSK passphrase must be **8–63 characters** — `nmcli` rejects anything shorter. Use
+   `wifi-sec.key-mgmt sae` instead of `wpa-psk` for a WPA3-only network (`wpa-psk` already covers
+   WPA2 and WPA2/WPA3-transition APs). If an SSID contains an apostrophe or other shell
+   metacharacter, put the `nmcli` call in a script and `adb push` it rather than fighting nested
+   quoting. Roaming does **not** remove the clock caveat below — a network without working NTP
+   still leaves the board with a wrong date.
 2. **Tailscale**: installed via the standard `curl -fsSL https://tailscale.com/install.sh | sh`,
    authenticated once via browser against the same tailnet as the laptop
    (`qcworkshop24`) and phone (`galaxy-s25-ultra`), `tailscaled.service` enabled at boot. Board
