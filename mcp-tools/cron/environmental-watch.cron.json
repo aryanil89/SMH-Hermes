@@ -1,0 +1,25 @@
+{
+  "_comment": "Reference config for wiring the environmental watchdog into Hermes Agent's cron. Not consumed by any code in this repo -- Hermes' own `hermes cron create` CLI / `/cron add` chat command is the actual mechanism. This documents the exact parameters to use.",
+
+  "_mode": "no_agent script watchdog. The script IS the job: Hermes delivers its stdout verbatim and delivers NOTHING when stdout is empty. Costs zero LLM tokens per tick, so a 5-minute cadence does not compete with interactive queries (an agent-session tick costs ~3 min of NPU). All alert/cooldown/recovery logic lives in check-environmental.js; the wrapper only translates the ALERT/NO_ALERT contract into 'print or stay silent'.",
+
+  "schedule": "every 5m",
+  "name": "Environmental watch",
+  "script": "environmental-watch.py",
+  "no_agent": true,
+  "deliver": "telegram",
+
+  "_install": [
+    "1. Copy ./environmental-watch.py to %LOCALAPPDATA%\\hermes\\scripts\\ -- Hermes blocks any script path that resolves outside HERMES_HOME/scripts.",
+    "2. hermes cron create --schedule 'every 5m' --name 'Environmental watch' --script environmental-watch.py --no-agent --deliver telegram",
+    "3. Verify through the SCHEDULER, not a manual run -- see _verification below."
+  ],
+
+  "_why_python_not_bash": "Do not port this wrapper back to .sh. Hermes picks the interpreter by file extension (hermes-agent/cron/scheduler.py): .sh/.bash go to shutil.which('bash'), everything else to Hermes' own Python. On this Windows ARM64 laptop `bash` resolves only to WSL launchers (C:\\Windows\\system32\\bash.exe and the WindowsApps alias) and the default WSL distro is docker-desktop, which has no /bin/bash -- so every scheduled tick failed with 'WSL (9 - Relay) ERROR: CreateProcessCommon:640: execvpe(/bin/bash) failed'. Python is always present.",
+
+  "_verification": "A manual `hermes cron run` is NOT sufficient and previously gave a false pass: it inherits the invoking shell's PATH (which may include Git Bash), while scheduled ticks run inside the long-lived gateway process, which does not. Always confirm via a real tick: check that jobs.json shows last_status 'ok' after next_run_at passes, and that cron/output/<job_id>/ has a fresh entry.",
+
+  "_deliver_note": "With no_agent the `deliver` field is correct, because empty stdout means silence by construction. The warning in ../skills/environmental-watch/SKILL.md against `--deliver` applies to *agent-session* jobs, where the model narrates every run.",
+
+  "_env": "The script does not inherit the environmental MCP server's env block from config.yaml, so it sets UNOQ_LOG_MAX_AGE_S=180 itself. UNOQ_LEAK_DISTANCE_MM (water-level leak threshold) is left commented out until the tray is calibrated; the leak trigger currently used on stage is event-based."
+}

@@ -1,0 +1,381 @@
+{"timestamp": "2026-08-03T22:44:13.291675+00:00", "temperature_c": 24.47719955444336, "humidity_pct": 55.89076232910156, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:44:23.298221+00:00", "temperature_c": 24.48727035522461, "humidity_pct": 55.87227249145508, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:44:33.304024+00:00", "temperature_c": 24.48727035522461, "humidity_pct": 55.90925216674805, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:44:43.311219+00:00", "temperature_c": 24.48727035522461, "humidity_pct": 55.9277458190918, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:44:53.317699+00:00", "temperature_c": 24.47719955444336, "humidity_pct": 55.89076232910156, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:45:03.324590+00:00", "temperature_c": 24.47719955444336, "humidity_pct": 55.89076232910156, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:45:13.331581+00:00", "temperature_c": 24.48727035522461, "humidity_pct": 55.89076232910156, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:45:23.340080+00:00", "temperature_c": 24.47719955444336, "humidity_pct": 55.89076232910156, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:45:33.348211+00:00", "temperature_c": 24.457056045532227, "humidity_pct": 55.87227249145508, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:45:43.356513+00:00", "temperature_c": 24.457056045532227, "humidity_pct": 55.87227249145508, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:45:53.365240+00:00", "temperature_c": 24.48727035522461, "humidity_pct": 55.847618103027344, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:46:03.373717+00:00", "temperature_c": 24.48727035522461, "humidity_pct": 55.89076232910156, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:46:13.382435+00:00", "temperature_c": 24.47719955444336, "humidity_pct": 55.970890045166016, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:46:23.391386+00:00", "temperature_c": 24.48727035522461, "humidity_pct": 55.82912826538086, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:46:33.400048+00:00", "temperature_c": 24.48727035522461, "humidity_pct": 55.79214859008789, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:46:43.409444+00:00", "temperature_c": 24.47719955444336, "humidity_pct": 55.79214859008789, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:46:53.418704+00:00", "temperature_c": 24.457056045532227, "humidity_pct": 55.810638427734375, "distance_mm": 110.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:48:26.175975+00:00", "temperature_c": 24.457056045532227, "humidity_pct": 55.98321533203125, "distance_mm": 110.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:48:36.176315+00:00", "temperature_c": 24.47719955444336, "humidity_pct": 55.90925216674805, "distance_mm": 105.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:48:46.189510+00:00", "temperature_c": 24.446985244750977, "humidity_pct": 56.020198822021484, "distance_mm": 105.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:48:56.201768+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 55.94007110595703, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:49:06.212207+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 55.97705078125, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:49:16.223077+00:00", "temperature_c": 24.40669822692871, "humidity_pct": 55.97705078125, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:49:26.232354+00:00", "temperature_c": 24.39662742614746, "humidity_pct": 56.014034271240234, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:49:36.242482+00:00", "temperature_c": 24.39662742614746, "humidity_pct": 56.03252410888672, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:49:46.252481+00:00", "temperature_c": 24.376483917236328, "humidity_pct": 56.03252410888672, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:49:56.262585+00:00", "temperature_c": 24.366413116455078, "humidity_pct": 56.03252410888672, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:50:06.273099+00:00", "temperature_c": 24.366413116455078, "humidity_pct": 56.0510139465332, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:50:16.283099+00:00", "temperature_c": 24.366413116455078, "humidity_pct": 56.06950378417969, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:50:26.293830+00:00", "temperature_c": 24.366413116455078, "humidity_pct": 56.06950378417969, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:50:36.304197+00:00", "temperature_c": 24.366413116455078, "humidity_pct": 56.0510139465332, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:50:46.314423+00:00", "temperature_c": 24.346269607543945, "humidity_pct": 56.08799743652344, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:50:56.325090+00:00", "temperature_c": 24.346269607543945, "humidity_pct": 56.08799743652344, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:51:06.335545+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.08183288574219, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:51:16.346167+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.10648727416992, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:51:26.356277+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.10032272338867, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:51:36.366600+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.10032272338867, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:51:46.376872+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.08183288574219, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:51:56.386914+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.10032272338867, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:52:06.397465+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.19277572631836, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:52:16.407905+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.13730239868164, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:52:26.418166+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.174285888671875, "distance_mm": -1.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:52:36.428762+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.161956787109375, "distance_mm": 109.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:52:46.438664+00:00", "temperature_c": 24.336198806762695, "humidity_pct": 56.174285888671875, "distance_mm": 102.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:52:56.449279+00:00", "temperature_c": 24.346269607543945, "humidity_pct": 56.18044662475586, "distance_mm": 111.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:53:06.459673+00:00", "temperature_c": 24.346269607543945, "humidity_pct": 56.161956787109375, "distance_mm": 98.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:53:16.469443+00:00", "temperature_c": 24.346269607543945, "humidity_pct": 56.14963150024414, "distance_mm": 101.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:53:26.480187+00:00", "temperature_c": 24.326128005981445, "humidity_pct": 56.174285888671875, "distance_mm": 97.0, "buttons": {"a": true, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:53:36.490650+00:00", "temperature_c": 24.346269607543945, "humidity_pct": 56.161956787109375, "distance_mm": 105.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:53:46.500918+00:00", "temperature_c": 24.366413116455078, "humidity_pct": 56.14346694946289, "distance_mm": 98.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:53:56.511273+00:00", "temperature_c": 24.366413116455078, "humidity_pct": 56.19894027709961, "distance_mm": 107.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:54:06.521695+00:00", "temperature_c": 24.366413116455078, "humidity_pct": 56.18044662475586, "distance_mm": 100.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:54:16.531983+00:00", "temperature_c": 24.39662742614746, "humidity_pct": 56.14346694946289, "distance_mm": 106.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:54:26.542218+00:00", "temperature_c": 24.376483917236328, "humidity_pct": 56.10648727416992, "distance_mm": 99.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:54:36.552862+00:00", "temperature_c": 24.376483917236328, "humidity_pct": 56.08799743652344, "distance_mm": 108.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:54:46.562767+00:00", "temperature_c": 24.39662742614746, "humidity_pct": 56.08799743652344, "distance_mm": 102.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:54:56.573435+00:00", "temperature_c": 24.39662742614746, "humidity_pct": 56.06950378417969, "distance_mm": 104.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:55:06.583815+00:00", "temperature_c": 24.40669822692871, "humidity_pct": 56.06950378417969, "distance_mm": 100.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:55:16.594082+00:00", "temperature_c": 24.39662742614746, "humidity_pct": 56.0510139465332, "distance_mm": 109.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:55:26.604332+00:00", "temperature_c": 24.40669822692871, "humidity_pct": 56.03252410888672, "distance_mm": 102.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:55:36.614760+00:00", "temperature_c": 24.39662742614746, "humidity_pct": 56.0510139465332, "distance_mm": 112.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:55:46.625140+00:00", "temperature_c": 24.40669822692871, "humidity_pct": 56.0510139465332, "distance_mm": 102.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:55:56.635474+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 56.05717849731445, "distance_mm": 111.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:56:06.645481+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 56.03252410888672, "distance_mm": 99.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:56:16.655792+00:00", "temperature_c": 24.40669822692871, "humidity_pct": 56.03252410888672, "distance_mm": 109.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:56:26.666379+00:00", "temperature_c": 24.436912536621094, "humidity_pct": 56.03252410888672, "distance_mm": 101.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:56:36.676826+00:00", "temperature_c": 24.436912536621094, "humidity_pct": 56.03868865966797, "distance_mm": 109.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:56:46.687024+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 56.03868865966797, "distance_mm": 103.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:56:56.697378+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 56.03252410888672, "distance_mm": 110.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:57:06.707831+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 56.03868865966797, "distance_mm": 106.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:57:16.718084+00:00", "temperature_c": 24.436912536621094, "humidity_pct": 56.0510139465332, "distance_mm": 109.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:57:26.728366+00:00", "temperature_c": 24.436912536621094, "humidity_pct": 56.05717849731445, "distance_mm": 105.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:57:36.738944+00:00", "temperature_c": 24.436912536621094, "humidity_pct": 56.03868865966797, "distance_mm": 107.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:57:46.749079+00:00", "temperature_c": 24.436912536621094, "humidity_pct": 56.020198822021484, "distance_mm": 104.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:57:56.759365+00:00", "temperature_c": 24.436912536621094, "humidity_pct": 56.03868865966797, "distance_mm": 106.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:58:06.769690+00:00", "temperature_c": 24.436912536621094, "humidity_pct": 56.03868865966797, "distance_mm": 95.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:58:16.780961+00:00", "temperature_c": 24.40669822692871, "humidity_pct": 56.0510139465332, "distance_mm": 109.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:58:26.793509+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 56.03868865966797, "distance_mm": 99.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T22:58:36.805333+00:00", "temperature_c": 24.416770935058594, "humidity_pct": 56.03868865966797, "distance_mm": 111.0, "buttons": {"a": false, "b": false, "c": false}}
+{"timestamp": "2026-08-03T23:01:06.771872+00:00", "button": "A", "temperature_c": 24.215341567993164, "humidity_pct": 56.581077575683594, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:01:12.324829+00:00", "button": "A", "temperature_c": 24.215341567993164, "humidity_pct": 56.62422180175781, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:01:21.045934+00:00", "button": "B", "temperature_c": 24.195199966430664, "humidity_pct": 56.692020416259766, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:01:23.430977+00:00", "button": "C", "temperature_c": 24.18512725830078, "humidity_pct": 56.7166748046875, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:01:25.816261+00:00", "button": "A", "temperature_c": 24.18512725830078, "humidity_pct": 56.735164642333984, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:01:31.369339+00:00", "button": "A", "temperature_c": 24.18512725830078, "humidity_pct": 56.741329193115234, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:01:44.842666+00:00", "button": "B", "temperature_c": 24.18512725830078, "humidity_pct": 56.80296325683594, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:01:47.227971+00:00", "button": "C", "temperature_c": 24.215341567993164, "humidity_pct": 56.77214431762695, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:01:49.613038+00:00", "button": "A", "temperature_c": 24.25562858581543, "humidity_pct": 56.704345703125, "distance_mm": 297.0}
+{"timestamp": "2026-08-03T23:12:23.512178+00:00", "button": "C", "temperature_c": 25.92748260498047, "humidity_pct": 52.59944534301758, "distance_mm": 93.0}
+{"timestamp": "2026-08-03T23:12:25.885145+00:00", "button": "B", "temperature_c": 25.93755340576172, "humidity_pct": 52.30976104736328, "distance_mm": 91.0}
+{"timestamp": "2026-08-03T23:12:27.969927+00:00", "button": "A", "temperature_c": 25.9476261138916, "humidity_pct": 52.22963333129883, "distance_mm": 95.0}
+{"timestamp": "2026-08-03T23:26:06.434821+00:00", "event": "door_open", "temperature_c": 24.18512725830078, "humidity_pct": 56.59340286254883, "distance_mm": 133.0}
+{"timestamp": "2026-08-03T23:26:08.821034+00:00", "event": "light_on", "temperature_c": 24.17505645751953, "humidity_pct": 56.59340286254883, "distance_mm": 133.0}
+{"timestamp": "2026-08-03T23:26:11.207827+00:00", "event": "leak_detected", "temperature_c": 24.17505645751953, "humidity_pct": 56.61189270019531, "distance_mm": 133.0}
+{"timestamp": "2026-08-03T23:37:12.546273+00:00", "event": "leak_detected", "temperature_c": 24.114627838134766, "humidity_pct": 56.76598358154297, "distance_mm": 133.0}
+{"timestamp": "2026-08-03T23:37:14.930712+00:00", "event": "light_on", "temperature_c": 24.114627838134766, "humidity_pct": 56.741329193115234, "distance_mm": 133.0}
+{"timestamp": "2026-08-03T23:37:17.316333+00:00", "event": "door_open", "temperature_c": 24.114627838134766, "humidity_pct": 56.704345703125, "distance_mm": 133.0}
+{"timestamp": "2026-08-03T23:53:11.983912+00:00", "event": "sensor_tick", "temperature_c": 26.008054733276367, "humidity_pct": 58.756797790527344, "distance_mm": 14.0}
+{"timestamp": "2026-08-03T23:53:23.441995+00:00", "event": "sensor_tick", "temperature_c": 26.008054733276367, "humidity_pct": 58.84925079345703, "distance_mm": 18.0}
+{"timestamp": "2026-08-03T23:53:34.909441+00:00", "event": "sensor_tick", "temperature_c": 26.008054733276367, "humidity_pct": 58.664344787597656, "distance_mm": 14.0}
+{"timestamp": "2026-08-03T23:53:46.377557+00:00", "event": "sensor_tick", "temperature_c": 26.008054733276367, "humidity_pct": 58.80610656738281, "distance_mm": 15.0}
+{"timestamp": "2026-08-03T23:53:57.845574+00:00", "event": "sensor_tick", "temperature_c": 26.018125534057617, "humidity_pct": 58.756797790527344, "distance_mm": 17.0}
+{"timestamp": "2026-08-03T23:54:09.313505+00:00", "event": "sensor_tick", "temperature_c": 26.008054733276367, "humidity_pct": 58.756797790527344, "distance_mm": 16.0}
+{"timestamp": "2026-08-03T23:54:20.781369+00:00", "event": "sensor_tick", "temperature_c": 26.018125534057617, "humidity_pct": 58.77528762817383, "distance_mm": 17.0}
+{"timestamp": "2026-08-03T23:54:32.249500+00:00", "event": "sensor_tick", "temperature_c": 26.018125534057617, "humidity_pct": 58.78761672973633, "distance_mm": 17.0}
+{"timestamp": "2026-08-03T23:54:43.717089+00:00", "event": "sensor_tick", "temperature_c": 26.028196334838867, "humidity_pct": 58.73830795288086, "distance_mm": 15.0}
+{"timestamp": "2026-08-03T23:54:55.185366+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.69516372680664, "distance_mm": 16.0}
+{"timestamp": "2026-08-03T23:55:06.653313+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.664344787597656, "distance_mm": 15.0}
+{"timestamp": "2026-08-03T23:55:18.121063+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.64585494995117, "distance_mm": 15.0}
+{"timestamp": "2026-08-03T23:55:29.589423+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.63352584838867, "distance_mm": 14.0}
+{"timestamp": "2026-08-03T23:55:41.057453+00:00", "event": "sensor_tick", "temperature_c": 26.05841064453125, "humidity_pct": 58.664344787597656, "distance_mm": 15.0}
+{"timestamp": "2026-08-03T23:55:52.525779+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.64585494995117, "distance_mm": 17.0}
+{"timestamp": "2026-08-03T23:56:03.993669+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.62120056152344, "distance_mm": 20.0}
+{"timestamp": "2026-08-03T23:56:15.461604+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.77528762817383, "distance_mm": 15.0}
+{"timestamp": "2026-08-03T23:56:26.929590+00:00", "event": "sensor_tick", "temperature_c": 26.05841064453125, "humidity_pct": 58.73830795288086, "distance_mm": 15.0}
+{"timestamp": "2026-08-03T23:56:38.396944+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.72597885131836, "distance_mm": 18.0}
+{"timestamp": "2026-08-03T23:56:49.865323+00:00", "event": "sensor_tick", "temperature_c": 26.098695755004883, "humidity_pct": 58.65201950073242, "distance_mm": 14.0}
+{"timestamp": "2026-08-03T23:57:01.333404+00:00", "event": "sensor_tick", "temperature_c": 26.088624954223633, "humidity_pct": 58.68899917602539, "distance_mm": 14.0}
+{"timestamp": "2026-08-03T23:57:12.800675+00:00", "event": "sensor_tick", "temperature_c": 26.088624954223633, "humidity_pct": 58.72597885131836, "distance_mm": 16.0}
+{"timestamp": "2026-08-03T23:57:24.269471+00:00", "event": "sensor_tick", "temperature_c": 26.088624954223633, "humidity_pct": 58.74447250366211, "distance_mm": 13.0}
+{"timestamp": "2026-08-03T23:57:35.737311+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.68899917602539, "distance_mm": 14.0}
+{"timestamp": "2026-08-03T23:57:47.205409+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.74447250366211, "distance_mm": 13.0}
+{"timestamp": "2026-08-03T23:57:58.673250+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.756797790527344, "distance_mm": 16.0}
+{"timestamp": "2026-08-03T23:58:10.140991+00:00", "event": "sensor_tick", "temperature_c": 26.028196334838867, "humidity_pct": 58.77528762817383, "distance_mm": 15.0}
+{"timestamp": "2026-08-03T23:58:21.609077+00:00", "event": "sensor_tick", "temperature_c": 26.028196334838867, "humidity_pct": 58.80610656738281, "distance_mm": 16.0}
+{"timestamp": "2026-08-03T23:58:33.077033+00:00", "event": "sensor_tick", "temperature_c": 26.008054733276367, "humidity_pct": 58.83076095581055, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T05:58:56.940735+00:00", "event": "sensor_tick", "temperature_c": 26.008054733276367, "humidity_pct": 58.867740631103516, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T05:59:08.408700+00:00", "event": "sensor_tick", "temperature_c": 26.018125534057617, "humidity_pct": 59.08962631225586, "distance_mm": 17.0}
+{"timestamp": "2026-08-04T05:59:19.876710+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 59.01566696166992, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T05:59:31.344528+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.99717330932617, "distance_mm": 12.0}
+{"timestamp": "2026-08-04T05:59:42.812563+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.97868347167969, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T05:59:54.280631+00:00", "event": "sensor_tick", "temperature_c": 26.05841064453125, "humidity_pct": 58.99717330932617, "distance_mm": 17.0}
+{"timestamp": "2026-08-04T06:00:05.748770+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.96635818481445, "distance_mm": 20.0}
+{"timestamp": "2026-08-04T06:00:17.216077+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.8985595703125, "distance_mm": 15.0}
+{"timestamp": "2026-08-04T06:00:28.684603+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.85541534423828, "distance_mm": 14.0}
+{"timestamp": "2026-08-04T06:00:40.152600+00:00", "event": "sensor_tick", "temperature_c": 26.05841064453125, "humidity_pct": 58.84925079345703, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T06:00:51.620175+00:00", "event": "sensor_tick", "temperature_c": 26.078554153442383, "humidity_pct": 58.88623046875, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T06:01:03.088505+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.84925079345703, "distance_mm": 17.0}
+{"timestamp": "2026-08-04T06:01:14.556461+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.84925079345703, "distance_mm": 17.0}
+{"timestamp": "2026-08-04T06:01:26.024258+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.88623046875, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T06:01:37.492297+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.923213958740234, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T06:01:48.960226+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.99717330932617, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T06:02:00.427693+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.97868347167969, "distance_mm": 14.0}
+{"timestamp": "2026-08-04T06:02:11.896176+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 59.01566696166992, "distance_mm": 18.0}
+{"timestamp": "2026-08-04T06:02:23.364263+00:00", "event": "sensor_tick", "temperature_c": 26.05841064453125, "humidity_pct": 59.00950241088867, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T06:02:34.832035+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.923213958740234, "distance_mm": 16.0}
+{"timestamp": "2026-08-04T06:02:46.300002+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.94170379638672, "distance_mm": 17.0}
+{"timestamp": "2026-08-04T06:02:57.768044+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 59.126609802246094, "distance_mm": 14.0}
+{"timestamp": "2026-08-04T06:03:09.236082+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 59.08962631225586, "distance_mm": 14.0}
+{"timestamp": "2026-08-04T06:03:20.703969+00:00", "event": "sensor_tick", "temperature_c": 26.028196334838867, "humidity_pct": 59.071136474609375, "distance_mm": 17.0}
+{"timestamp": "2026-08-04T06:03:30.588519+00:00", "event": "light_on", "temperature_c": 26.028196334838867, "humidity_pct": 59.10811996459961, "distance_mm": 42.0}
+{"timestamp": "2026-08-04T06:03:32.973211+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 59.29302215576172, "distance_mm": 38.0}
+{"timestamp": "2026-08-04T06:03:44.441096+00:00", "event": "sensor_tick", "temperature_c": 26.229625701904297, "humidity_pct": 59.00950241088867, "distance_mm": 38.0}
+{"timestamp": "2026-08-04T06:03:55.909138+00:00", "event": "sensor_tick", "temperature_c": 26.16919708251953, "humidity_pct": 58.73830795288086, "distance_mm": 14.0}
+{"timestamp": "2026-08-04T06:04:07.377003+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.97868347167969, "distance_mm": 89.0}
+{"timestamp": "2026-08-04T06:04:18.845040+00:00", "event": "sensor_tick", "temperature_c": 25.987911224365234, "humidity_pct": 59.52107238769531, "distance_mm": 150.0}
+{"timestamp": "2026-08-04T06:04:29.932343+00:00", "event": "sensor_tick", "temperature_c": 28.858264923095703, "humidity_pct": 72.57540130615234, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:04:40.117618+00:00", "event": "sensor_tick", "temperature_c": 27.85112190246582, "humidity_pct": 56.55025863647461, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:04:51.585056+00:00", "event": "sensor_tick", "temperature_c": 27.47848129272461, "humidity_pct": 56.19277572631836, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:05:03.053168+00:00", "event": "sensor_tick", "temperature_c": 27.206552505493164, "humidity_pct": 56.43931579589844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:05:14.520866+00:00", "event": "sensor_tick", "temperature_c": 26.97490882873535, "humidity_pct": 56.83378219604492, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:05:25.989028+00:00", "event": "sensor_tick", "temperature_c": 26.72312355041504, "humidity_pct": 57.259063720703125, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:05:37.456878+00:00", "event": "sensor_tick", "temperature_c": 26.521696090698242, "humidity_pct": 57.73981857299805, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:05:48.924907+00:00", "event": "sensor_tick", "temperature_c": 26.310195922851562, "humidity_pct": 58.20824432373047, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:06:00.392815+00:00", "event": "sensor_tick", "temperature_c": 26.15912437438965, "humidity_pct": 58.547237396240234, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:06:11.860742+00:00", "event": "sensor_tick", "temperature_c": 26.04833984375, "humidity_pct": 58.8985595703125, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:06:23.328706+00:00", "event": "sensor_tick", "temperature_c": 25.92748260498047, "humidity_pct": 59.41629409790039, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:06:34.797114+00:00", "event": "sensor_tick", "temperature_c": 25.83683967590332, "humidity_pct": 59.613525390625, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:06:46.264504+00:00", "event": "sensor_tick", "temperature_c": 25.756269454956055, "humidity_pct": 59.767616271972656, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:06:57.732523+00:00", "event": "sensor_tick", "temperature_c": 25.655553817749023, "humidity_pct": 60.0511360168457, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:07:09.200606+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 60.24836730957031, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:07:20.668770+00:00", "event": "sensor_tick", "temperature_c": 25.574983596801758, "humidity_pct": 60.3531494140625, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:07:32.136540+00:00", "event": "sensor_tick", "temperature_c": 25.534696578979492, "humidity_pct": 60.488746643066406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:07:43.604555+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 60.59968948364258, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:07:55.072397+00:00", "event": "sensor_tick", "temperature_c": 25.454126358032227, "humidity_pct": 60.74761199951172, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:08:06.540302+00:00", "event": "sensor_tick", "temperature_c": 25.413841247558594, "humidity_pct": 60.92019271850586, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:08:18.008330+00:00", "event": "sensor_tick", "temperature_c": 25.38362693786621, "humidity_pct": 61.01264572143555, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:08:29.476340+00:00", "event": "sensor_tick", "temperature_c": 25.38362693786621, "humidity_pct": 61.23453140258789, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:08:40.944267+00:00", "event": "sensor_tick", "temperature_c": 25.353412628173828, "humidity_pct": 61.17905807495117, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:08:52.412138+00:00", "event": "sensor_tick", "temperature_c": 25.333269119262695, "humidity_pct": 61.27767562866211, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:09:03.880065+00:00", "event": "sensor_tick", "temperature_c": 25.28291130065918, "humidity_pct": 61.40094757080078, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:09:15.348220+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 61.47490692138672, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:09:26.816113+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 61.59817886352539, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:09:38.284073+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 61.52421569824219, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:09:49.751741+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 61.64132308959961, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:10:01.220006+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 61.69063186645508, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:10:12.687992+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 61.59817886352539, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:10:24.155645+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 61.59817886352539, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:10:35.624054+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 61.83855438232422, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:10:47.091893+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 61.7337760925293, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:10:58.559743+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 61.659812927246094, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:11:10.027677+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 61.64132308959961, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:11:21.495688+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 61.69063186645508, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:11:32.963827+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 61.783084869384766, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:11:44.431533+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 61.75226593017578, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:11:55.899267+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 61.75226593017578, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:12:07.367406+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 61.783084869384766, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:12:18.834578+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 61.937171936035156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:12:30.303328+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 61.91251754760742, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:12:41.771121+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 61.85704803466797, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:12:53.239388+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 61.96799087524414, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:13:04.707468+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.029624938964844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:13:16.175119+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:13:27.643279+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:13:39.111226+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.01113510131836, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:13:50.579213+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.029624938964844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:14:02.047121+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 61.95566177368164, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:14:13.514950+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.08509826660156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:14:24.983129+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.04811477661133, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:14:36.451036+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.17755126953125, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:14:47.919073+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.12207794189453, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:14:59.386810+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.140567779541016, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:15:10.854664+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.28849411010742, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:15:22.322798+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.10358810424805, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:15:33.790591+00:00", "event": "sensor_tick", "temperature_c": 25.17212677001953, "humidity_pct": 62.08509826660156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:15:45.258300+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.04811477661133, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:15:56.726390+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.08509826660156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:16:08.194484+00:00", "event": "sensor_tick", "temperature_c": 25.17212677001953, "humidity_pct": 62.2330207824707, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:16:19.662557+00:00", "event": "sensor_tick", "temperature_c": 25.202341079711914, "humidity_pct": 62.10358810424805, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:16:31.130487+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.08509826660156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:16:42.598531+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.306983947753906, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:16:54.066411+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 62.07893371582031, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:17:05.534351+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 62.023460388183594, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:17:17.002411+00:00", "event": "sensor_tick", "temperature_c": 25.202341079711914, "humidity_pct": 62.12207794189453, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:17:28.470083+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 62.07893371582031, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:17:39.938193+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:17:51.406208+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:18:02.874115+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 62.07893371582031, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:18:14.342003+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 62.04195022583008, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:18:25.810154+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.023460388183594, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:18:37.277947+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 61.99880599975586, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:18:48.745932+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 61.931007385253906, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:19:00.213965+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.07893371582031, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:19:11.681855+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.04195022583008, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:19:23.149694+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 61.96799087524414, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:19:34.617658+00:00", "event": "sensor_tick", "temperature_c": 25.28291130065918, "humidity_pct": 61.91251754760742, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:19:46.085829+00:00", "event": "sensor_tick", "temperature_c": 25.28291130065918, "humidity_pct": 61.986480712890625, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:19:57.553717+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.023460388183594, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:20:09.021568+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.023460388183594, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:20:20.488800+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.04195022583008, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:20:31.957226+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.183712005615234, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:20:43.425511+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:20:54.893580+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:21:06.361553+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 62.22685623168945, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:21:17.829400+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 62.27616500854492, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:21:29.297248+00:00", "event": "sensor_tick", "temperature_c": 25.202341079711914, "humidity_pct": 62.28849411010742, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:21:40.765437+00:00", "event": "sensor_tick", "temperature_c": 25.202341079711914, "humidity_pct": 62.196041107177734, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:21:52.233179+00:00", "event": "sensor_tick", "temperature_c": 25.19226837158203, "humidity_pct": 62.2453498840332, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:22:03.701194+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 62.27616500854492, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:22:15.169208+00:00", "event": "sensor_tick", "temperature_c": 25.232555389404297, "humidity_pct": 62.23918533325195, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:22:26.637178+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.27616500854492, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:22:38.105015+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.294654846191406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:22:49.573063+00:00", "event": "sensor_tick", "temperature_c": 25.222482681274414, "humidity_pct": 62.294654846191406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:23:01.041077+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.183712005615234, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:23:12.508462+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:23:23.976956+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.23918533325195, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:23:35.444983+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:23:46.913054+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.134403228759766, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:23:58.380974+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.134403228759766, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:24:09.848676+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.152896881103516, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:24:21.316931+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.07893371582031, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:24:32.784951+00:00", "event": "sensor_tick", "temperature_c": 25.303054809570312, "humidity_pct": 62.11591339111328, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:24:44.252657+00:00", "event": "sensor_tick", "temperature_c": 25.28291130065918, "humidity_pct": 62.183712005615234, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:24:55.720709+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.22685623168945, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:25:07.188842+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.25767517089844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:25:18.656638+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.33163833618164, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:25:30.124586+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.36861801147461, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:25:41.592437+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.294654846191406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:25:53.060547+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.33163833618164, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:26:04.528478+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.36861801147461, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:26:15.996277+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.31930923461914, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:26:27.463722+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.294654846191406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:26:38.932262+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.31930923461914, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:26:50.400351+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.42409133911133, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:27:01.868273+00:00", "event": "sensor_tick", "temperature_c": 25.242626190185547, "humidity_pct": 62.31930923461914, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:27:13.336102+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.36861801147461, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:27:24.804120+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.33163833618164, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:27:36.271932+00:00", "event": "sensor_tick", "temperature_c": 25.26276969909668, "humidity_pct": 62.294654846191406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:27:47.740091+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.25767517089844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:27:49.023913+00:00", "event": "light_on", "temperature_c": 25.26276969909668, "humidity_pct": 62.27616500854492, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:27:58.425321+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.31930923461914, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:28:08.610237+00:00", "event": "sensor_tick", "temperature_c": 25.28291130065918, "humidity_pct": 62.42409133911133, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:28:20.078430+00:00", "event": "sensor_tick", "temperature_c": 25.28291130065918, "humidity_pct": 62.516544342041016, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:28:31.546275+00:00", "event": "sensor_tick", "temperature_c": 25.28291130065918, "humidity_pct": 62.47339630126953, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:28:43.013552+00:00", "event": "sensor_tick", "temperature_c": 25.27284049987793, "humidity_pct": 62.47339630126953, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:28:54.482155+00:00", "event": "sensor_tick", "temperature_c": 25.524625778198242, "humidity_pct": 62.07893371582031, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:29:05.950084+00:00", "event": "sensor_tick", "temperature_c": 25.574983596801758, "humidity_pct": 61.75226593017578, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:29:17.417957+00:00", "event": "sensor_tick", "temperature_c": 25.595125198364258, "humidity_pct": 61.59817886352539, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:29:28.885864+00:00", "event": "sensor_tick", "temperature_c": 25.595125198364258, "humidity_pct": 61.567359924316406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:29:40.353958+00:00", "event": "sensor_tick", "temperature_c": 25.574983596801758, "humidity_pct": 61.54887008666992, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:29:51.821962+00:00", "event": "sensor_tick", "temperature_c": 25.574983596801758, "humidity_pct": 61.585853576660156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:30:03.289892+00:00", "event": "sensor_tick", "temperature_c": 25.544769287109375, "humidity_pct": 61.567359924316406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:30:14.757891+00:00", "event": "sensor_tick", "temperature_c": 25.544769287109375, "humidity_pct": 61.67830276489258, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:30:26.225852+00:00", "event": "sensor_tick", "temperature_c": 25.534696578979492, "humidity_pct": 61.64132308959961, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:30:37.693788+00:00", "event": "sensor_tick", "temperature_c": 25.534696578979492, "humidity_pct": 61.76459503173828, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:30:49.161770+00:00", "event": "sensor_tick", "temperature_c": 25.524625778198242, "humidity_pct": 61.70912170410156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:31:00.629540+00:00", "event": "sensor_tick", "temperature_c": 25.524625778198242, "humidity_pct": 61.72145080566406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:31:12.097443+00:00", "event": "sensor_tick", "temperature_c": 25.534696578979492, "humidity_pct": 61.7337760925293, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:31:23.565619+00:00", "event": "sensor_tick", "temperature_c": 25.524625778198242, "humidity_pct": 61.75843048095703, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:31:35.033706+00:00", "event": "sensor_tick", "temperature_c": 25.524625778198242, "humidity_pct": 61.776920318603516, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:31:46.501602+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.776920318603516, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:31:57.969430+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.832393646240234, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:32:09.437644+00:00", "event": "sensor_tick", "temperature_c": 25.49441146850586, "humidity_pct": 61.86320877075195, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:32:20.905406+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:32:32.373335+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.90635299682617, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:32:43.841064+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.992645263671875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:32:55.309067+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.86320877075195, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:33:06.777074+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.88786315917969, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:33:18.245009+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.92484664916992, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:33:29.713092+00:00", "event": "sensor_tick", "temperature_c": 25.49441146850586, "humidity_pct": 61.88786315917969, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:33:41.181166+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.88786315917969, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:33:52.649014+00:00", "event": "sensor_tick", "temperature_c": 25.49441146850586, "humidity_pct": 61.992645263671875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:34:04.116999+00:00", "event": "sensor_tick", "temperature_c": 25.49441146850586, "humidity_pct": 62.04811477661133, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:34:15.584949+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:34:27.052870+00:00", "event": "sensor_tick", "temperature_c": 25.49441146850586, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:34:38.520735+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 62.029624938964844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:34:49.988974+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 62.029624938964844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:35:01.456706+00:00", "event": "sensor_tick", "temperature_c": 25.49441146850586, "humidity_pct": 62.01113510131836, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:35:12.924810+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 62.01113510131836, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:35:24.392788+00:00", "event": "sensor_tick", "temperature_c": 25.49441146850586, "humidity_pct": 62.08509826660156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:35:35.860968+00:00", "event": "sensor_tick", "temperature_c": 25.49441146850586, "humidity_pct": 62.07276916503906, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:35:47.328374+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 62.07276916503906, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:35:58.796719+00:00", "event": "sensor_tick", "temperature_c": 25.50448226928711, "humidity_pct": 62.04811477661133, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:36:10.264390+00:00", "event": "sensor_tick", "temperature_c": 25.48434066772461, "humidity_pct": 62.140567779541016, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:36:21.731611+00:00", "event": "sensor_tick", "temperature_c": 25.524625778198242, "humidity_pct": 62.140567779541016, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:36:33.200478+00:00", "event": "sensor_tick", "temperature_c": 25.534696578979492, "humidity_pct": 62.27000045776367, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:36:44.668615+00:00", "event": "sensor_tick", "temperature_c": 25.534696578979492, "humidity_pct": 62.029624938964844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:36:56.136399+00:00", "event": "sensor_tick", "temperature_c": 25.524625778198242, "humidity_pct": 61.992645263671875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:37:07.604087+00:00", "event": "sensor_tick", "temperature_c": 25.544769287109375, "humidity_pct": 61.99880599975586, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:37:19.072390+00:00", "event": "sensor_tick", "temperature_c": 25.564910888671875, "humidity_pct": 62.22685623168945, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:37:30.540293+00:00", "event": "sensor_tick", "temperature_c": 25.564910888671875, "humidity_pct": 61.96799087524414, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:37:42.008244+00:00", "event": "sensor_tick", "temperature_c": 25.574983596801758, "humidity_pct": 61.949501037597656, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:37:53.476101+00:00", "event": "sensor_tick", "temperature_c": 25.595125198364258, "humidity_pct": 61.949501037597656, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:38:04.944058+00:00", "event": "sensor_tick", "temperature_c": 25.595125198364258, "humidity_pct": 61.87553787231445, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:38:16.412206+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 61.90635299682617, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:38:27.880056+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 61.88786315917969, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:38:39.348018+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.88786315917969, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:38:50.815990+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 62.04195022583008, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:39:02.283948+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:39:13.751941+00:00", "event": "sensor_tick", "temperature_c": 25.595125198364258, "humidity_pct": 61.96799087524414, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:39:25.219915+00:00", "event": "sensor_tick", "temperature_c": 25.595125198364258, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:39:36.687807+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:39:48.155668+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.95566177368164, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:39:59.623482+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.95566177368164, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:40:11.091674+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.949501037597656, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:40:22.559683+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.992645263671875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:40:34.027904+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 62.029624938964844, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:40:45.495558+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:40:56.963378+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.95566177368164, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:41:08.431419+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 62.01113510131836, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:41:19.899377+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 61.980316162109375, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:41:31.367225+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 62.01113510131836, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:41:42.835397+00:00", "event": "sensor_tick", "temperature_c": 25.635412216186523, "humidity_pct": 62.12207794189453, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:41:54.303308+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 61.992645263671875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:42:05.771549+00:00", "event": "sensor_tick", "temperature_c": 25.60519790649414, "humidity_pct": 62.01113510131836, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:42:17.239441+00:00", "event": "sensor_tick", "temperature_c": 25.635412216186523, "humidity_pct": 62.08509826660156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:42:28.707295+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 62.01113510131836, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:42:40.175108+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 62.07276916503906, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:42:51.643409+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 62.08509826660156, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:43:03.110935+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:43:14.579021+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 62.2330207824707, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:43:26.047026+00:00", "event": "sensor_tick", "temperature_c": 25.61526870727539, "humidity_pct": 62.17755126953125, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:43:37.514360+00:00", "event": "sensor_tick", "temperature_c": 25.635412216186523, "humidity_pct": 62.41176223754883, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:43:48.982987+00:00", "event": "sensor_tick", "temperature_c": 25.645483016967773, "humidity_pct": 62.196041107177734, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:44:00.450905+00:00", "event": "sensor_tick", "temperature_c": 25.635412216186523, "humidity_pct": 62.196041107177734, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:44:11.918908+00:00", "event": "sensor_tick", "temperature_c": 25.635412216186523, "humidity_pct": 62.196041107177734, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:44:23.386974+00:00", "event": "sensor_tick", "temperature_c": 25.635412216186523, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:44:34.853946+00:00", "event": "sensor_tick", "temperature_c": 25.645483016967773, "humidity_pct": 62.196041107177734, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:44:46.322637+00:00", "event": "sensor_tick", "temperature_c": 25.645483016967773, "humidity_pct": 62.16522216796875, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:44:57.790693+00:00", "event": "sensor_tick", "temperature_c": 25.645483016967773, "humidity_pct": 62.17755126953125, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:45:09.258878+00:00", "event": "sensor_tick", "temperature_c": 25.645483016967773, "humidity_pct": 62.2330207824707, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:45:20.726675+00:00", "event": "sensor_tick", "temperature_c": 25.635412216186523, "humidity_pct": 62.2330207824707, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:45:32.194485+00:00", "event": "sensor_tick", "temperature_c": 25.645483016967773, "humidity_pct": 62.27000045776367, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:45:43.662466+00:00", "event": "sensor_tick", "temperature_c": 25.645483016967773, "humidity_pct": 62.28849411010742, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:45:55.130640+00:00", "event": "sensor_tick", "temperature_c": 25.655553817749023, "humidity_pct": 62.399436950683594, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:46:06.598580+00:00", "event": "sensor_tick", "temperature_c": 25.655553817749023, "humidity_pct": 62.28849411010742, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:46:18.066352+00:00", "event": "sensor_tick", "temperature_c": 25.675697326660156, "humidity_pct": 62.28849411010742, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:46:29.534411+00:00", "event": "sensor_tick", "temperature_c": 25.675697326660156, "humidity_pct": 62.294654846191406, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:46:41.002437+00:00", "event": "sensor_tick", "temperature_c": 25.655553817749023, "humidity_pct": 62.27000045776367, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:46:52.470144+00:00", "event": "sensor_tick", "temperature_c": 25.675697326660156, "humidity_pct": 62.2330207824707, "distance_mm": 52.0}
+{"timestamp": "2026-08-04T06:47:03.938219+00:00", "event": "sensor_tick", "temperature_c": 25.655553817749023, "humidity_pct": 62.337799072265625, "distance_mm": 52.0}

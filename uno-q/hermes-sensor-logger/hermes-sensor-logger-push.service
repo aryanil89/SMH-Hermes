@@ -1,0 +1,15 @@
+[Unit]
+Description=Push Hermes sensor log to laptop over Tailscale SSH every 10s
+After=tailscaled.service network-online.target hermes-sensor-logger.service
+Wants=network-online.target
+Requires=tailscaled.service
+
+[Service]
+Type=simple
+User=arduino
+ExecStart=/home/arduino/ArduinoApps/hermes-sensor-logger/push_sensor_log.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
