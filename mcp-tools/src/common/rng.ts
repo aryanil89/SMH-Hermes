@@ -19,14 +19,45 @@ export function mulberry32(seed: number): Rng {
   };
 }
 
-/** A fresh, non-deterministic seed -- varies call to call so mocked tools feel "live" in a demo. */
+/** A fresh, non-deterministic seed -- varies call to call. Kept for callers that want pure noise. */
 export function randomSeed(): number {
   return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
 }
 
-/** Build an Rng from an explicit seed (tests), or a fresh one (real calls). */
+/**
+ * Default window, in seconds, over which the simulated world holds still.
+ * Override with SIM_WORLD_WINDOW_S (0 = every call re-rolls, the old behaviour).
+ */
+const DEFAULT_WORLD_WINDOW_S = 60;
+
+/**
+ * Seed derived from the current time *bucket* rather than the instant.
+ *
+ * Why: with a per-call random seed, asking the same question twice returned
+ * different telemetry, so "show me that again" contradicted the first answer and
+ * nothing could be corroborated across two tool calls in one agent turn. Bucketing
+ * makes the simulated datacenter hold a consistent state for a window (default 60s)
+ * and then move on, which is both demo-safe and closer to how real telemetry behaves.
+ */
+export function windowSeed(nowMs: number = Date.now()): number {
+  const windowS = envWindowSeconds();
+  if (windowS <= 0) return randomSeed();
+  return Math.floor(nowMs / 1000 / windowS) >>> 0;
+}
+
+function envWindowSeconds(): number {
+  const raw = process.env.SIM_WORLD_WINDOW_S;
+  if (raw === undefined || raw.trim() === "") return DEFAULT_WORLD_WINDOW_S;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_WORLD_WINDOW_S;
+}
+
+/**
+ * Build an Rng from an explicit seed (tests), or from the current time window
+ * (live calls -- stable within the window, see windowSeed).
+ */
 export function createRng(seed?: number): Rng {
-  return mulberry32(seed ?? randomSeed());
+  return mulberry32(seed ?? windowSeed());
 }
 
 /** Uniform value in [min, max]. */

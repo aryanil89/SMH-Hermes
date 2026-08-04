@@ -18,6 +18,16 @@ export type EnvironmentalSource = "real" | "mock";
 export interface EnvironmentalResult extends EnvironmentalReading {
   status: Status;
   source: EnvironmentalSource;
+  /**
+   * Age of the newest sensor line, in seconds. Present on the file path only.
+   * Load-bearing for confidence scoring: a fresh real reading is trustworthy,
+   * an old one is not, and the difference must be visible to the caller.
+   */
+  ageSeconds?: number;
+  /** Timestamp of the newest sensor line (ISO). File path only. */
+  lastEventAt?: string;
+  /** Event type of the newest line, e.g. "sensor_tick" or "leak_detected". */
+  lastEvent?: string;
   /** How the real reading was obtained: pushed log file vs on-demand SSH pull. */
   via?: "file" | "ssh";
   /** Present only when source === "mock" because a real read was unavailable or failed. */

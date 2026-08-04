@@ -43,7 +43,20 @@ export async function getEnvironmentalReading(opts: GetEnvironmentalOptions = {}
     if (fileResult.ok) {
       const { temperatureC, humidityPct, leakDetected, distanceMm, leakVia } = fileResult.reading;
       const reading = { temperatureC, humidityPct, leakDetected, distanceMm, leakVia };
-      return { ...reading, status: statusForReading(reading), source: "real", via: "file", generatedAt };
+      // Freshness metadata is load-bearing downstream: confidence scoring treats a
+      // 5-second-old reading and a 5-minute-old one very differently, and it can
+      // only do that if the age survives this boundary. It used to be dropped here.
+      const { ageSeconds, lastEventAt, lastEvent } = fileResult.reading;
+      return {
+        ...reading,
+        status: statusForReading(reading),
+        source: "real",
+        via: "file",
+        ageSeconds,
+        lastEventAt,
+        lastEvent,
+        generatedAt,
+      };
     }
     failures.push(fileResult.reason);
   }
