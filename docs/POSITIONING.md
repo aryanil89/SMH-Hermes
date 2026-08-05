@@ -82,13 +82,17 @@ adapter, currently selected.
 ## 6. Architecture, in layers
 
 ```
-Physical Signal Layer     Arduino UNO Q — temperature, water level (ToF), incident buttons
+Physical Signal Layer     Arduino UNO Q — temperature, water level (ToF), presence, door, buttons
 Telemetry Layer           Simulated storage / network / compute adapters
 MCP Tool Layer            Four stdio servers — the swappable seam to real systems
 Reasoning Layer           Hermes Agent + Qwen3-4B-Instruct-2507 on the Hexagon NPU via GenieX
 Decision Layer            Risk (severity index) + confidence (ordinal) + evidence + recommendation
+Authorization Layer       Access verdict + human approve/deny — LOCAL ONLY, never over the relay
 Notification Layer        Messaging gateway — Telegram today, Slack/Teams in an enterprise
 ```
+
+The Authorization Layer sits **below** Notification on purpose. The relay may carry the question;
+it may never carry the answer.
 
 ## 7. Judge Q&A — scripted answers
 
@@ -128,6 +132,31 @@ Notification Layer        Messaging gateway — Telegram today, Slack/Teams in a
 **"Can it take action automatically?"**
 > No, by design. Observe → explain → recommend → human approves → act. All four tools are read-only
 > by construction. For infrastructure, that is a feature.
+>
+> And "human approves" is a **mechanism, not a posture** — there is an approval surface on the
+> on-call's phone, decisions are recorded with who and when, and a recorded decision cannot be
+> silently overwritten. *(It was an empty promise until 2026-08-05; an independent review caught
+> that, and it is worth saying so if asked how we know.)*
+
+**"Who is standing at the rack?"**
+> The board's presence and door sensors open a challenge, and the system reasons about identity
+> **in context** — an unknown person is one thing; an unknown person during a live incident is
+> worse than either alone; two faces against one authorised door entry is tailgating, which is the
+> canonical way someone reaches a rack they should not. The interesting case is the quiet one: a
+> *known* engineer on site during an incident means the on-call is already responding, so we
+> **stop paging them.** That is the only rule in the system that makes it quieter.
+
+**"Is that face recognition?"**
+> Not today, and I want to be precise. Identity is a pluggable ladder. It runs in badge mode and
+> detection-only mode right now; the face-embedding rung is an out-of-process hook with the
+> contract, the fallback and the tests built, and the model not yet plugged in. Presence, the
+> decision matrix and the approval loop are all live.
+>
+> When it is plugged in, the roster stores **embeddings and never images** — the source photo is
+> discarded after matching. You cannot reconstruct a face from that file, which is why it is safe
+> for me to open it on stage. GDPR treats face templates as special-category data, so keeping them
+> on-device is what a privacy impact assessment wants to see — materially easier to deploy and to
+> defend than shipping staff biometrics to someone else's GPU.
 
 **"Why Arduino?"**
 > It is our physical rack simulator. Real datacenters have DCIM and BMS; we needed something a judge

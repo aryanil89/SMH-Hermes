@@ -15,6 +15,20 @@ telegram_info
 docs/*.pdf
 *Internal*.pdf
 
+# Biometrics and captured images — never commit, not even once.
+# The access sentry captures faces of real people. Enrolment keeps only float
+# embeddings (mcp-tools/.state/roster.json) and deletes the source image, but a
+# capture is briefly on disk and a stray `git add -A` must not publish it.
+# This block exists BEFORE the first photo does, on purpose.
+mcp-tools/.state/
+captures/
+roster.json
+*.jpg
+*.jpeg
+*.png
+*.webp
+!docs/**/*.png
+
 # Node
 node_modules/
 dist/

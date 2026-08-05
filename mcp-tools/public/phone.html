@@ -1,0 +1,406 @@
+<!doctype html>
+<!--
+  Hermes access terminal -- the phone view.
+
+  Self-contained on purpose: one file, no imports, no build step, no external
+  asset. The wall's "survives the WiFi cut" property has to hold here too, and a
+  page the on-call engineer opens at a rack is the worst possible place to
+  discover a missing stylesheet.
+
+  Deliberately plain HTTP-compatible. Capture uses <input capture> rather than
+  getUserMedia, so it needs no secure context, no permission dialog and no HTTPS
+  over the tailnet -- it opens the phone's own camera app and hands back a file.
+  That one choice removes the single largest technical risk in this feature.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Hermes · Access</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --plane: #0d0d0d;
+    --surface-1: #1a1a19;
+    --surface-2: #222220;
+    --surface-3: #2a2a27;
+    --ink-1: #ffffff;
+    --ink-2: #c3c2b7;
+    --ink-3: #898781;
+    --rule: #383835;
+    --hairline: rgba(255, 255, 255, 0.1);
+    --good: #0ca30c;
+    --warning: #fab219;
+    --critical: #d03b3b;
+    --radius: 12px;
+    --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--plane);
+    color: var(--ink-1);
+    font: 16px/1.5 var(--font);
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+    -webkit-text-size-adjust: 100%;
+  }
+  header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; }
+  h1 { font-size: 17px; margin: 0; letter-spacing: -0.01em; }
+  .live { margin-left: auto; font-size: 12px; color: var(--ink-3); font-family: var(--mono); }
+  .live[data-on="1"]::before { content: "● "; color: var(--good); }
+  .live[data-on="0"]::before { content: "○ "; color: var(--ink-3); }
+
+  section {
+    background: var(--surface-1);
+    border: 1px solid var(--rule);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+  h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-3); margin: 0 0 10px;
+  }
+
+  /* Status never rests on colour alone: every state carries an icon and a word. */
+  .verdict { display: flex; align-items: center; gap: 10px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .verdict-text { font-size: 19px; font-weight: 600; line-height: 1.25; }
+  [data-sev="ok"] .dot { background: var(--good); }
+  [data-sev="warning"] .dot { background: var(--warning); }
+  [data-sev="critical"] .dot { background: var(--critical); }
+  [data-sev="critical"] { border-color: var(--critical); }
+  [data-sev="warning"] { border-color: var(--warning); }
+
+  ul.reasons { margin: 10px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+  ul.reasons li { margin: 3px 0; }
+
+  .meta { margin-top: 10px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+  button, .filebtn {
+    display: block; width: 100%; padding: 16px; margin-top: 10px;
+    font: 600 16px var(--font); color: var(--ink-1);
+    background: var(--surface-3); border: 1px solid var(--rule);
+    border-radius: var(--radius); cursor: pointer; text-align: center;
+  }
+  button:active, .filebtn:active { background: var(--surface-2); }
+  button[disabled] { opacity: 0.4; }
+  .primary { background: #1c4d8f; border-color: #2b6cc4; }
+  .deny { background: #6b1f1f; border-color: var(--critical); }
+  input[type=file] { display: none; }
+  input[type=text] {
+    width: 100%; padding: 12px; margin-top: 8px;
+    background: var(--surface-2); color: var(--ink-1);
+    border: 1px solid var(--rule); border-radius: var(--radius); font: 15px var(--font);
+  }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .note { font-size: 12px; color: var(--ink-3); margin-top: 10px; }
+  .faces { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .face {
+    font: 12px var(--mono); padding: 4px 8px; border-radius: 999px;
+    border: 1px solid var(--rule); background: var(--surface-2);
+  }
+  .face[data-m="known"] { border-color: var(--good); }
+  .face[data-m="unknown"] { border-color: var(--warning); }
+  .log { margin: 0; padding: 0; list-style: none; }
+  .log li {
+    border-top: 1px solid var(--hairline); padding: 8px 0;
+    font-size: 13px; color: var(--ink-2);
+  }
+  .log li:first-child { border-top: 0; }
+  .log time { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .toast {
+    position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+    background: var(--surface-3); border: 1px solid var(--rule); border-radius: var(--radius);
+    padding: 12px; font-size: 14px; display: none;
+  }
+  .toast[data-show="1"] { display: block; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--ink-3); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Hermes · Access</h1>
+  <span class="live" id="live" data-on="0">connecting</span>
+</header>
+
+<section id="statusCard" data-sev="ok">
+  <h2>At the rack · <span id="zone">—</span></h2>
+  <div class="verdict"><span class="dot"></span><span class="verdict-text" id="verdict">—</span></div>
+  <div class="faces" id="faces"></div>
+  <ul class="reasons" id="reasons"></ul>
+  <div class="meta" id="meta"></div>
+</section>
+
+<section id="captureCard" hidden>
+  <h2>Capture</h2>
+  <label class="filebtn primary" for="shot">📷 &nbsp;Photograph the person at the rack</label>
+  <input type="file" id="shot" accept="image/*" capture="environment">
+  <p class="note">
+    The photo is resolved to a match and then discarded. Only a numeric embedding
+    is ever stored — never the image.
+  </p>
+</section>
+
+<section id="approveCard" hidden>
+  <h2>Authorisation required</h2>
+  <div id="approveWhat" class="meta"></div>
+  <div class="row">
+    <button class="primary" id="approve">Approve</button>
+    <button class="deny" id="deny">Deny</button>
+  </div>
+  <p class="note">
+    Decided here on the local network, not over the messaging app. Telegram
+    carries the notification; it does not carry the authorisation.
+  </p>
+</section>
+
+<section>
+  <h2>Recent access</h2>
+  <ul class="log" id="log"><li>No access events yet.</li></ul>
+</section>
+
+<section>
+  <details>
+    <summary>Enrol someone</summary>
+    <input type="text" id="enrolName" placeholder="Name on the roster" autocomplete="off">
+    <button id="enrol">Add to roster</button>
+    <p class="note" id="enrolled"></p>
+    <p class="note">
+      Badge-mode enrolment: the name is the credential. Face enrolment posts an
+      embedding from the vision pipeline to the same endpoint.
+    </p>
+  </details>
+</section>
+
+<div class="toast" id="toast" data-show="0"></div>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+let current = null;
+
+const VERDICT_TEXT = {
+  "idle": "Rack clear",
+  "pending-capture": "Presence detected — awaiting capture",
+  "clear": "Authorised",
+  "expected": "On-call on site — escalation suppressed",
+  "challenge": "Unknown person — approval required",
+  "unauthorized-during-incident": "Unknown person during an active incident",
+  "anti-passback": "At the rack with no door entry",
+  "tailgating": "Tailgating — more people than authorised entries",
+};
+
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.dataset.show = "1";
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (el.dataset.show = "0"), 3200);
+}
+
+/**
+ * The shared secret for the write routes, if the server is running with one.
+ *
+ * Taken from the URL once (`?secret=...`) and kept in memory only -- not
+ * localStorage, because this page is opened at a rack on a phone that may be
+ * handed to someone. Bookmark the URL with the secret in it, or paste it again.
+ */
+const SECRET = new URLSearchParams(location.search).get("secret") || "";
+
+async function postJson(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(SECRET ? { "x-access-secret": SECRET } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  let data = {};
+  try { data = await res.json(); } catch { /* empty body is fine */ }
+  return { ok: res.ok, status: res.status, data };
+}
+
+/**
+ * Downscale before upload.
+ *
+ * A 200MP capture is tens of megabytes and the embedding model wants a few
+ * hundred pixels. Resizing here keeps the request inside the server's 8MB ceiling
+ * and off a venue network that may be a phone hotspot. Canvas needs no permission
+ * and no secure context, so this works on plain HTTP.
+ */
+function downscale(file, maxEdge = 960) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxEdge / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("could not read that image")); };
+    img.src = url;
+  });
+}
+
+/**
+ * Read a badge from the frame if the browser can, so rung 4 of the identity
+ * ladder works with no server-side decoder. Absent support is not an error --
+ * the capture is still posted and the server falls back a rung.
+ */
+async function readBadges(file) {
+  if (!("BarcodeDetector" in window)) return [];
+  try {
+    const detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+    const bitmap = await createImageBitmap(file);
+    const codes = await detector.detect(bitmap);
+    return codes.map((c) => c.rawValue).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function render(access) {
+  current = access;
+  $("zone").textContent = access.zone || "—";
+
+  const card = $("statusCard");
+  card.dataset.sev = access.severity || "ok";
+  $("verdict").textContent = VERDICT_TEXT[access.verdict] || access.verdict;
+
+  $("faces").innerHTML = "";
+  for (const face of access.faces || []) {
+    const el = document.createElement("span");
+    el.className = "face";
+    el.dataset.m = face.match;
+    el.textContent = face.match === "known"
+      ? `${face.name} · ${face.similarity}`
+      : `unknown · best ${face.similarity}`;
+    $("faces").append(el);
+  }
+
+  $("reasons").innerHTML = "";
+  for (const reason of access.reasons || []) {
+    const li = document.createElement("li");
+    li.textContent = reason;
+    $("reasons").append(li);
+  }
+
+  const bits = [`identity: ${access.identityMethod}`];
+  if (access.doorConsistent === false) bits.push("no door entry");
+  if (access.doorOpenCount !== undefined) bits.push(`entries: ${access.doorOpenCount}`);
+  if (access.degradedFrom) bits.push(`⚠ ${access.degradedFrom}`);
+  $("meta").textContent = bits.join(" · ");
+
+  const pending = access.pending;
+  const needsCapture = pending && access.verdict === "pending-capture";
+  const needsDecision = pending && pending.approval && pending.approval.state === "pending";
+
+  $("captureCard").hidden = !needsCapture;
+  $("approveCard").hidden = !needsDecision;
+  if (needsDecision) {
+    $("approveWhat").textContent =
+      `${VERDICT_TEXT[pending.verdict] || pending.verdict} · challenge ${pending.id}`;
+  }
+
+  // Built with textContent, never innerHTML.
+  //
+  // `decidedBy` is free text from an unauthenticated POST and lands in the audit
+  // log, so an innerHTML row here was stored XSS on the one screen that grants
+  // physical access -- an injected script would run with the approval buttons in
+  // reach. The wall was already safe because it goes through setText everywhere;
+  // this page was the exception.
+  const log = $("log");
+  log.replaceChildren();
+  if (!access.log || access.log.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = "No access events yet.";
+    log.append(li);
+  } else {
+    for (const entry of access.log.slice(0, 12)) {
+      const li = document.createElement("li");
+      const state = entry.approval.state;
+      const decided = state === "approved" ? "approved" : state === "denied" ? "denied" : "undecided";
+
+      const time = document.createElement("time");
+      time.textContent = new Date(entry.at).toLocaleTimeString();
+      li.append(time);
+      li.append(
+        document.createTextNode(
+          ` · ${VERDICT_TEXT[entry.verdict] || entry.verdict} · ${decided}` +
+            (entry.approval.decidedBy ? ` by ${entry.approval.decidedBy}` : ""),
+        ),
+      );
+      log.append(li);
+    }
+  }
+
+  $("enrolled").textContent = (access.enrolled && access.enrolled.length)
+    ? `On the roster: ${access.enrolled.join(", ")}`
+    : "Nobody is enrolled yet — everyone will read as unknown.";
+}
+
+$("shot").addEventListener("change", async (event) => {
+  const file = event.target.files && event.target.files[0];
+  event.target.value = ""; // let the same photo be retaken
+  if (!file) return;
+  try {
+    const [imageBase64, badges] = await Promise.all([downscale(file), readBadges(file)]);
+    const res = await postJson("/api/access/capture", { imageBase64, badges });
+    toast(res.ok ? "Capture sent." : (res.data.reason || res.data.error || "Capture rejected."));
+  } catch (err) {
+    toast(err.message || "Could not read that photo.");
+  }
+});
+
+for (const [id, decision] of [["approve", "approved"], ["deny", "denied"]]) {
+  $(id).addEventListener("click", async () => {
+    if (!current || !current.pending) return;
+    // The id is always sent: a decision is per challenge, never "whatever is
+    // open now". A phone left on a stale screen must not authorise a stranger.
+    const res = await postJson("/api/access/approve", {
+      id: current.pending.id,
+      decision,
+      decidedBy: "on-call · phone",
+    });
+    toast(res.ok ? `Recorded: ${decision}.` : (res.data.reason || "Could not record that."));
+  });
+}
+
+$("enrol").addEventListener("click", async () => {
+  const name = $("enrolName").value.trim();
+  if (!name) return toast("A name is required.");
+  // Badge mode: the name is the credential, so a unit vector stands in for an
+  // embedding. Face enrolment posts a real vector to this same endpoint.
+  const res = await postJson("/api/access/enroll", { name, embedding: [1], method: "qr-badge" });
+  if (res.ok) { $("enrolName").value = ""; toast(`${name} enrolled.`); }
+  else toast(res.data.reason || "Could not enrol.");
+});
+
+// Live updates over the same SSE stream the wall uses, so the two views cannot
+// disagree about an open challenge. EventSource reconnects on its own; the label
+// just has to stop claiming live.
+function connect() {
+  const source = new EventSource("/api/stream");
+  source.addEventListener("open", () => ($("live").dataset.on = "1", $("live").textContent = "live"));
+  source.addEventListener("message", (event) => {
+    try { render(JSON.parse(event.data).access); } catch { /* skip a bad frame */ }
+  });
+  source.addEventListener("error", () => ($("live").dataset.on = "0", $("live").textContent = "reconnecting"));
+}
+
+fetch("/api/access/state").then((r) => r.ok && r.json()).then((a) => a && render(a)).catch(() => {});
+connect();
+</script>
+</body>
+</html>

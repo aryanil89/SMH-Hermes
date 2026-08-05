@@ -18,9 +18,15 @@ STATUS_FILE="$APP_DIR/boot_status.json"
 SSH_TARGET="qc_de@qcworkshop24.tail453bf7.ts.net"
 REMOTE_PATH="C:/Users/qc_de/Downloads/QUAD/SMH-Hermes/arduino_uno_q-sensor_log.json"
 
+PRUNE_SCRIPT="$APP_DIR/prune_sensor_log.py"
+
 PUSH_EVERY=10      # ticks between scp pushes
 SSH_CHECK_EVERY=10 # ticks between ssh probes -- a full handshake is far too
                    # slow to run every tick, so its result is cached between runs
+PRUNE_EVERY=3600   # ticks between log prunes. Hourly is plenty: at ~2.1k
+                   # lines/day the file cannot grow enough in an hour to matter,
+                   # and a rarer prune means fewer atomic replaces racing the
+                   # container's appends.
 
 tick=0
 ssh_ok=false
@@ -62,6 +68,19 @@ while true; do
   printf '{"wifi_ok": %s, "ssid": "%s", "time_ok": %s, "clock": "%s", "ssh_ok": %s}\n' \
     "$wifi_ok" "$ssid" "$time_ok" "$clock" "$ssh_ok" > "$STATUS_FILE.tmp"
   mv -f "$STATUS_FILE.tmp" "$STATUS_FILE"
+
+  # --- Prune --------------------------------------------------------------
+  # Hourly, and BEFORE the push, so the very next scp is the smaller file
+  # rather than shipping the fat one once more. The scp above re-sends the
+  # whole log every 10s, so the log's size is a bandwidth cost six times a
+  # minute, not a disk cost -- capping it is the entire point.
+  #
+  # Guarded by flock: a prune that overruns the hour must not have a second
+  # copy start on top of it and race the atomic replace.
+  if [ $((tick % PRUNE_EVERY)) -eq 0 ] && [ -f "$PRUNE_SCRIPT" ]; then
+    flock -n "$APP_DIR/.prune.lock" python3 "$PRUNE_SCRIPT" \
+      || echo "push_sensor_log: prune skipped (already running or failed)"
+  fi
 
   # --- Push ---------------------------------------------------------------
   if [ $((tick % PUSH_EVERY)) -eq 0 ] && [ -f "$LOCAL_LOG" ]; then

@@ -159,7 +159,7 @@ S-1's water-surface risk proves fatal.
 - **UNO Q — the sensing tier.** Physics → digital. It has no NPU and *doesn't need one*: a
   microcontroller with an I²C bus is the right tool for reading a thermometer; a 45-TOPS NPU is not.
 - **X Elite — the reasoning tier.** 4B model, 64K context, tool orchestration on Hexagon.
-- **S25+ — the mobility tier.** The on-call engineer isn't at their desk during an incident.
+- **S25 Ultra — the mobility tier.** The on-call engineer isn't at their desk during an incident.
 
 Then three arguments, in this order:
 

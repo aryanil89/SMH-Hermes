@@ -66,7 +66,7 @@ Analogy, used once and then dropped: **Hermes** is the employee. **Qwen3** is th
 | **Adreno** | The **GPU**. | Adreno X1-85 |
 | **Oryon** | The **CPU**. | 12 cores |
 | **TOPS** | Trillions of operations per second — a marketing throughput number, not a benchmark. | — |
-| **Snapdragon 8 Elite** | The Galaxy S25+ SoC. Same GenieX story, different bundle. | stretch goal |
+| **Snapdragon 8 Elite** | The Galaxy S25 Ultra SoC. Same GenieX story, different bundle. | stretch goal |
 
 ### The board
 

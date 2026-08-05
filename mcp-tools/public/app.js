@@ -29,6 +29,14 @@ const els = {
   deviceAge: $("device-age"),
   deviceFallback: $("device-fallback"),
   deviceEvents: $("device-events"),
+  accessCard: $("access-card"),
+  accessChip: $("access-chip"),
+  accessVerdict: $("access-verdict"),
+  accessIdentity: $("access-identity"),
+  accessFaces: $("access-faces"),
+  accessReasons: $("access-reasons"),
+  accessApproval: $("access-approval"),
+  accessLog: $("access-log"),
   deviceLogCount: $("device-log-count"),
   tempValue: $("temp-value"),
   tempChip: $("temp-chip"),
@@ -473,6 +481,97 @@ function renderClimateTable(points) {
 
 /* ── render: server column ───────────────────────────────────────────────── */
 
+/**
+ * Physical access: who is at the rack, and whether a human allowed it.
+ *
+ * Reads `snapshot.access`, which is produced by the same AccessSentry the phone
+ * talks to -- so the wall and the phone cannot disagree about an open challenge.
+ * For an approval surface that is not a nicety: two screens showing different
+ * answers to "has this been authorised?" is worse than one screen showing none.
+ */
+const ACCESS_TEXT = {
+  "idle": "Rack clear",
+  "pending-capture": "Presence detected — awaiting capture",
+  "clear": "Authorised person at the rack",
+  "expected": "On-call on site — escalation suppressed",
+  "challenge": "Unknown person — approval required",
+  "unauthorized-during-incident": "Unknown person during an active incident",
+  "anti-passback": "At the rack with no door entry",
+  "tailgating": "Tailgating — more people than authorised entries",
+};
+
+function renderAccess(snap) {
+  const a = snap.access;
+  if (!a) return;
+
+  setAttr(els.accessCard, "data-status", a.severity);
+  setAttr(els.accessChip, "data-status", a.severity);
+  setText(els.accessChip, a.verdict === "idle" ? "clear" : a.verdict.replace(/-/g, " "));
+  setText(els.accessVerdict, ACCESS_TEXT[a.verdict] || a.verdict);
+
+  const bits = [`identity: ${a.identityMethod}`];
+  if (a.doorConsistent === false) bits.push("no door entry");
+  bits.push(`entries: ${a.doorOpenCount}`);
+  if (a.enrolled && a.enrolled.length) bits.push(`roster: ${a.enrolled.length}`);
+  else bits.push("roster: empty");
+  if (a.degradedFrom) bits.push(`⚠ ${a.degradedFrom}`);
+  setText(els.accessIdentity, bits.join(" · "));
+
+  // renderList keys on the item alone, so the position is folded into the key
+  // here -- two unknown faces are distinct rows, not one row rendered twice.
+  const faces = (a.faces || []).map((f, i) => ({ ...f, key: `${i}:${f.match}:${f.name || ""}` }));
+  renderList(
+    els.accessFaces,
+    faces,
+    (f) => f.key,
+    () => {
+      const li = document.createElement("li");
+      li.className = "access-face";
+      return li;
+    },
+    (li, f) => {
+      setAttr(li, "data-match", f.match);
+      // A near-miss and a nothing-alike are different facts for whoever is
+      // deciding, so the score is shown rather than just the word "unknown".
+      setText(li, f.match === "known" ? `${f.name} · ${f.similarity}` : `unknown · best ${f.similarity}`);
+    },
+  );
+
+  const reasons = (a.reasons || []).map((text, i) => ({ text, key: `${i}:${text}` }));
+  renderList(
+    els.accessReasons,
+    reasons,
+    (r) => r.key,
+    () => document.createElement("li"),
+    (li, r) => setText(li, r.text),
+  );
+
+  const approval = a.pending && a.pending.approval;
+  const awaiting = approval && approval.state === "pending";
+  els.accessApproval.hidden = !approval || approval.state === "not-required";
+  if (approval && approval.state !== "not-required") {
+    setText(
+      els.accessApproval,
+      awaiting
+        ? `Awaiting authorisation on the on-call phone · challenge ${a.pending.id}`
+        : `${approval.state === "approved" ? "Approved" : "DENIED"} by ${approval.decidedBy || "a human"}`,
+    );
+  }
+
+  renderList(
+    els.accessLog,
+    (a.log || []).slice(0, 5),
+    (e) => e.id,
+    () => document.createElement("li"),
+    (li, e) => {
+      const state = e.approval.state;
+      const decided = state === "approved" ? "approved" : state === "denied" ? "denied" : "undecided";
+      setText(li, `${clock(e.at)} · ${ACCESS_TEXT[e.verdict] || e.verdict} · ${decided}`);
+      setAttr(li, "data-state", decided);
+    },
+  );
+}
+
 function renderServer(snap) {
   const s = snap.server;
   setText(els.serverTitle, s.host);
@@ -701,6 +800,7 @@ function render(snap) {
   latest = snap;
   renderHeader(snap);
   renderDevice(snap);
+  renderAccess(snap);
   renderServer(snap);
   renderPhone(snap);
   renderConduits(snap);

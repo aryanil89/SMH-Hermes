@@ -13,6 +13,7 @@
 import type { Status, Thresholds } from "../common/types.js";
 import type { EnvironmentalResult } from "../environmental/types.js";
 import type { Family, IncidentAssessment } from "../assess/types.js";
+import type { AccessView } from "../access/sentry.js";
 import type { NetworkReport } from "../mock/network.js";
 import type { StorageReport } from "../mock/storage.js";
 import type { ComputeReport } from "../mock/compute.js";
@@ -203,4 +204,12 @@ export interface DashboardSnapshot {
   events: PipelineEvent[];
   /** The raw environmental tool result, shown verbatim in the provenance drawer. */
   environmental: EnvironmentalResult;
+  /**
+   * Physical access: who is at the rack and whether a human has allowed it.
+   *
+   * Carried on the same snapshot as everything else so the phone and the wall
+   * cannot disagree about an open challenge -- which, for an approval surface,
+   * is the difference between an audit trail and a rumour.
+   */
+  access: AccessView;
 }

@@ -1,5 +1,6 @@
 import { open, stat } from "node:fs/promises";
 import { parseSensorLogLine, type SensorLogLine } from "../environmental/file-source.js";
+import { EVENT_CHANNELS } from "../rules/channels.js";
 import type { ChannelState, ChannelView, ClimatePoint, SensorEvent } from "./types.js";
 
 /**
@@ -42,6 +43,17 @@ export interface SensorLogView {
    */
   distanceMm?: number;
   distanceAt?: string;
+  /**
+   * Timestamp of every `door_open` edge in the whole tail window.
+   *
+   * Kept separate from `events` because `events` is a *display* buffer, capped at
+   * EVENT_LIMIT for the feed pane. The access sentry counts authorised entries
+   * against this to detect tailgating, and a security count must not be silently
+   * truncated by a UI constant: ToF flapping in a busy room can push the real
+   * door edge out of a 40-line window, which would report **anti-passback at
+   * someone who badged in perfectly normally**.
+   */
+  doorOpenAt: string[];
   door: ChannelView;
   light: ChannelView;
   presence: ChannelView;
@@ -59,12 +71,31 @@ interface ChannelSpec {
   restState: ChannelState;
 }
 
+/**
+ * Event names come from `rules/channels.ts`; only the display vocabulary is local.
+ *
+ * This file used to spell the strings out a second time. That made
+ * `EVENT_CHANNELS` a *claimed* single source of truth rather than an actual one --
+ * and the duplicate was the load-bearing copy, because this is where door and
+ * presence state is derived. A firmware rename would have left both the wall and
+ * the access sentry quietly reporting "unknown" forever, with nothing failing.
+ */
 const CHANNELS: Record<"door" | "light" | "presence", ChannelSpec> = {
-  door: { active: "door_open", rest: "door_closed", activeState: "open", restState: "closed" },
-  light: { active: "light_on", rest: "light_off", activeState: "on", restState: "off" },
+  door: {
+    active: EVENT_CHANNELS.door.enter,
+    rest: EVENT_CHANNELS.door.exit,
+    activeState: "open",
+    restState: "closed",
+  },
+  light: {
+    active: EVENT_CHANNELS.light.enter,
+    rest: EVENT_CHANNELS.light.exit,
+    activeState: "on",
+    restState: "off",
+  },
   presence: {
-    active: "object_entered",
-    rest: "object_left",
+    active: EVENT_CHANNELS.presence.enter,
+    rest: EVENT_CHANNELS.presence.exit,
     activeState: "present",
     restState: "clear",
   },
@@ -144,6 +175,7 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
     fileSizeBytes: 0,
     windowed: false,
     linesInWindow: 0,
+    doorOpenAt: [],
     door: { ...UNKNOWN },
     light: { ...UNKNOWN },
     presence: { ...UNKNOWN },
@@ -229,6 +261,11 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
     ...(distanceLine
       ? { distanceMm: distanceLine.distance_mm, distanceAt: distanceLine.timestamp }
       : {}),
+    // From every line in the window, deliberately -- not from `events`, which is
+    // capped for the display.
+    doorOpenAt: lines
+      .filter((l) => l.event.toLowerCase() === CHANNELS.door.active)
+      .map((l) => l.timestamp),
     door: deriveChannel(lines, CHANNELS.door, nowMs),
     light: deriveChannel(lines, CHANNELS.light, nowMs),
     presence: deriveChannel(lines, CHANNELS.presence, nowMs),
