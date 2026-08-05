@@ -1,7 +1,9 @@
 # SMH-Hermes — Progress & Plan (living doc)
 
-Last updated: **2026-08-05**. One file for where the project stands, what's proven,
-and what's next. Detail lives in the linked docs; this is the map.
+Last updated: **2026-08-05 PM — measurement campaign complete**. One file for where the
+project stands, what's proven, and what's next. Detail lives in the linked docs; this is
+the map. Picking this up fresh? Read the done table, then **"Leftovers — next session
+starts here"** below it.
 
 ## Current state — what is DONE and verified
 
@@ -22,6 +24,30 @@ and what's next. Detail lives in the linked docs; this is the map.
 | 12 | **Access sentry — the phone becomes the authorization plane** (2026-08-05). POSITIONING §7 promised *"observe → explain → recommend → **human approves** → act"* and **no approval mechanism existed**; meanwhile the board's `door_*` and `object_*` channels had been reported for days and were only ever *drawn*. Now: presence opens a challenge → the phone captures → identity resolves down a 4-rung ladder → an 8-row decision matrix (incl. **tailgating** = faces vs authorised entries, and **anti-passback** = at the rack with no door edge) → a human approves on the **local** page. Telegram carries the notification; it does not carry the authorisation. Roster holds **embeddings only, never images**, git-ignored before the first capture existed. **50 new tests, suite 189/189**; verified live end to end incl. tailgating → approve → audit | [phone/README.md](phone/README.md), [docs/DASHBOARD.md](docs/DASHBOARD.md) |
 
 | 13 | **Access sentry — claims made true** (2026-08-05), after an independent review. **The centerpiece was dead code**: `shouldSuppressPage` had zero call sites outside its own test and nothing in the paging chain imported `access/`, so "a known responder on site stops it paging you" changed a caption on the wall and pages went out regardless — refutable live by a judge saying *"show me it not paging."* Now wired via `alert-skill/suppress.ts` and verified end to end: on site → silent; walk away → the held page fires; escalate → pages anyway; stale state → pages anyway. Also fixed from the same review: a POST rejection could **kill the whole server** (unguarded `void` dispatch + a routine Windows file lock), a stale board **falsified the audit trail** (filed "presence ended with no decision" when the feed died), and stored **XSS** on the approval terminal. **58 access tests, suite 242/242** | [docs/DASHBOARD.md](docs/DASHBOARD.md) §Access |
+
+| 14 | **Measurement campaign complete** (2026-08-05 PM) — every judge-facing number is now measured, not modeled. §1 served throughput finalized: NPU **382 ± 8.3** prefill (5 nonce-prefixed reps) vs CPU **35 ± 7.2** → **~9× faster agent iterations** (41 s vs 371 s modeled), CPU visibly thermal-throttling (46→27 tok/s) while NPU held steady. Long-context curve measured **directly**: 206 tok/s @ the real 12.7K request shape (honest iteration ≈ **68 s**), 108 tok/s @32K → the worst turn Hermes can send = **293 s**, validating the 900 s stale ceiling with 3× headroom. **Found + documented: ~60K prefill crashes GenieX v0.3.18 on NPU** (`dspqueue_read 0x72`) — `compression.threshold: 0.5` (32K) is the production guard, never raise it. **§2 energy measured: NPU 471 J/query** at the 12.7K shape (inference adds just **+6.3 W** system power) vs CPU **~8.7× more J per token** (+21.3 W and ~7× slower) — HWiNFO CSV integration, arXiv 2606.11257 method | [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md) |
+
+## Leftovers — next session starts here (as of 2026-08-05 PM)
+
+1. **§4 rehearsal screenshots** (~10 min, needs the user at the GUI while the agent drives
+   load): Task Manager → Performance → NPU graph during generation; HWiNFO sensors panel
+   (power rails); QAIRT Visualizer op view (inputs ready in `bench/artifacts/out/`).
+   Load driver, repeatable ~60 s NPU burn:
+   `python llm-serving-bench/prefill_long.py --reps 391 --label screenshot-load`.
+2. **Gated Qwen3.5-4B candidate test** (optional; research complete, decision rule in
+   [docs/MODEL_ALTERNATIVES.md](docs/MODEL_ALTERNATIVES.md)): first check whether GenieX's
+   bundled llama.cpp has Gated-DeltaNet ops (expected: no → CPU fallback → skip); if
+   plausible, `python llm-serving-bench/bench.py --model unsloth/Qwen3.5-4B-GGUF:Q4_0
+   --modes npu` — swap only if it beats the baseline's modeled agent iteration AND passes
+   the tool-call gate AND survives one live Hermes MCP turn. Baseline stays otherwise.
+3. **Environment facts that WILL bite you** (details: RESULTS.md §Stability findings):
+   never run a second NPU/Hexagon process next to production — it wedges the DSP and can
+   take production down with it; two 64K servers exceed the 32 GB commit limit — dedicated
+   bench/energy servers use `--nctx 16384`; an external manager kills/restarts geniex by
+   image name (production PID churns — check `Get-NetTCPConnection -LocalPort 18181` before
+   assuming anything); HWiNFO ARM64 publishes **no** SM2 shared memory — use CSV logging +
+   `energy.py --csv`; production start command (with `--skip-update` + log redirect) is in
+   RESULTS.md §Reproduce and at the end of every `bench.py` run.
 
 ## Locked architecture decisions (from the audit + spike)
 
@@ -132,8 +158,14 @@ and what's next. Detail lives in the linked docs; this is the map.
    - `profile_workload` is **unusable** here (MCP server is a remote x86 VM, no NPU, can't see local
      disk) and `profile_device_report` has a **bug**: it reports a successful run as `FAILED`
      because it parses stdout for snpe-style timings that `qnn-net-run` never prints.
-   Still open from §1/§2: Task Manager NPU graph + HWiNFO Joules/query, a real 64K prefill timing,
-   and the phone-vs-laptop stretch.
+   Still open from §1/§2 as of 2026-08-05 PM: only the §4 screenshots and the phone-vs-laptop
+   stretch. ~~§1 served throughput~~, ~~the long-context/64K timing~~, and ~~§2 Joules/query~~
+   are all ✅ done — merged table, prefill-vs-context curve, the ~60K NPU crash ceiling, and
+   the energy table (**NPU 471 J/query measured at the 12.5K agent shape; ~8.7× more energy
+   per token on CPU; inference adds just +6.3 W system power on NPU vs +21.3 W on CPU**) in
+   [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md). Energy method note: HWiNFO
+   ARM64 8.50 does **not** publish SM2 shared memory — `energy.py --csv` integrates a HWiNFO
+   CSV sensor log instead (Start Logging in the Sensors window).
 8. ~~**Doc hygiene**~~ ✅ **DONE 2026-08-03** — see done-table row 9; all sub-items applied,
    including softening "only path with genuine NPU acceleration". The last open sub-item —
    **verify the HolmesGPT/K8sGPT competitor claim** — is now ✅ **researched and sourced
@@ -205,14 +237,21 @@ and what's next. Detail lives in the linked docs; this is the map.
 
 ## Open risks still live
 
-- **Long-context prefill latency untested** — a real 64K prompt has never been timed; test before
-  demoing long sessions (P0-adjacent). **Partially defused 2026-08-05:** the reason no long session
-  could survive was Hermes's 180 s non-stream stale kill — the `("qwen3", 180)` reasoning-floor
-  entry in the vendored `agent/reasoning_timeouts.py` matches our Instruct slug and deliberately
-  bypasses the local-endpoint exemption. Fixed with `providers.custom.stale_timeout_seconds: 900`
-  in `%LOCALAPPDATA%\hermes\config.yaml` (picked up without restart; mtime invalidates the config
-  cache). The direct-server 64K timing itself is still to be run — and even fixed, a ~60K session
-  costs ~3 min of prefill per iteration at measured rates, so keep demo sessions short regardless.
+- ~~**Long-context prefill latency untested**~~ ✅ **closed 2026-08-05 PM — measured directly**
+  (curve + crash forensics in [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md)):
+  12.5K tok → 60.9 s (206 tok/s, the real Hermes request shape → honest agent iteration ≈ 68 s);
+  31.8K tok → 293 s (108 tok/s) — the worst case Hermes can send (compression fires at 32K),
+  inside the 900 s stale ceiling with 3× headroom, which retro-validates the
+  `providers.custom.stale_timeout_seconds: 900` fix as demo-critical (180 s would kill every
+  near-threshold turn). **New, sharper risk found in its place:** a **~60K prefill crashes
+  GenieX v0.3.18 on NPU** (`dspqueue_read failed: 0x00000072`) even though `--nctx 65536` is
+  accepted — a true 64K prompt is unreachable today. Production is guarded by
+  `compression.threshold: 0.5` (32K) — **do not raise it**. Also reproduced 2/2: a second
+  Hexagon process (benchmarks on port 18191) can wedge the DSP and take the production server
+  down with it — bench only when production may be restarted afterwards (recovery: restart
+  geniex, ~20 s; it now runs with `--skip-update` and logs to
+  `llm-serving-bench/serve-production-18181.log`). Demo guidance: reset the Telegram session
+  before demoing → ~1 min turns; the 32K ceiling costs ~5 min/turn.
 - **~15–16 tok/s decode** — keep agent replies terse via system prompt or demos drag.
 - **Hermes Node 26 migration churn** (landed 2026-08-02) — pin whatever the installer gives; don't
   `hermes upgrade` mid-week.

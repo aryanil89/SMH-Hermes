@@ -19,6 +19,22 @@ WhatsApp and Signal are all supported by the same gateway; we demo on Telegram).
 Built on [Hermes Agent](https://github.com/nousresearch/hermes-agent) + Qwen3-4B-Instruct-2507,
 NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP tool servers.
 
+> **Naming note:** *SMH-Hermes* (this project) is a hackathon configuration-and-tooling layer that
+> **runs on** Nous Research's Hermes Agent runtime (MIT). It is not affiliated with, endorsed by, or
+> a product of Nous Research; their Hermes *model* family is not used here (the model is Qwen3).
+
+## Team
+
+| Name | Email |
+|---|---|
+| Indranil Acharya | `<qualcomm-email — fill before submission>` |
+| Christopher Gould | `<qualcomm-email — fill before submission>` |
+
+<!-- Hackathon rules require names AND emails of every team member in the README.
+     Fill the addresses (and add any member missing from this table) before the
+     Friday 12:00 PST submission — missing entries are a disqualification risk. -->
+
+
 > **Disclosure:** network, storage and compute telemetry are **simulated** with realistic data
 > patterns; the environmental path is **live** from an Arduino UNO Q. The MCP adapters are the seam —
 > the same tools can be pointed at real DCIM/BMS/SNMP without touching the reasoning layer. We
@@ -171,21 +187,54 @@ Every absolute path lives in exactly four places — grep for `C:\Users\qc_de` t
 
 ### 1. Model server — GenieX on the Hexagon NPU
 
+**Preferred — under the supervisor** (GenieX has been observed exiting silently under load;
+see the last troubleshooting row). It starts GenieX with the correct flags, restarts it when
+it dies, and warns if `--nctx` and `config.yaml` disagree:
+
 ```powershell
-& "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" serve --nctx 65536 --compute npu
+powershell -ExecutionPolicy Bypass -File scripts\geniex-supervisor.ps1
+```
+
+Or by hand, which is the same command it runs:
+
+```powershell
+& "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" serve --nctx 65536 --compute npu --keepalive 3600
 ```
 
 Serves an OpenAI-compatible endpoint at `http://127.0.0.1:18181/v1`. First request after start
-takes ~30s (model load). **Worked when:** the port answers —
+takes ~30s (model load). **Worked when:** a `geniex` process exists *and* something is
+listening —
 
 ```powershell
-curl.exe -s http://127.0.0.1:18181/v1/models
+Get-Process geniex; Get-NetTCPConnection -LocalPort 18181 -State Listen
 ```
 
-Why these flags: Hermes needs 64K context (`--nctx 65536`) and `--compute npu` offloads to
-Hexagon (CPU sits at 12–17% during generation vs 56–74% on CPU fallback — see
-[docs/NPU_SPIKE_RESULTS.md](docs/NPU_SPIKE_RESULTS.md)). Don't use `--compute gpu`: faster
-prefill, but reproducibly fails tool-enabled requests (GenieX preview bug).
+⚠️ **Do not health-check with `curl /v1/models` except on a cold start.** GenieX serializes
+every request behind a global lock, so that call — **654 µs** when idle — took **1m42s**
+while a completion was in flight. An HTTP probe cannot distinguish *busy* from *dead*.
+Process + socket stays correct while the model is thinking.
+
+Why these flags:
+
+- **`--nctx 65536`** — Hermes hard-requires 64K. This **must equal `context_length` in
+  `config.yaml`**: Hermes builds prompts up to its declared context, so if GenieX allocated
+  less, the overflow lands on the server. (The default is 4096, nowhere near enough.)
+- **`--compute npu`** — offloads to Hexagon; measured **12.1% mean CPU** across 12 cores vs
+  56–74% on CPU fallback ([docs/NPU_SPIKE_RESULTS.md](docs/NPU_SPIKE_RESULTS.md)). Leaving it
+  unset auto-selects, and did pick NPU on this laptop — set it anyway, auto-selection is not a
+  contract. Don't use `--compute gpu`: faster prefill, but reproducibly fails tool-enabled
+  requests (GenieX preview bug).
+- **`--keepalive 3600`** — the default is **300**, which unloads the model after 5 minutes
+  idle. The cron watchdog runs `--no-agent` and never touches the model, so nothing keeps it
+  warm: every Telegram message after a quiet spell pays a full model reload *before* prefill.
+  This is the single largest avoidable chunk of "first reply takes minutes".
+
+Every flag also has an env var — `GENIEX_NCTX`, `GENIEX_COMPUTE`, `GENIEX_KEEPALIVE`,
+`GENIEX_HOST`, `GENIEX_NGL`, `GENIEX_DATADIR`. There is **no `--model` flag**: the model is
+chosen per request by the API call's `model` field, resolved against
+`%USERPROFILE%\.cache\geniex\models\`.
+
+Restart, recovery and health checks for every component: **[docs/RUNBOOK.md](docs/RUNBOOK.md)**.
 
 ### 2. Sensors — Arduino UNO Q → laptop log file
 
@@ -352,7 +401,8 @@ face from it, and it is safe to open on stage. `.gitignore` blocked `*.jpg`, `ro
 ### Quick health check, all seven
 
 ```powershell
-curl.exe -s http://127.0.0.1:18181/v1/models                      # [1] model server up
+Get-Process geniex; Get-NetTCPConnection -LocalPort 18181 -State Listen  # [1] model server up
+                                                                  #     (NOT curl -- it queues behind inference)
 Get-Item arduino_uno_q-sensor_log.json | % LastWriteTime          # [2] fresh = sensors flowing
 node mcp-tools\dist\alert-skill\check-environmental.js --json     # [tools] source: real
 hermes -z "what's the temperature in rack B1?"                    # [3] agent + tools + NPU
@@ -384,10 +434,22 @@ Every row here cost us real time; none are hypothetical.
 | Phone gets **401** on Approve / Enrol | `ACCESS_SHARED_SECRET` is set on the server but missing from the phone's URL | Open `…/phone.html?secret=<the secret>` |
 | Everyone reads as `unknown` no matter what | `ACCESS_IDENTITY_METHOD` is `stub` (the default) — detection-only, which never matches | Set `qr-badge` and enrol the name, or leave it: the loop is identical either way |
 | Access card says *"presence unobservable"* | The sensor feed is stale, so the sentry froze rather than guess | Same fix as the `source: mock` row above. It is **not** filing false audit entries while in this state |
+| First reply of a session takes minutes, later ones are faster | `--keepalive` defaults to **300s**, so the model unloads after 5 min idle. The cron runs `--no-agent`, so nothing keeps it warm | `--keepalive 3600` (step 1), or send a throwaway message a minute before presenting |
+| `curl /v1/models` hangs for minutes | **Not a fault.** GenieX serializes all requests; your probe is queued behind a completion. Measured 654 µs idle vs 1m42s behind one | Health-check with `Get-Process geniex` + `Get-NetTCPConnection -LocalPort 18181`, never HTTP |
+| Model replies in prose and calls **no** tools at all | `tools.tool_search.enabled` is on. Qwen3-4B will not do the 3-hop `tool_search`→`tool_describe`→`tool_call` discovery dance — it answers from memory and calls nothing | Set `tool_search.enabled: "off"` so schemas are inline, then **restart the gateway** |
+| A tool that exists "does not exist"; or a code change has no effect | The gateway reads `config.yaml` **at boot only**, and MCP servers run from `mcp-tools\dist\` | Restart the gateway after any config edit; `npm run build` after any TypeScript change |
+| A `level` rule fired once and never again | **Working as designed** — level rules latch (`fired: true`) until the value crosses back and re-crosses | Check `fireCount` / `lastFiredAt` in `mcp-tools\.state\rule-state.json` before debugging |
+| **GenieX vanishes — no error, no dump, no log** | Observed under load on a plain 180-token request with other traffic in flight; the *server* closed the connection, then the process was gone. 17.7 GB RAM was free, so not memory pressure. **Root cause unknown**; leading suspect is an `--nctx` / `context_length` mismatch | Make those two equal, and run `scripts\geniex-supervisor.ps1` rather than trusting the process |
 
 Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TEST.md)**.
 
 ## Docs
+- **[Runbook — restart, recovery, health checks](docs/RUNBOOK.md)** — **the operating manual for
+  a machine that is already set up** (this README covers *installing*; that one covers *fixing*).
+  The 30-second all-green check, per-component restart, why an HTTP health check against GenieX
+  lies while the model is thinking, the flags that silently drift, `--keepalive` and the slow
+  first reply, what actually drives prefill cost (measured — the sensor log does **not**), and a
+  symptom→cause table
 - **[Phone compute plan (2026-08-05)](docs/PHONE_PLAN_2026-08-05.md)** — **planned, not
   built**: the designed next step for the Galaxy S25 Ultra — on-phone Qwen3 NPU benchmark
   over `adb` (no app), the face-embedding identity rung, and measured joules-per-token on

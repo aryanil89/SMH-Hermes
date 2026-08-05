@@ -15,8 +15,10 @@
 APP_DIR="/home/arduino/ArduinoApps/hermes-sensor-logger"
 LOCAL_LOG="$APP_DIR/sensor_log.jsonl"
 STATUS_FILE="$APP_DIR/boot_status.json"
-SSH_TARGET="qc_de@qcworkshop24.tail453bf7.ts.net"
-REMOTE_PATH="C:/Users/qc_de/Downloads/QUAD/SMH-Hermes/arduino_uno_q-sensor_log.json"
+# Deployment-specific: the laptop's Tailscale MagicDNS name and Windows user.
+# Set via environment or edit the defaults; deliberately not committed.
+SSH_TARGET="${SENSOR_PUSH_TARGET:-<windows-user>@<laptop-tailnet-host>}"
+REMOTE_PATH="${SENSOR_PUSH_PATH:-C:/Users/<windows-user>/Downloads/QUAD/SMH-Hermes/arduino_uno_q-sensor_log.json}"
 
 PRUNE_SCRIPT="$APP_DIR/prune_sensor_log.py"
 

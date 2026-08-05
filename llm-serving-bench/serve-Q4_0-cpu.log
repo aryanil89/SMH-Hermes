@@ -1,0 +1,17 @@
+[33mSoX is not installed, some features may not work. Try:[0m
+[33m  winget install --id=ChrisBagwell.SoX -e[0m
+[33mThen restart your terminal to make sure sox is in PATH[0m
+[34mLocal hosting on http://127.0.0.1:18191/[0m
+[GIN] 2026/08/05 - 10:22:41 | 200 |      3.5926ms |       127.0.0.1 | GET      "/v1/models"
+[GIN] 2026/08/05 - 10:22:50 | 200 |    9.0593013s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:24:15 | 200 |         1m24s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:25:53 | 200 |         1m38s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:27:46 | 200 |         1m52s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:30:09 | 200 |         2m22s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:32:13 | 200 |          2m4s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:33:05 | 200 |   52.0172341s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:33:40 | 200 |   34.6462491s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:34:12 | 200 |   31.9657931s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:34:44 | 200 |   31.7160036s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:35:16 | 200 |   32.7005134s |       127.0.0.1 | POST     "/v1/chat/completions"
+[GIN] 2026/08/05 - 10:35:21 | 200 |    3.8077969s |       127.0.0.1 | POST     "/v1/chat/completions"

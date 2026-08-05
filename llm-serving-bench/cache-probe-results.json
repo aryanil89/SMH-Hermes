@@ -1,0 +1,58 @@
+[
+  {
+    "base": "http://127.0.0.1:18181/v1",
+    "reps": 391,
+    "cache_prompt": false,
+    "runs": [
+      {
+        "label": "A-cold",
+        "seconds": 77.4,
+        "prompt_tokens": 12549,
+        "prefill_tok_s": 162,
+        "completion_tokens": 41
+      },
+      {
+        "label": "B-exact-repeat",
+        "seconds": 71.7,
+        "prompt_tokens": 12549,
+        "prefill_tok_s": 175,
+        "completion_tokens": 39
+      },
+      {
+        "label": "C-appended-turn",
+        "seconds": 98.5,
+        "prompt_tokens": 12608,
+        "prefill_tok_s": 128,
+        "completion_tokens": 113
+      }
+    ]
+  },
+  {
+    "base": "http://127.0.0.1:18181/v1",
+    "reps": 391,
+    "cache_prompt": true,
+    "runs": [
+      {
+        "label": "A-cold",
+        "seconds": 73.4,
+        "prompt_tokens": 12547,
+        "prefill_tok_s": 171,
+        "completion_tokens": 41
+      },
+      {
+        "label": "B-exact-repeat",
+        "seconds": 78.2,
+        "prompt_tokens": 12547,
+        "prefill_tok_s": 161,
+        "completion_tokens": 49
+      },
+      {
+        "label": "C-appended-turn",
+        "seconds": 81.5,
+        "prompt_tokens": 12606,
+        "prefill_tok_s": 155,
+        "completion_tokens": 66
+      }
+    ]
+  }
+]

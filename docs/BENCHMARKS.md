@@ -209,22 +209,34 @@ but produces a valid plan for the same file when left to infer `kind` from the `
 
 This is §3 only. Do not read it as "the benchmarks are done".
 
-- **§1 — throughput of the *served* artifact.** First pass measured 2026-08-05 — see
+- **§1 — throughput of the *served* artifact. ✅ COMPLETE 2026-08-05 PM** — see
   [`../llm-serving-bench/RESULTS.md`](../llm-serving-bench/RESULTS.md): Q4_0+npu wins
-  (375 prefill / 14.2 decode tok/s, tool-calls PASS, modeled agent-iter ~42 s at the measured
-  12,670/105 request shape); gpu is disqualified (HTTP 500 on any `tools` request); Q4_K_M-on-npu
-  demonstrates the silent CPU fallback (31/7.5 tok/s). Remaining top-up: `--modes cpu` and a ≥5-rep
-  run with mean ± std — the harness now supports both (`--reps`, nonce-prefixed prefill).
-- **§2 — Joules/query.** HWiNFO64 shared-memory sampling, numerical integration, per-compute-mode
-  delta. **Not run.** Requires HWiNFO **v8.32+** (Oct 2025 — first version with Snapdragon power
-  sensors); there is no discrete NPU rail, so report system-total minus idle baseline. Methodology
-  precedent on this exact SoC: arXiv 2606.11257 (315 J/query NPU vs 1,251 CPU).
+  (**382 ± 8.3** prefill over 5 nonce-prefixed reps — the prefix cache was *not* flattering the
+  old 375 — / 14.2 decode, tool-calls PASS); the CPU column is in (35 ± 7.2 / 11.3 ± 2.5,
+  modeled agent-iter **371 s vs NPU ~41 s ≈ 9×**, plus visible thermal throttling 46→27 tok/s);
+  gpu disqualified (HTTP 500 on any `tools` request); Q4_K_M-on-npu demonstrates the silent CPU
+  fallback (31/7.5 tok/s).
+- **§2 — Joules/query. ✅ MEASURED 2026-08-05 PM** — full table + method in
+  [`../llm-serving-bench/RESULTS.md`](../llm-serving-bench/RESULTS.md): **NPU 471 J/query**
+  measured directly at the real 12.5K agent shape (system power 11.7 → 18.0 W, i.e. inference
+  adds just +6.3 W); CPU 1,278 J/query at the 3.9K shape → **0.327 vs 0.0375 J per
+  prompt-token = ~8.7× more energy on CPU**, ~4,100 J scaled to the agent shape. Method:
+  HWiNFO 8.50 **CSV log** integration (the ARM64 build does not publish SM2 shared memory —
+  the checkbox exists but no mapping appears; CSV logging is the working path), trapezoidal
+  rule, 60 s idle baseline, `System [W]` rail. Precedent arXiv 2606.11257 (4.0× on a
+  decode-heavier mix; prefill-dominated agent workloads widen the NPU advantage).
 - **§4 — screenshots.** The output contract asks for the Task Manager NPU graph during NPU-mode
   generation, the HWiNFO sensor panel, and a QAIRT Visualizer op view. **None captured** — all three
   need a human at the GUI. The Visualizer inputs (`qnn-profiling-data_0.log` per graph) are now
   in-repo under [`../bench/artifacts/out/`](../bench/artifacts/) — no longer only in `%TEMP%`.
-- **A real 64K prefill has still never been timed.** The tables above stop at cl4096, which is the
-  bundle's ceiling; only the GGUF path can reach 64K. The Hermes-side blocker is fixed — the 180 s
-  non-stream stale kill (the `qwen3` reasoning-floor entry, which also bypasses the local-endpoint
-  exemption) is now overridden via `providers.custom.stale_timeout_seconds: 900` in Hermes
-  config.yaml — but the direct-server timing itself remains to be run.
+- **Long-context prefill: ✅ MEASURED 2026-08-05 PM** (direct, single requests against the
+  production server; full curve + crash forensics in
+  [`../llm-serving-bench/RESULTS.md`](../llm-serving-bench/RESULTS.md)):
+  **12,543 tok → 60.9 s (206 tok/s)** — so the honest agent iteration at the real request shape
+  is ~68 s, not the modeled ~41 s; **31,775 tok → 293 s (108 tok/s)** — the worst case Hermes can
+  ever send (compression fires at 32K), safely inside the 900 s stale ceiling with 3× headroom;
+  **~60K tok → server crash** (`ggml-hex: dspqueue_read failed: 0x00000072`) — GenieX v0.3.18
+  accepts `--nctx 65536` but cannot actually serve a ~60K prompt on NPU. A true 64K prefill is
+  therefore *unreachable* on this stack today; the compression threshold (0.5) is the guard —
+  do not raise it. Also reproduced: a second Hexagon process (bench on 18191) destabilizes the
+  DSP and can wedge it for the production process — only bench when production can be restarted.
