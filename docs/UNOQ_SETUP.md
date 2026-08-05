@@ -59,6 +59,24 @@ one-line failure message if `scp` fails, so a slow boot or a transient Tailscale
 the first successful push instead of crashing anything. This was observed for real during
 testing (see below).
 
+**Boot ordering (added 2026-08-05).** Two drop-ins on *stock* units make Tailscale wait for the
+clock, because the board has no RTC battery and a VPN brought up in 1970 produces wrong timestamps
+and TLS validity errors:
+
+- `systemd-time-wait-sync.service` — **enabled** (Debian ships it disabled), `WantedBy=sysinit.target`,
+  with `TimeoutStartSec=48` so a network without NTP cannot stall boot indefinitely.
+- `tailscaled.service` — `Wants=` + `After=systemd-time-wait-sync.service`. `Wants=` rather than
+  `Requires=`, so a failed or timed-out sync still lets the VPN start.
+
+Total boot is **~1min 9s**, of which the clock wait is ~38s — measured, not estimated. The numbers,
+how to re-measure them, and how to reboot the board gracefully (`adb reboot` does not work here)
+are in
+[../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md#boot-sequence-and-timing).
+
+These live in `/etc/systemd/system/` on the board and are deliberately **not** in this repo — they
+are host system config, not app code, so a redeploy of the app never touches them. That also means
+they do **not** survive a board reflash; re-create them by hand if the board is ever rebuilt.
+
 ## Bring-up steps, in order
 
 1. **WiFi.** The board was reachable over USB-C via `adb shell` (no App Lab GUI needed).

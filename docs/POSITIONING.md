@@ -147,16 +147,20 @@ it may never carry the answer.
 > **stop paging them.** That is the only rule in the system that makes it quieter.
 
 **"Is that face recognition?"**
-> Not today, and I want to be precise. Identity is a pluggable ladder. It runs in badge mode and
-> detection-only mode right now; the face-embedding rung is an out-of-process hook with the
-> contract, the fallback and the tests built, and the model not yet plugged in. Presence, the
-> decision matrix and the approval loop are all live.
+> No, and I want to be precise: there's no automated identity check running at all today — no
+> badge, no QR code, no face match. Presence, the decision matrix and the approval loop are all
+> live; identity resolution is not. Every capture reads as unknown, and a human decides from the
+> photo. Underneath, identity is architected as a pluggable ladder — a QR/badge rung and a
+> face-embedding rung both exist in code — but neither is wired to something we'd stand behind on
+> stage: the badge rung has no real credential behind it, and the face rung needs an external
+> vision script that isn't built yet. We're not claiming either.
 >
-> When it is plugged in, the roster stores **embeddings and never images** — the source photo is
-> discarded after matching. You cannot reconstruct a face from that file, which is why it is safe
-> for me to open it on stage. GDPR treats face templates as special-category data, so keeping them
-> on-device is what a privacy impact assessment wants to see — materially easier to deploy and to
-> defend than shipping staff biometrics to someone else's GPU.
+> If a face-embedding rung is switched on in the future, the roster would store **embeddings and
+> never images** — the source photo discarded after matching. You cannot reconstruct a face from
+> that file, which is why it's safe to open it on stage. GDPR treats face templates as
+> special-category data, so keeping them on-device is what a privacy impact assessment wants to
+> see — materially easier to deploy and to defend than shipping staff biometrics to someone else's
+> GPU.
 
 **"Why Arduino?"**
 > It is our physical rack simulator. Real datacenters have DCIM and BMS; we needed something a judge

@@ -840,4 +840,50 @@ window.addEventListener("resize", () => {
   }, 150);
 });
 
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+
+const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
+const tabPanels = {
+  overview: $("panel-overview"),
+  architecture: $("panel-architecture"),
+  live: $("panel-live"),
+};
+
+function activateTab(name) {
+  if (!tabPanels[name]) return;
+  for (const btn of tabButtons) {
+    const active = btn.dataset.tab === name;
+    btn.setAttribute("aria-selected", String(active));
+    btn.tabIndex = active ? 0 : -1;
+    btn.classList.toggle("active", active);
+  }
+  for (const [key, panel] of Object.entries(tabPanels)) {
+    panel.classList.toggle("active", key === name);
+  }
+  // Sparklines size themselves from their container, which is 0px wide while
+  // the live tab is hidden -- force a redraw now that it has real width.
+  if (name === "live" && latest) {
+    els.tempSpark.dataset.sig = "";
+    els.humSpark.dataset.sig = "";
+    render(latest);
+  }
+}
+
+for (const btn of tabButtons) {
+  btn.addEventListener("click", () => activateTab(btn.dataset.tab));
+}
+
+// Standard tablist keyboard pattern: arrow keys move focus and selection
+// together between tabs.
+document.querySelector(".tabnav")?.addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+  const i = tabButtons.indexOf(document.activeElement);
+  if (i === -1) return;
+  const next =
+    event.key === "ArrowRight" ? (i + 1) % tabButtons.length : (i - 1 + tabButtons.length) % tabButtons.length;
+  event.preventDefault();
+  tabButtons[next].focus();
+  activateTab(tabButtons[next].dataset.tab);
+});
+
 connect();

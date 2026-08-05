@@ -23,6 +23,7 @@
  *   TELEGRAM_BOT_LABEL   name shown on the phone panel (default "Hermes Ops")
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { exec } from "node:child_process";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -50,6 +51,9 @@ if (!process.env.UNOQ_SENSOR_LOG && existsSync(DEFAULT_SENSOR_LOG)) {
 
 const PORT = Number(process.env.DASHBOARD_PORT ?? 7788);
 const HOST = process.env.DASHBOARD_HOST ?? "127.0.0.1";
+/** This is a demo-table display meant to be looked at, so open it by default. Opt out for a
+ *  headless run (e.g. before a projector is connected) with DASHBOARD_OPEN_BROWSER=0. */
+const OPEN_BROWSER = process.env.DASHBOARD_OPEN_BROWSER !== "0";
 // Floored: a sub-250ms cadence buys nothing visually and turns the log tail into
 // a busy loop on a machine that is also running NPU inference.
 const TICK_MS = Math.max(250, Number(process.env.DASHBOARD_TICK_MS ?? 2000));
@@ -471,6 +475,23 @@ const server = createServer((req, res) => {
   void serveStatic(res, pathname);
 });
 
+/**
+ * Open the wall in the OS default browser. Best-effort: a demo laptop with no
+ * default browser configured, or a headless CI box, must not take the server
+ * down over this -- the URL is already logged for a human to click instead.
+ */
+function openInBrowser(url: string): void {
+  const command =
+    process.platform === "win32"
+      ? `cmd /c start "" "${url}"`
+      : process.platform === "darwin"
+        ? `open "${url}"`
+        : `xdg-open "${url}"`;
+  exec(command, (err) => {
+    if (err) console.warn(`[dashboard] could not auto-open a browser: ${err.message}`);
+  });
+}
+
 async function main(): Promise<void> {
   await tick();
   const timer = setInterval(() => void tick(), TICK_MS);
@@ -490,6 +511,8 @@ async function main(): Promise<void> {
     console.log(`[dashboard] sensor log : ${SENSOR_LOG}`);
     console.log(`[dashboard] alert state: ${STATE_PATH}`);
     console.log(`[dashboard] tick        : ${TICK_MS}ms`);
+
+    if (OPEN_BROWSER) openInBrowser(`http://${HOST === "0.0.0.0" ? "127.0.0.1" : HOST}:${PORT}`);
   });
 
   const shutdown = (): void => {

@@ -53,9 +53,9 @@ table (usually the board clock, step 2 ⚠️).
 | `HERMES_MODEL` / `HERMES_ACCELERATOR` | Qwen3-4B / Hexagon NPU | Header captions only — the page never talks to the model |
 | `ACCESS_STATE_PATH` | `mcp-tools/.state/access.json` | Open challenge + the access audit trail |
 | `ACCESS_ROSTER_PATH` | `mcp-tools/.state/roster.json` | Enrolled people. **Embeddings only, never images** |
-| `ACCESS_IDENTITY_METHOD` | `stub` | Identity rung: `stub` \| `qr-badge` \| `face-npu` \| `face-cpu` |
+| `ACCESS_IDENTITY_METHOD` | `stub` | Identity rung: `stub` \| `qr-badge` \| `face-npu` \| `face-cpu`. Only `stub` (detection-only) is used and claimed today — see [../phone/README.md](../phone/README.md#the-identity-ladder) |
 | `ACCESS_MATCH_THRESHOLD` | `0.5` | Cosine similarity for a face match. **A starting point, not a calibrated value** — tune it against the actual enrolled faces and record what you measured |
-| `ACCESS_DOOR_LOOKBACK_MS` | `30000` | How far *before* a presence edge a door-open still counts as the same entry. Too short and a normal badge-in reads as tailgating |
+| `ACCESS_DOOR_LOOKBACK_MS` | `30000` | How far *before* a presence edge a door-open still counts as the same entry. Too short and a normal entry reads as tailgating |
 | `ACCESS_VISION_SCRIPT` / `ACCESS_PYTHON` | unset / `python` | The face pipeline, for rungs 1–2 |
 | `ACCESS_SUPPRESS_MAX_AGE_S` | `180` | Older than this and the access state cannot withhold a page — see below |
 | `ACCESS_SHARED_SECRET` | unset | Required as `x-access-secret` on the three write routes. **Set this whenever `DASHBOARD_HOST` is not loopback** |
@@ -131,9 +131,11 @@ Three things the card refuses to do:
   and re-challenged the same person on the next tick — approving a judge and then
   accusing them two seconds later.
 
-Identity comes from a swappable rung (`ACCESS_IDENTITY_METHOD`); the default is
-detection-only, so an unconfigured machine reports everyone as unknown rather than
-claiming a match it never made. Full ladder in [../phone/README.md](../phone/README.md).
+Identity comes from a swappable rung (`ACCESS_IDENTITY_METHOD`); the default — and the only one
+used or claimed on this project — is detection-only, so every capture reads as unknown and a
+human decides from the photo rather than the system claiming a match it never made. `qr-badge`
+and the face rungs exist in code but are not part of the current demo. Full ladder in
+[../phone/README.md](../phone/README.md#the-identity-ladder).
 
 **Nothing on this path stores an image.** Captures are resolved to an embedding and
 dropped; `mcp-tools/.state/roster.json` holds floats only.
