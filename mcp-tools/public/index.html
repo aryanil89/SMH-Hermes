@@ -77,7 +77,286 @@
       </div>
     </header>
 
-    <main class="wall">
+    <nav class="tabnav" role="tablist" aria-label="Hermes sections">
+      <button
+        class="tab-btn"
+        id="tab-btn-overview"
+        role="tab"
+        aria-selected="true"
+        aria-controls="panel-overview"
+        data-tab="overview"
+      >
+        Executive overview
+      </button>
+      <button
+        class="tab-btn"
+        id="tab-btn-architecture"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-architecture"
+        data-tab="architecture"
+        tabindex="-1"
+      >
+        Architecture
+      </button>
+      <button
+        class="tab-btn"
+        id="tab-btn-live"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-live"
+        data-tab="live"
+        tabindex="-1"
+      >
+        Live system
+      </button>
+    </nav>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         Tab 1 — Executive overview. Static prose, the approved wording from
+         docs/POSITIONING.md so this page never drifts from the slide deck
+         or the judge Q&A card.
+         ══════════════════════════════════════════════════════════════════ -->
+    <section class="tab-panel active" id="panel-overview" role="tabpanel" aria-labelledby="tab-btn-overview" tabindex="0">
+      <div class="brief">
+        <p class="kicker">Executive overview · Snapdragon Multiverse Hackathon 2026</p>
+        <h1 class="brief-title">Hermes: On-Device AI Operations Engineer</h1>
+        <p class="brief-lede">
+          Hermes is an AI operations engineer that runs entirely on a Snapdragon X Elite —
+          no cloud AI, no data leaving the laptop. It correlates real physical sensor signals with
+          infrastructure telemetry to tell an on-call engineer what is wrong, why it matters, and
+          what to do next.
+        </p>
+
+        <div class="brief-grid">
+          <article class="card">
+            <header class="card-head"><h3>What Hermes is</h3></header>
+            <p>
+              A local reasoning layer over signals an ops team already has. It correlates,
+              prioritises, explains and recommends — and it reasons about who is physically at the
+              rack, asking a human before anything proceeds.
+            </p>
+          </article>
+          <article class="card">
+            <header class="card-head"><h3>What Hermes is not</h3></header>
+            <p>
+              A replacement for monitoring, DCIM or sensors. Datacenters already have those. Hermes
+              does not collect the signals — it judges them.
+            </p>
+          </article>
+        </div>
+
+        <article class="card card--accent">
+          <header class="card-head"><h3>The offline claim</h3></header>
+          <p>
+            The intelligence is offline: the model, the reasoning, the tool calls and the sensor
+            path all run on the Snapdragon — provable by cutting the WiFi mid-demo. The one
+            internet hop is the phone notification, a message relay, not intelligence, and a
+            swappable adapter — Slack, Teams, Discord, WhatsApp and Signal share the same gateway;
+            we demo on Telegram.
+          </p>
+        </article>
+
+        <h2 class="brief-h2">What we built</h2>
+        <div class="table-wrap">
+          <table class="brief-table">
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Today — built &amp; verified</th>
+                <th>Planned — not built</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>LLM inference</td>
+                <td>Qwen3-4B-Instruct-2507 Q4_0 on the laptop's X Elite NPU via GenieX</td>
+                <td>Same model on the phone's 8 Elite NPU over adb</td>
+              </tr>
+              <tr>
+                <td>Physical access</td>
+                <td>
+                  Presence → challenge → QR-badge / detection-only identity → human approve/deny on
+                  the phone → append-only audit trail
+                </td>
+                <td>Face-embedding identity rung on the X Elite NPU</td>
+              </tr>
+              <tr>
+                <td>Phone's role</td>
+                <td>Approval terminal + Telegram client + challenge notification (text only)</td>
+                <td>On-phone LLM benchmark, "failover brain" demo beat</td>
+              </tr>
+              <tr>
+                <td>Alert suppression</td>
+                <td>
+                  Wired end to end — a responder on site withholds the page; walking away releases
+                  it
+                </td>
+                <td>—</td>
+              </tr>
+              <tr>
+                <td>Energy</td>
+                <td>—</td>
+                <td>Measured joules-per-token on both NPUs</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <article class="card note-card">
+          <header class="card-head"><h3>Disclosure</h3></header>
+          <p>
+            Network, storage and compute telemetry are <strong>simulated</strong> with realistic
+            data patterns; the environmental path is <strong>live</strong> from an Arduino UNO Q.
+            The MCP adapters are the seam — the same tools can be pointed at real DCIM/BMS/SNMP
+            without touching the reasoning layer.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         Tab 2 — Architecture. Static connectivity diagram plus what each
+         device does and the components that make it happen, from
+         docs/ARCHITECTURE.md §1.
+         ══════════════════════════════════════════════════════════════════ -->
+    <section
+      class="tab-panel"
+      id="panel-architecture"
+      role="tabpanel"
+      aria-labelledby="tab-btn-architecture"
+      tabindex="0"
+    >
+      <div class="brief">
+        <p class="kicker">System architecture</p>
+        <h1 class="brief-title">Three devices, one pipeline</h1>
+        <p class="brief-lede">
+          Everything inside the laptop survives a WiFi cut. Telegram — and only Telegram — needs
+          the internet, and it carries chat text, never the authorisation to open a door.
+        </p>
+
+        <div class="arch-flow">
+          <div class="arch-node" data-tier="sense">
+            <p class="kicker">Sensing tier</p>
+            <h3>Arduino UNO Q</h3>
+            <p class="arch-node-sub">Rack environmental monitor</p>
+          </div>
+          <div class="arch-link">
+            <span class="arch-link-label">sensor feed · USB (adb) or Tailscale scp, every 10s</span>
+            <span class="arch-arrow" aria-hidden="true"></span>
+          </div>
+          <div class="arch-node" data-tier="reason">
+            <p class="kicker">Reasoning tier</p>
+            <h3>Snapdragon X Elite laptop</h3>
+            <p class="arch-node-sub">Ingest · MCP tools · NPU inference · wall + access terminal</p>
+          </div>
+          <div class="arch-link arch-link--stacked">
+            <span class="arch-link-label">Telegram Bot API · the one cloud hop · text only</span>
+            <span class="arch-arrow arch-arrow--bidi" aria-hidden="true"></span>
+            <span class="arch-link-label arch-link-label--dashed"
+              >access terminal · local · tailnet only · approvals never leave the laptop</span
+            >
+          </div>
+          <div class="arch-node" data-tier="mobile">
+            <p class="kicker">Mobility tier</p>
+            <h3>Galaxy S25 Ultra</h3>
+            <p class="arch-node-sub">Telegram client + access terminal</p>
+          </div>
+        </div>
+
+        <div class="arch-cards">
+          <article class="card">
+            <header class="card-head">
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Arduino UNO Q</h3>
+              <span class="badge">sensing</span>
+            </header>
+            <p class="arch-does">
+              Samples temperature, humidity, ToF distance and button state over I2C, and pushes a
+              periodic climate tick (~10s) plus edge-triggered button and presence events to the
+              laptop. It has no RTC battery, so every cold boot needs its clock set before its
+              data is trusted.
+            </p>
+            <h4 class="sub-head">Components on this device</h4>
+            <ul class="arch-components">
+              <li><span class="arch-comp-name">Modulino Thermo</span> — temperature + humidity, Qwiic/I2C</li>
+              <li><span class="arch-comp-name">Modulino Distance</span> — ToF mm, presence gate at 1000mm, leak signal</li>
+              <li><span class="arch-comp-name">Modulino Buttons</span> — A / B / C, both-edge events</li>
+              <li><span class="arch-comp-name">STM32 sketch.ino</span> — reads the bus, bridges to the Linux side</li>
+              <li><span class="arch-comp-name">main.py</span> — App Lab container, writes <code>sensor_log.jsonl</code></li>
+              <li><span class="arch-comp-name">push_sensor_log.sh</span> — scp's the log out every 10s</li>
+            </ul>
+            <dl class="kv">
+              <dt>Sends to</dt><dd>Laptop, via USB or Tailscale</dd>
+              <dt>Receives</dt><dd>Nothing — one-way telemetry</dd>
+            </dl>
+          </article>
+
+          <article class="card">
+            <header class="card-head">
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Snapdragon X Elite laptop</h3>
+              <span class="badge">reasoning</span>
+            </header>
+            <p class="arch-does">
+              Ingests the sensor log; runs four MCP tool servers (environmental is real, network /
+              storage / compute are realistic mocks) that the Hermes Agent calls over stdio; sends
+              tool-augmented prompts to a local Qwen3-4B model served by GenieX on the Hexagon NPU;
+              runs a five-minute cron watchdog for proactive paging; and serves the wall display and
+              the access terminal, both from one Node process on port 7788.
+            </p>
+            <h4 class="sub-head">Components on this device</h4>
+            <ul class="arch-components">
+              <li><span class="arch-comp-name">environmental / network / storage / compute servers</span> — MCP tools, stdio</li>
+              <li><span class="arch-comp-name">Hermes Agent</span> — MCP client, skills, memory, cron</li>
+              <li><span class="arch-comp-name">GenieX serve</span> — OpenAI-compatible endpoint, 127.0.0.1:18181</li>
+              <li><span class="arch-comp-name">Qwen3-4B-Instruct-2507</span> — GGUF Q4_0, 64K context</li>
+              <li><span class="arch-comp-name">Hexagon NPU v73</span> — CPU stays at 12–17% during inference</li>
+              <li><span class="arch-comp-name">Wall + access terminal server</span> — 127.0.0.1:7788, SSE every 2s</li>
+            </ul>
+            <dl class="kv">
+              <dt>Receives</dt><dd>Sensor log (UNO Q)</dd>
+              <dt>Sends to</dt><dd>Phone, via Telegram Bot API</dd>
+            </dl>
+          </article>
+
+          <article class="card">
+            <header class="card-head">
+              <h3>Galaxy S25 Ultra</h3>
+              <span class="badge">mobility</span>
+            </header>
+            <p class="arch-does">
+              Runs the Telegram app as the on-call's notification and reactive-question client, and
+              opens the laptop-served access terminal page for physical badge-in decisions — the
+              only surface in the whole system a human writes to. Its own NPU is not in use today.
+            </p>
+            <h4 class="sub-head">Components on this device</h4>
+            <ul class="arch-components">
+              <li><span class="arch-comp-name">Telegram app</span> — receives pages, answers reactive questions</li>
+              <li><span class="arch-comp-name">phone.html</span> — access terminal: camera capture, approve/deny, served from the laptop</li>
+            </ul>
+            <dl class="kv">
+              <dt>Receives</dt><dd>Telegram messages; the terminal page over the tailnet</dd>
+              <dt>Sends to</dt><dd>Laptop — approve/deny decisions, local network only</dd>
+            </dl>
+          </article>
+        </div>
+
+        <article class="card note-card">
+          <header class="card-head"><h3>Why the authorisation layer sits below notification</h3></header>
+          <p>
+            Telegram carries the question and the page; it never carries the answer. A physical
+            access decision is made on the phone's local page over the tailnet, straight to the
+            laptop — not through a third-party relay. Approvals are the one write path in the
+            system; everything else here is read-only telemetry.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         Tab 3 — Live system. Unchanged: the original wall display, driven
+         by app.js over the /api/stream SSE feed.
+         ══════════════════════════════════════════════════════════════════ -->
+    <main class="wall tab-panel" id="panel-live" role="tabpanel" aria-labelledby="tab-btn-live" tabindex="0">
       <!-- ── Left: the environmental device ─────────────────────────────── -->
       <section class="column" aria-labelledby="device-title">
         <div class="column-head">
