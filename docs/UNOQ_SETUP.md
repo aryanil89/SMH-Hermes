@@ -64,7 +64,7 @@ testing (see below).
 1. **WiFi.** The board was reachable over USB-C via `adb shell` (no App Lab GUI needed).
    NetworkManager is scriptable directly:
    ```bash
-   nmcli dev wifi connect "HaQathon" password "tA20LO26s"
+   nmcli dev wifi connect "HaQathon" password "<event-wifi-password>"
    ```
    No `sudo` required — the `arduino` user is in the `netdev` group. Connection profiles
    auto-connect on boot by default (`connection.autoconnect: yes`).
@@ -84,7 +84,7 @@ testing (see below).
    ```
    `tailscale up` printed a one-time browser approval URL
    (`https://login.tailscale.com/a/...`) — opened manually, signed into the same Tailscale
-   account (`aryanil89@gmail.com`) as the laptop and phone. `tailscaled.service` is enabled by
+   account as the laptop and phone. `tailscaled.service` is enabled by
    the package install itself, so it starts on boot with no extra step, and reconnects
    automatically afterwards since the auth state persists under `/var/lib/tailscale`.
 
@@ -93,11 +93,12 @@ testing (see below).
    ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519
    ```
    Public key added to the laptop's `C:\ProgramData\ssh\administrators_authorized_keys` (the
-   `qc_de` Windows account is an Administrator, and Windows' OpenSSH Server requires this
+   laptop's Windows account is an Administrator, and Windows' OpenSSH Server requires this
    specific file — not the usual `~\.ssh\authorized_keys` — for admin accounts), with ACLs
    restricted to `Administrators` + `SYSTEM` via `icacls`. SSH from the board always targets the
-   laptop's Tailscale MagicDNS name, `qcworkshop24.tail453bf7.ts.net` — never the USB-C/ADB
-   link, which is provisioning-only and carries no application traffic.
+   laptop's Tailscale MagicDNS name (`<laptop-tailnet-host>`; environment-specific, not
+   committed) — never the USB-C/ADB link, which is provisioning-only and carries no
+   application traffic.
 
 5. **Sensor identification.** The Qwiic connector (three Modulino modules chained: Buttons,
    Distance, Thermo) is wired to `Wire1`, a bus visible only from the microcontroller sketch —

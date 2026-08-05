@@ -54,11 +54,11 @@ Full writeup: [../docs/UNOQ_SETUP.md](../docs/UNOQ_SETUP.md). App code:
 
    | Priority | SSID | Security |
    |---|---|---|
-   | 100 | `HaQathon` | WPA3 (`sae`) |
-   | 50 | `Hydra` | WPA2 (`wpa-psk`) |
-   | 40 | `Gould-Guest` | WPA2 (`wpa-psk`) |
-   | 30 | `Acharya` | WPA2 (`wpa-psk`) |
-   | 10 | `Chris' iPhone` | WPA2 (`wpa-psk`) |
+   | 100 | `HaQathon` (venue) | WPA3 (`sae`) |
+   | 50 | `<home-network-1>` | WPA2 (`wpa-psk`) |
+   | 40 | `<home-network-2>` | WPA2 (`wpa-psk`) |
+   | 30 | `<home-network-3>` | WPA2 (`wpa-psk`) |
+   | 10 | `<phone-hotspot>` | WPA2 (`wpa-psk`) |
 
    Passwords are stored only in the board's NetworkManager keystore
    (`/etc/NetworkManager/system-connections/`, root-readable) — deliberately **not** in this repo.
@@ -79,14 +79,14 @@ Full writeup: [../docs/UNOQ_SETUP.md](../docs/UNOQ_SETUP.md). App code:
    quoting. Roaming does **not** remove the clock caveat below — a network without working NTP
    still leaves the board with a wrong date.
 2. **Tailscale**: installed via the standard `curl -fsSL https://tailscale.com/install.sh | sh`,
-   authenticated once via browser against the same tailnet as the laptop
-   (`qcworkshop24`) and phone (`galaxy-s25-ultra`), `tailscaled.service` enabled at boot. Board
+   authenticated once via browser against the same tailnet as the laptop and phone
+   (`galaxy-s25-ultra`), `tailscaled.service` enabled at boot. Board
    shows up as `arduino-uno-q` on the tailnet.
 3. **SSH key auth to the laptop**: `arduino` user's ed25519 key added to the laptop's
    `C:\ProgramData\ssh\administrators_authorized_keys` (Windows requires this special file, not
    `~\.ssh\authorized_keys`, for accounts in the Administrators group). SSH only ever targets the
-   laptop's Tailscale MagicDNS hostname (`qcworkshop24.tail453bf7.ts.net`) — never the USB-C/ADB
-   link, which is provisioning-only.
+   laptop's Tailscale MagicDNS hostname (environment-specific, set in `push_sensor_log.sh`) —
+   never the USB-C/ADB link, which is provisioning-only.
 4. **Default password change**: the board ships with `arduino`/`arduino`, expired by policy on
    first use — had to be changed (non-interactively, via `passwd` over `adb shell`) before `sudo`
    would work at all.
