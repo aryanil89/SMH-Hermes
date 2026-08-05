@@ -9,6 +9,9 @@
 credentials*
 telegram_info
 
+# IP strategy material — internal analysis, never publish.
+docs/IP_ASSESSMENT*
+
 # Qualcomm-internal material — must NOT reach a public repo.
 # The hackathon deck is marked "Confidential - Qualcomm Technologies, Inc. ... May Contain Trade
 # Secrets" and slide 16 carries event WiFi + laptop credentials. Cite it in docs; don't commit it.

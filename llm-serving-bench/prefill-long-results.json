@@ -1,0 +1,14 @@
+[
+  {
+    "base": "http://127.0.0.1:18181/v1",
+    "runs": [
+      {
+        "label": "compression-threshold-32K",
+        "prompt_tokens": 31775,
+        "seconds": 293.0,
+        "prefill_tok_s": 108,
+        "finish_reason": "stop"
+      }
+    ]
+  }
+]

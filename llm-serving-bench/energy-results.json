@@ -1,0 +1,45 @@
+[
+  {
+    "label": "npu",
+    "base": "http://127.0.0.1:18181/v1",
+    "sensor": "System [W]",
+    "queries": 5,
+    "source": "csv",
+    "idle_w": 11.66,
+    "load_w": 18.0,
+    "load_s": 378.8,
+    "gross_j": 6769,
+    "net_j": 2353,
+    "j_per_query": 471,
+    "per_query_s": [
+      78.9,
+      76.0,
+      73.5,
+      73.9,
+      76.4
+    ],
+    "idle_samples": 30,
+    "load_samples": 189
+  },
+  {
+    "label": "cpu-3.9K",
+    "base": "http://127.0.0.1:18191/v1",
+    "sensor": "System [W]",
+    "queries": 2,
+    "prompt_reps": 120,
+    "prompt_tokens_each": 3873,
+    "source": "csv",
+    "idle_w": 10.86,
+    "load_w": 32.15,
+    "load_s": 122.6,
+    "gross_j": 3887,
+    "net_j": 2555,
+    "j_per_query": 1278,
+    "per_query_s": [
+      36.4,
+      86.2
+    ],
+    "idle_samples": 30,
+    "load_samples": 61
+  }
+]
