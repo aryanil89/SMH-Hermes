@@ -21,8 +21,18 @@
  *   UNOQ_SENSOR_LOG      sensor log path (defaults to the repo-root file)
  *   ALERT_STATE_PATH     watchdog state file the phone panel mirrors
  *   TELEGRAM_BOT_LABEL   name shown on the phone panel (default "Hermes Ops")
+ *
+ * Phone -> wall messages (all optional; without one the thread is outbound-only,
+ * and the panel says so rather than just looking quiet):
+ *   TELEGRAM_WALL_BOT_TOKEN  a SECOND bot, polled by the wall. Preferred -- it
+ *                            cannot collide with `hermes gateway`
+ *   TELEGRAM_POLL=1          poll the shared TELEGRAM_BOT_TOKEN instead. Only
+ *                            safe when the gateway is NOT running; see
+ *                            telegram-poll.ts
+ *   TELEGRAM_ALLOWED_USERS   comma-separated numeric ids allowed on the wall
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { exec } from "node:child_process";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -30,8 +40,10 @@ import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AccessSentry } from "../access/sentry.js";
 import { THERMAL_ZONE } from "../common/thermal.js";
+import { drainSentNotifications } from "../access/notify.js";
 import { SnapshotBuilder } from "./snapshot.js";
 import { TelegramFeed } from "./telegram-feed.js";
+import { TelegramPoller, allowedUsers, resolveInboundToken } from "./telegram-poll.js";
 import type { DashboardSnapshot, TelegramMessage } from "./types.js";
 import type { ApprovalDecision } from "../access/types.js";
 
@@ -50,6 +62,9 @@ if (!process.env.UNOQ_SENSOR_LOG && existsSync(DEFAULT_SENSOR_LOG)) {
 
 const PORT = Number(process.env.DASHBOARD_PORT ?? 7788);
 const HOST = process.env.DASHBOARD_HOST ?? "127.0.0.1";
+/** This is a demo-table display meant to be looked at, so open it by default. Opt out for a
+ *  headless run (e.g. before a projector is connected) with DASHBOARD_OPEN_BROWSER=0. */
+const OPEN_BROWSER = process.env.DASHBOARD_OPEN_BROWSER !== "0";
 // Floored: a sub-250ms cadence buys nothing visually and turns the log tail into
 // a busy loop on a machine that is also running NPU inference.
 const TICK_MS = Math.max(250, Number(process.env.DASHBOARD_TICK_MS ?? 2000));
@@ -78,12 +93,45 @@ const MIME: Record<string, string> = {
   ".woff2": "font/woff2",
 };
 
-const telegram = new TelegramFeed({
+/**
+ * Inbound Telegram, if it is safe to poll. `resolveInboundToken` prefers a
+ * dedicated wall bot and only touches the shared bot behind TELEGRAM_POLL=1 --
+ * see telegram-poll.ts for why polling the shared token would break the agent.
+ */
+const inbound = resolveInboundToken();
+let poller: TelegramPoller | undefined;
+
+const telegram: TelegramFeed = new TelegramFeed({
   statePath: STATE_PATH,
   botLabel: process.env.TELEGRAM_BOT_LABEL ?? "Hermes Ops",
   chatTitle: process.env.TELEGRAM_CHAT_TITLE ?? "On-call · Telegram",
   ingestUrl: `http://${HOST}:${PORT}/api/telegram`,
+  // The access sentry pages the phone directly; this is how those real sends
+  // reach the panel instead of only the cron watchdog's alerts.
+  drainOutbound: () => drainSentNotifications(),
+  ...(inbound ? { inboundStatus: () => poller?.getStatus() ?? { mode: "starting", detail: "starting", bot: inbound.bot } } : {}),
 });
+
+if (inbound) {
+  poller = new TelegramPoller({
+    token: inbound.token,
+    bot: inbound.bot,
+    allowedUsers: allowedUsers(),
+    // Only set when pointing the loop at a stub; unset means api.telegram.org.
+    ...(process.env.TELEGRAM_API_BASE ? { apiBase: process.env.TELEGRAM_API_BASE } : {}),
+    onMessage: (message) => {
+      telegram.ingest({
+        direction: "inbound",
+        text: message.text,
+        kind: "question",
+        at: message.at,
+      });
+      // Push a frame now: waiting up to 2s reads as lag between the phone and
+      // the wall when both are in shot.
+      void tick();
+    },
+  });
+}
 
 const access = new AccessSentry({
   statePath: ACCESS_STATE_PATH,
@@ -471,6 +519,23 @@ const server = createServer((req, res) => {
   void serveStatic(res, pathname);
 });
 
+/**
+ * Open the wall in the OS default browser. Best-effort: a demo laptop with no
+ * default browser configured, or a headless CI box, must not take the server
+ * down over this -- the URL is already logged for a human to click instead.
+ */
+function openInBrowser(url: string): void {
+  const command =
+    process.platform === "win32"
+      ? `cmd /c start "" "${url}"`
+      : process.platform === "darwin"
+        ? `open "${url}"`
+        : `xdg-open "${url}"`;
+  exec(command, (err) => {
+    if (err) console.warn(`[dashboard] could not auto-open a browser: ${err.message}`);
+  });
+}
+
 async function main(): Promise<void> {
   await tick();
   const timer = setInterval(() => void tick(), TICK_MS);
@@ -490,10 +555,31 @@ async function main(): Promise<void> {
     console.log(`[dashboard] sensor log : ${SENSOR_LOG}`);
     console.log(`[dashboard] alert state: ${STATE_PATH}`);
     console.log(`[dashboard] tick        : ${TICK_MS}ms`);
+
+    if (poller && inbound) {
+      poller.start();
+      console.log(`[dashboard] telegram in : polling the ${inbound.bot} bot for phone messages`);
+      if (inbound.bot === "shared") {
+        // The gateway is the agent's only route from the phone. If both poll,
+        // Telegram 409s one of them -- so say this before it bites.
+        console.warn(
+          "[dashboard] WARNING: polling the SHARED TELEGRAM_BOT_TOKEN. If `hermes gateway` is\n" +
+            "[dashboard]          running, one of the two will lose its updates. Prefer a second\n" +
+            "[dashboard]          bot via TELEGRAM_WALL_BOT_TOKEN.",
+        );
+      }
+    } else {
+      console.log(
+        "[dashboard] telegram in : off (set TELEGRAM_WALL_BOT_TOKEN, or POST /api/telegram)",
+      );
+    }
+
+    if (OPEN_BROWSER) openInBrowser(`http://${HOST === "0.0.0.0" ? "127.0.0.1" : HOST}:${PORT}`);
   });
 
   const shutdown = (): void => {
     clearInterval(timer);
+    poller?.stop();
     for (const client of clients) client.end();
     server.close(() => process.exit(0));
   };

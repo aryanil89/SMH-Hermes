@@ -77,7 +77,9 @@ Full writeup: [../docs/UNOQ_SETUP.md](../docs/UNOQ_SETUP.md). App code:
    WPA2 and WPA2/WPA3-transition APs). If an SSID contains an apostrophe or other shell
    metacharacter, put the `nmcli` call in a script and `adb push` it rather than fighting nested
    quoting. Roaming does **not** remove the clock caveat below — a network without working NTP
-   still leaves the board with a wrong date.
+   still leaves the board with a wrong date, and boot will stall at the clock wait for its full
+   `TimeoutStartSec` (48s) before giving up and bringing Tailscale up anyway. See
+   [boot sequence and timing](hermes-sensor-logger/README.md#boot-sequence-and-timing).
 2. **Tailscale**: installed via the standard `curl -fsSL https://tailscale.com/install.sh | sh`,
    authenticated once via browser against the same tailnet as the laptop and phone
    (`galaxy-s25-ultra`), `tailscaled.service` enabled at boot. Board

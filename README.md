@@ -41,10 +41,13 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 > measured the simulator's own false-positive rate and recalibrated it — see
 > [docs/REVIEW_3_2026-08-04.md](docs/REVIEW_3_2026-08-04.md) §2.
 >
-> **On identity:** the access sentry ships working in **badge mode** and **detection-only mode**.
-> The face-embedding rung is an out-of-process hook — contract, fallback and tests are built, the
-> model is not plugged in. Presence, door state, the decision matrix and the approval loop are all
-> real and live. See [phone/README.md](phone/README.md) § the identity ladder.
+> **On identity:** there is no automated identity check today — no badge or QR reading, no face
+> recognition. The one physical-security signal is the Modulino Distance sensor detecting presence
+> (under 1000mm); that opens a challenge, a photo is captured, and a human approves or denies on
+> the phone. Presence, door state, the decision matrix and the approval loop are all real and live.
+> The codebase has a pluggable identity-adapter interface (`qr-badge`, `face-npu`, `face-cpu`)
+> behind this, but none of those rungs are demonstrated or claimed — see
+> [phone/README.md](phone/README.md) § the identity ladder.
 
 ## Status
 **[PROGRESS.md](PROGRESS.md)** — the living done/next map. Read this first.
@@ -61,7 +64,7 @@ between them is part of the submission, not a footnote.
 | Area | Today (built, verified) | Planned (not built) |
 |---|---|---|
 | LLM inference | Qwen3-4B-Instruct-2507 Q4_0 on the **laptop's** X Elite NPU via GenieX — measured, serving the agent | Same model benchmarked on the **phone's** 8 Elite NPU via a pre-compiled bundle over `adb` — same GGUF, two Hexagon NPUs, one table |
-| Physical access | Presence → challenge → QR-badge / detection-only identity → human approve/deny on the phone's local page → append-only audit trail | Face-embedding rung on the X Elite NPU (CavaFace + Face-Det-Lite via the existing `ACCESS_VISION_SCRIPT` seam) — until then, "face recognition" is **not** claimed |
+| Physical access | Presence (ToF distance sensor, <1000mm) → challenge → photo captured → human approve/deny on the phone's local page → append-only audit trail. No automated identity match — a human makes every call | Automated identity resolution — badge/QR reading, face recognition (`ACCESS_VISION_SCRIPT` seam exists but is unwired) — **not** claimed |
 | Phone's role | Approval terminal (`phone.html`) + Telegram client + **challenge notification pushed to Telegram** (text only, deliberately no photo; fire-and-forget, silent no-op when unconfigured) — no on-phone inference | On-phone LLM benchmark, "failover brain" demo beat |
 | Alert suppression | **Wired and verified end to end**: an enrolled responder on site withholds the page; walking away releases it *("held while the on-call was on site; sending now")*; escalation or a stale access state pages regardless | — |
 | Energy | No energy numbers exist yet | Measured joules-per-token on both NPUs, with error bars and methodology |
@@ -77,7 +80,7 @@ and how to know it worked. The flow being started:
                                   [MCP tool servers: network/storage/compute = mock,
                                    environmental = real, assessment = the one-call verdict]
                                         ↑ log file
-                                  [2] Arduino UNO Q sensors → USB or Tailscale
+                                  [2] Arduino UNO Q sensors → WiFi + Tailscale VPN
                                   [5] cron watchdog → proactive Telegram alerts
                                   [6] wall display     → local browser (read-only)
                                   [7] access terminal  → the phone (the only thing that writes)
@@ -97,7 +100,7 @@ for anywhere else.
 |---|---|
 | **Windows on ARM64** (Snapdragon X Elite / Copilot+) | The GenieX NPU path is win-arm64 only. An x64 machine can run everything *except* NPU inference |
 | **Node 18+** | For the MCP tool servers (verified on v24.18) |
-| **`adb`** | Only for the USB sensor transport. It ships inside the scrcpy package: `winget install Genymobile.scrcpy` — this is not obvious |
+| **`adb`** | Only for flashing/configuring the board (sketch + app deploy, initial WiFi/Tailscale setup, clock sync) — it carries no sensor traffic. Ships inside the scrcpy package: `winget install Genymobile.scrcpy` — this is not obvious |
 | **Telegram bot token** | From [@BotFather](https://t.me/BotFather); your numeric id from @userinfobot |
 | QAIRT SDK 2.32+ *(optional)* | Only to re-run the NPU profiling in `bench/` |
 | ~10 GB disk | Model artifacts: Q4_0 GGUF ~4.5 GB, W4A16 bundle ~3 GB |
@@ -240,27 +243,30 @@ Restart, recovery and health checks for every component: **[docs/RUNBOOK.md](doc
 
 The board app auto-starts on boot and writes one `sensor_tick` line (temperature + humidity) every
 10s to its local log, plus one line per button transition — both press *and* release — and one per
-ToF presence crossing. Getting that file **to the laptop** has two transports — pick one:
+ToF presence crossing. Getting that file **to the laptop** is WiFi + Tailscale, and nothing else:
+nothing to start on the laptop — the board's `hermes-sensor-logger-push.service` scp-pushes every
+10s over the tailnet, *if* the board has WiFi and its Tailscale is authed (`tailscale status` on
+the board; re-auth after long offline periods).
 
-**A. USB (bench / demo table — most reliable, zero network):**
-```powershell
-powershell -File uno-q\pull_sensor_log.ps1     # adb-pulls every 10s; leave it running
-```
+**USB-C is configuration only** — flashing the board app, initial WiFi/Tailscale provisioning, and
+one-off admin commands like the clock sync below. It never carries sensor data to the server.
 
-**B. Venue WiFi + Tailscale (the original push path):** nothing to start on the laptop — the
-board's `hermes-sensor-logger-push.service` scp-pushes every 10s, *if* the board has WiFi and its
-Tailscale is authed (`tailscale status` on the board; re-auth after long offline periods).
+⏱️ **Budget ~70 seconds from power-on.** Boot is ~1min 9s measured, and most of that is the board
+waiting for NTP before it starts Tailscale — deliberate, so the VPN never comes up on a 1970 clock.
+Power the board up before you need it, not during the demo. Detail and the measured numbers:
+[uno-q/hermes-sensor-logger/README.md](uno-q/hermes-sensor-logger/README.md#boot-sequence-and-timing).
 
-⚠️ **After any board power-up without network**: the UNO Q has no RTC battery — it boots in 1970,
-all timestamps go wrong, and the staleness guard will (correctly) reject its data. Fix from the
-laptop:
+⚠️ **After a board power-up with no NTP at all** (offline bench, captive portal): the UNO Q has no
+RTC battery — it boots in 1970, all timestamps go wrong, and the staleness guard will (correctly)
+reject its data. On a network with working NTP the boot sequence now fixes this by itself. When it
+can't, set the clock from the laptop over USB:
 ```powershell
 $utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
 adb shell "docker run --rm --user 0 --cap-add SYS_TIME --entrypoint date ghcr.io/arduino/app-bricks/python-apps-base:0.5.0 -u -s '$utc'"
 ```
 
 **Worked when:** `arduino_uno_q-sensor_log.json` at the repo root gets a fresh `sensor_tick` line
-every ~10–20s. If you edited the board app, redeploy with:
+every ~10–20s. If you edited the board app, redeploy over USB:
 ```powershell
 adb push uno-q\hermes-sensor-logger\sketch\sketch.ino /home/arduino/ArduinoApps/hermes-sensor-logger/sketch/sketch.ino
 adb push uno-q\hermes-sensor-logger\python\main.py /home/arduino/ArduinoApps/hermes-sensor-logger/python/main.py
@@ -367,17 +373,20 @@ it is where an access challenge is answered.
 # Bind somewhere the phone can reach — the Tailscale address, never 0.0.0.0 on venue WiFi.
 $env:DASHBOARD_HOST      = "100.x.y.z"     # the laptop's tailnet address
 $env:ACCESS_SHARED_SECRET = "pick-something"
-$env:ACCESS_IDENTITY_METHOD = "qr-badge"   # working today; "stub" = detection-only
-cd mcp-tools; npm run start:dashboard; cd ..
+cd mcp-tools; npm run start:dashboard; cd ..    # ACCESS_IDENTITY_METHOD defaults to "stub"
 ```
 
 Then open `http://100.x.y.z:7788/phone.html?secret=pick-something` on the phone.
 
-What it does: someone approaches the rack, the ToF presence sensor opens a **challenge**, you
-photograph them with one tap, identity resolves down a [swappable
-ladder](phone/README.md#the-identity-ladder), and an 8-row decision matrix produces a verdict in
-context — including **tailgating** (more faces than authorised door entries) and **anti-passback**
-(at the rack with no door edge). You approve or deny **on this page**, not over Telegram.
+What it does: someone approaches the rack, the ToF presence sensor (< 1000mm) opens a
+**challenge**, you photograph them with one tap, and an 8-row decision matrix produces a verdict
+in context — including **tailgating** (more faces than authorised door entries) and
+**anti-passback** (at the rack with no door edge). There is no automated identity check: the
+default and only claimed rung is detection-only, so every face reads as unknown and a human
+approves or denies **on this page**, not over Telegram, based on the photo. (The codebase also has `qr-badge`/`face-npu`/`face-cpu` identity rungs behind a pluggable
+interface — none are part of what's demoed or claimed. `qr-badge` has no real badge behind it,
+just a typed name treated as a credential; `face-npu`/`face-cpu` need an external script that
+doesn't exist in this repo — see [phone/README.md](phone/README.md#the-identity-ladder).)
 
 **Worked when:** trip the ToF sensor → the wall's Access card reads *"Presence detected — awaiting
 capture"* → tap the camera button on the phone → the verdict and reasons appear on **both** screens
@@ -420,7 +429,8 @@ Every row here cost us real time; none are hypothetical.
 |---|---|---|
 | Telegram **questions** fail — *"model provider failed after retries"*; log shows `APIConnectionError … 127.0.0.1:18181` | **GenieX isn't running.** Nothing auto-starts it after a reboot | Redo step 1. Note the **cron alerts keep arriving while this is broken** — they never call the model, so "alerts are fine" is *not* evidence the agent is fine |
 | Replies never finalize; Hermes retries forever | The non-streaming patch was reverted — usually by `hermes update` | Re-apply the patch and keep `HERMES_FORCE_NONSTREAM=1` |
-| `"source": "mock"`, reason *"sensor log is stale"* | Board clock is wrong. The UNO Q has **no RTC battery**, so every power-up without network resumes hours behind and its timestamps look ancient | Set the clock — step 2 ⚠️. **Do this after every board boot on the USB path** |
+| `"source": "mock"`, reason *"sensor log is stale"* | Board clock is wrong. The UNO Q has **no RTC battery**, so a power-up with no reachable NTP resumes hours behind and its timestamps look ancient | On a network with NTP the boot sequence fixes this itself — just wait ~70s. With no NTP, set the clock over USB — step 2 ⚠️ |
+| Board takes over a minute to appear after power-on | Expected. Boot waits for NTP before starting Tailscale (~38s of a ~69s boot) so the VPN never comes up on a 1970 clock | Nothing to fix — budget ~70s. See [boot timing](uno-q/hermes-sensor-logger/README.md#boot-sequence-and-timing) |
 | An alert arrives with plausible-but-invented numbers | Same as above. The mock fallback labels itself honestly, but the *severity* still reads as real | Check `source` before trusting any alert. `mock` = the physical path is down |
 | Model answers but `tool_calls` is `null` | Wrong quantization — Q4_K_M | Use **Q4_0** |
 | `SDKError(Model loading failed)` on tool-enabled requests | `--compute gpu` | Use `--compute npu` |
@@ -432,7 +442,7 @@ Every row here cost us real time; none are hypothetical.
 | **No alert arrived and nothing is wrong on the wall either** | An enrolled person is at the rack, so the page is being **held** on purpose (step 5 ⚠️) | Check the Access card — verdict `expected` means held, not broken. Walk away from the sensor and it fires |
 | The wall shows `expected` but the phone still paged | Correct: either the status **escalated** after they arrived, or the access state is older than `ACCESS_SUPPRESS_MAX_AGE_S` | Both are fail-open by design. If it is staleness, the dashboard (step 6) is not running — suppression needs it alive |
 | Phone gets **401** on Approve / Enrol | `ACCESS_SHARED_SECRET` is set on the server but missing from the phone's URL | Open `…/phone.html?secret=<the secret>` |
-| Everyone reads as `unknown` no matter what | `ACCESS_IDENTITY_METHOD` is `stub` (the default) — detection-only, which never matches | Set `qr-badge` and enrol the name, or leave it: the loop is identical either way |
+| Everyone reads as `unknown` no matter what | `ACCESS_IDENTITY_METHOD` is `stub` (the default and only claimed rung) — detection-only, by design. Nothing is broken | This is expected. The loop, matrix and audit trail all run the same way; a human decides from the photo either way |
 | Access card says *"presence unobservable"* | The sensor feed is stale, so the sentry froze rather than guess | Same fix as the `source: mock` row above. It is **not** filing false audit entries while in this state |
 | First reply of a session takes minutes, later ones are faster | `--keepalive` defaults to **300s**, so the model unloads after 5 min idle. The cron runs `--no-agent`, so nothing keeps it warm | `--keepalive 3600` (step 1), or send a throwaway message a minute before presenting |
 | `curl /v1/models` hangs for minutes | **Not a fault.** GenieX serializes all requests; your probe is queued behind a completion. Measured 654 µs idle vs 1m42s behind one | Health-check with `Get-Process geniex` + `Get-NetTCPConnection -LocalPort 18181`, never HTTP |
@@ -503,7 +513,7 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 
 ## Layout
 - `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive cron watchdog, plus the local wall display (`src/dashboard/` + the dependency-free pages in `public/`, see [docs/DASHBOARD.md](docs/DASHBOARD.md)), plus the physical-access sentry (`src/access/` — decision matrix, identity ladder, roster of embeddings, append-only audit trail) and the bridge that lets a responder on site withhold a page (`src/alert-skill/suppress.ts`)
-- `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic climate `sensor_tick`, both-edge button events, and ToF presence crossings over three Bridge channels, plus the LED-matrix boot/connection display), the USB `pull_sensor_log.ps1` transport fallback, and deployment/bring-up docs
+- `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic climate `sensor_tick`, both-edge button events, and ToF presence crossings over three Bridge channels, plus the LED-matrix boot/connection display), pushed to the laptop over WiFi + Tailscale, and deployment/bring-up docs
 - `bench/` — NPU profiling harness (qnn-net-run against the W4A16 bundle); results in [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 - `hermes.env.example` — template for Hermes's own `.env` (copy to `%LOCALAPPDATA%\hermes\.env`); the
   only five settings that matter, everything else in Hermes's stock file can stay untouched

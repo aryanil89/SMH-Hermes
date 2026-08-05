@@ -63,7 +63,7 @@ everyone on the network. The tailnet is WireGuard point-to-point and does not.
 **Set a shared secret whenever you bind off loopback.** The read paths are a display; the write
 paths are an access-control system, and `/api/access/enroll` is the sharpest edge — the roster
 is what every later decision trusts, so anyone who can reach the port could enrol themselves and
-then badge in as `known`:
+then have their own capture read as `known`:
 
 ```powershell
 $env:ACCESS_SHARED_SECRET = "pick-something"
@@ -112,25 +112,30 @@ added **before** the first capture existed.
 
 ## The identity ladder
 
-Identification is a swappable adapter. The approval loop, the decision matrix and the audit
-trail are identical whichever rung answered, so a rung that fails costs a capability rather
-than the demonstration. Set with `ACCESS_IDENTITY_METHOD`:
+**Today, no rung above detection-only is part of the demo or the claim.** The only
+physical-security signal is the Distance Modulino's presence read (< 1000mm); that opens a
+challenge, a photo is captured, and a human decides. Identity resolution is architected as a
+swappable adapter — same idea as the messaging gateway, so a rung that fails costs a capability
+rather than the demonstration — but three of its four rungs are unused. Set with
+`ACCESS_IDENTITY_METHOD`:
 
 | Rung | `ACCESS_IDENTITY_METHOD` | What it does | Status |
 |---|---|---|---|
-| 1 | `face-npu` | AI Hub face model via ONNX Runtime + QNN EP on the Hexagon NPU | needs `ACCESS_VISION_SCRIPT` |
-| 2 | `face-cpu` | same model, CPU execution — still entirely on-device | needs `ACCESS_VISION_SCRIPT` |
-| 3 | `stub` *(default)* | detection-only; everyone reads as unknown, loop runs end to end | **working** |
-| 4 | `qr-badge` | printed QR badge, decoded in-browser by `BarcodeDetector` | **working** |
+| 1 | `face-npu` | AI Hub face model via ONNX Runtime + QNN EP on the Hexagon NPU | not built — needs `ACCESS_VISION_SCRIPT`, which doesn't exist in this repo |
+| 2 | `face-cpu` | same model, CPU execution — still entirely on-device | not built — same missing script |
+| 3 | `stub` *(default)* | detection-only; everyone reads as unknown, loop runs end to end | **the only rung we claim** |
+| 4 | `qr-badge` | a QR code is decoded in-browser by `BarcodeDetector`, and its text is matched against enrolled names | code exists and runs, but not claimed — there's no real badge behind it, just a typed name treated as the credential, and anyone can print a QR code with any name on it |
 
 Rungs 1–2 shell out to a Python process (`ACCESS_VISION_SCRIPT`) that reads
 `{"imageBase64": "..."}` on stdin and returns `{"embeddings": [[...]], "boxes": [[x,y,w,h]],
 "device": "npu"|"cpu"}`. It runs out-of-process deliberately: the QNN execution provider is the
 least stable thing in this stack, and a native crash must not take the wall down mid-demo. If
-it fails, the record says so (`degradedFrom`) rather than hiding it.
+it fails, the record says so (`degradedFrom`) rather than hiding it. No `ACCESS_VISION_SCRIPT`
+ships in this repo today, so rungs 1–2 cannot run regardless of the env var.
 
 The default is the *least* capable rung that works, so an unconfigured machine understates what
-it can do rather than claiming a match it never made.
+it can do rather than claiming a match it never made. We haven't switched on anything above that
+default for this project — if that changes, this table is the place to update.
 
 ## Still not implemented
 

@@ -130,6 +130,78 @@ describe("TelegramFeed", () => {
     expect(view.messages.filter((m) => m.kind !== "system")).toHaveLength(0);
   });
 
+  it("shows real pushes the server made, not just watchdog alerts", async () => {
+    // The reported bug: an access challenge reached the on-call's phone while
+    // this panel sat empty, because only the cron watchdog fed it.
+    const sends = [
+      { at: "2026-08-05T19:10:05.000Z", text: "ACCESS CRITICAL - zone-east", delivered: true },
+    ];
+    const withDrain = new TelegramFeed({
+      statePath,
+      botLabel: "Hermes Ops",
+      chatTitle: "On-call",
+      ingestUrl: "http://127.0.0.1:7788/api/telegram",
+      drainOutbound: () => sends.splice(0, sends.length),
+    });
+
+    const view = await withDrain.update(reading(), new Date("2026-08-04T19:10:00.000Z"));
+
+    const push = view.messages.find((m) => m.text.includes("ACCESS CRITICAL"));
+    expect(push?.direction).toBe("outbound");
+    expect(push?.delivered).toBe(true);
+    expect(view.ingestedCount).toBe(1);
+  });
+
+  it("marks a failed push undelivered instead of claiming the on-call was paged", async () => {
+    const sends = [
+      {
+        at: "2026-08-05T19:10:05.000Z",
+        text: "ACCESS CRITICAL - zone-east",
+        delivered: false,
+        error: "fetch failed",
+      },
+    ];
+    const withDrain = new TelegramFeed({
+      statePath,
+      botLabel: "Hermes Ops",
+      chatTitle: "On-call",
+      ingestUrl: "http://127.0.0.1:7788/api/telegram",
+      drainOutbound: () => sends.splice(0, sends.length),
+    });
+
+    const view = await withDrain.update(reading(), new Date("2026-08-04T19:10:00.000Z"));
+
+    const push = view.messages.find((m) => m.text.includes("ACCESS CRITICAL"));
+    expect(push?.delivered).toBe(false);
+    expect(push?.text).toContain("fetch failed");
+  });
+
+  it("reports an unconfigured inbound path rather than looking merely quiet", async () => {
+    const view = await feed.update(reading(), new Date("2026-08-04T19:10:00.000Z"));
+
+    expect(view.inbound.mode).toBe("off");
+    expect(view.inbound.bot).toBe("none");
+    expect(view.inbound.detail).toMatch(/TELEGRAM_WALL_BOT_TOKEN|api\/telegram/);
+  });
+
+  it("passes a live inbound status straight through", async () => {
+    const withInbound = new TelegramFeed({
+      statePath,
+      botLabel: "Hermes Ops",
+      chatTitle: "On-call",
+      ingestUrl: "http://127.0.0.1:7788/api/telegram",
+      inboundStatus: () => ({ mode: "live", detail: "long-polling getUpdates", bot: "dedicated" }),
+    });
+
+    const view = await withInbound.update(reading(), new Date("2026-08-04T19:10:00.000Z"));
+
+    expect(view.inbound).toEqual({
+      mode: "live",
+      detail: "long-polling getUpdates",
+      bot: "dedicated",
+    });
+  });
+
   it("says so when the watchdog has never run", async () => {
     const view = await feed.update(reading(), new Date("2026-08-04T19:10:00.000Z"));
 
