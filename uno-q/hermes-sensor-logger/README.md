@@ -237,10 +237,10 @@ high-level `endText()` call, which doesn't yield control mid-scroll.
 ## How this feeds the MCP environmental tool (gap closed 2026-08-03)
 
 The MCP tool (`mcp-tools/src/environmental/source.ts`) reads sources in order: (1) this app's
-pushed/pulled log file (`UNOQ_SENSOR_LOG`), (2) an on-demand SSH pull (`UNOQ_HOST`,
-`unoq-client.ts` — still unimplemented board-side, now redundant), (3) mock fallback with an
-explicit reason. With the 10s `sensor_tick` channel, source (1) keeps the tool on real data
-continuously.
+pushed log file (`UNOQ_SENSOR_LOG`, delivered over WiFi + Tailscale), (2) an on-demand SSH pull
+(`UNOQ_HOST`, `unoq-client.ts` — still unimplemented board-side, now redundant), (3) mock fallback
+with an explicit reason. With the 10s `sensor_tick` channel, source (1) keeps the tool on real
+data continuously.
 
 **Leak detection is now two-signal:**
 
@@ -252,12 +252,12 @@ continuously.
   `UNOQ_LEAK_WINDOW_S` (default 300s) reports `leakVia: "event"`. This is a person pressing a
   button, kept as the stage fallback if the water rig misbehaves.
 
-## Transport: Tailscale push vs USB pull
+## Transport: WiFi + Tailscale, and nothing else
 
-Primary: `push_sensor_log.sh` on the board scp-pushes over Tailscale every 10s. **Fallback (no
-WiFi/tailnet — bench work, demo table):** run `../pull_sensor_log.ps1` on the laptop instead; it
-adb-pulls the same file over the USB cable at the same cadence. Same laptop path, so nothing else
-changes.
+`push_sensor_log.sh` on the board scp-pushes the log to the laptop over the Tailscale tailnet
+every 10s. That is the only way sensor data reaches the laptop. USB-C is used solely to configure
+and flash the board (`adb push`/`adb shell`, below) — it carries no sensor traffic, and no
+supported fallback pulls the log over the cable.
 
 ## ⚠️ Board clock gotcha (bites every off-network power cycle)
 
