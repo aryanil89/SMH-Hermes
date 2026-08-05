@@ -154,13 +154,34 @@ Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
 
 ## 3. Hermes gateway
 
+The gateway runs as a **Windows Scheduled Task** (`Hermes_Gateway`), installed by
+`scripts\install-autostart.ps1`. Drive it through Hermes' own subcommands — never with
+`Get-Process` / `Stop-Process`:
+
 ```powershell
 # Location is not on PATH -- it lives in its own venv
 $H = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\hermes.exe"
 
-Get-Process hermes | Stop-Process -Force     # stop
-& $H gateway                                 # start (foreground)
+& $H gateway status      # pid, state, telegram, active_agents
+& $H gateway restart     # after any config.yaml edit
+& $H gateway stop        # stop; the task restarts it at next logon
+& $H gateway start       # start
 ```
+
+**Do not use `Get-Process hermes | Stop-Process -Force`.** It has the same blast-radius
+problem as the image-wide geniex kill in §2 — it matches *every* hermes process, including
+CLI sessions and any agent mid-turn — and against a service-hosted gateway it fights the
+task's restart-on-failure instead of stopping it cleanly.
+
+**Do not run `& $H gateway` in the foreground while the task is installed.** Hermes refuses
+that combination on purpose: the foreground instance leaves an orphan dispatcher that
+escapes the service, survives restarts, and writes to the same `state.db` concurrently —
+which can corrupt it.
+
+There is no console window by design: the task launches via `wscript.exe`, because a
+console-hosted gateway receives `STATUS_CONTROL_C_EXIT` at logon and Task Scheduler reads
+that as a *user cancel*, so restart-on-failure would never fire. Use `gateway status` and
+the log files instead of looking for a window.
 
 `HERMES_HOME` is `%LOCALAPPDATA%\hermes` — there is **no `~/.hermes` on Windows**. Config,
 secrets (`.env`), cron scripts, and `state.db` all live there.

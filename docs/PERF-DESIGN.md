@@ -286,6 +286,32 @@ Post-hackathon, bench-only fix: scope the kill to the PID owning 18181, or add a
 pause-file the supervisor honours while benchmarks run. Modifying a watchdog days
 before the demo is a worse risk than a bug that only fires during benching.
 
+**What *did* change: the supervisor is no longer the top of the chain.** Reviewing
+it exposed that the safety net had a single point of failure — the supervisor
+watched geniex, but nothing watched the supervisor, and nothing watched the
+gateway at all. All three were hand-launched windows, so a reboot or a stray
+window close ended the demo with no recovery. `scripts\install-autostart.ps1`
+registers them as Scheduled Tasks (at logon, restart every 1 min × 999, no
+execution time limit):
+
+| process | restarted by | survives reboot |
+|---|---|---|
+| geniex (18181) | `geniex-supervisor.ps1` | yes (via the task below) |
+| `geniex-supervisor.ps1` | Task `SMH-Hermes-GenieX-Supervisor` | yes |
+| hermes gateway | Task `Hermes_Gateway` (Hermes' own installer) | yes |
+| wall display (7788) | Task `SMH-Hermes-WallDisplay` | yes |
+| MCP servers (6) | the gateway, over stdio | yes — no task needed |
+| Arduino UNO Q | its own systemd units on the board | out of scope here |
+
+The wall display earns a task for a correctness reason, not a cosmetic one: it
+is the only writer of `.state\access.json`, and the access sentry **fails open**,
+so a dead display makes the demo emit false pages (`DASHBOARD.md`). Its log goes
+to `%LOCALAPPDATA%\hermes\wall-display.log` since the task runs hidden.
+
+The supervisor's own logic is untouched — only its lifetime changed. Start/stop
+model and the `Get-Process hermes` hazard: `RUNBOOK.md` §3. Use
+`-Only gateway|supervisor|wall` to add one component without bouncing the others.
+
 ## 6. Demo-day checklist
 
 Run in order. Item 1 is the highest-severity item in this document — it is the
@@ -300,9 +326,41 @@ only single point of failure that silently kills the whole demo.
    guarantees the compression threshold is never reached.
 3. **Typing-bubble live test** (P3). Send one message; confirm the "typing…"
    bubble appears within ~2 s. This is the whole of P3's remaining work.
-4. **Confirm serving state**: `Get-NetTCPConnection -LocalPort 18181` shows a
-   `geniex` owner, and the supervisor window is running.
-5. **Confirm the prompt diet is live**: the newest `system_prompts` row in
-   `state.db` should show a skills block of ~1,833 chars, not 8,201. If it still
-   reads 8,201, the gateway was not restarted after the `config.yaml` edit
-   (`RUNBOOK.md` — config is read at boot only).
+4. **Confirm serving state.** All three watchdogs run as Scheduled Tasks with no
+   visible window (`scripts\install-autostart.ps1`), so check the tasks, not the
+   taskbar:
+   ```powershell
+   Get-ScheduledTask Hermes_Gateway, SMH-Hermes-GenieX-Supervisor, SMH-Hermes-WallDisplay |
+     Select-Object TaskName, State                  # all Ready or Running
+   Get-NetTCPConnection -LocalPort 18181 -State Listen   # owner must be geniex
+   Get-NetTCPConnection -LocalPort 7788  -State Listen   # wall display / access.json writer
+   & $H gateway status                              # running + telegram connected
+   ```
+5. **Confirm the prompt diet is live.** Use Hermes' own renderer — it is offline,
+   needs no Telegram message, and reports the real number:
+   ```powershell
+   $env:HERMES_PLATFORM = 'telegram'; & $H prompt-size --platform telegram
+   ```
+   Expect **system prompt ≈ 8,636 chars** with a **skills index of ~149 B**.
+   Without the diet it reads 15,004 chars / 6,539 B.
+
+   **Two instruments will lie to you here, and both did during review:**
+
+   - **`state.db` cannot answer this.** `system_prompts` is
+     `(hash PRIMARY KEY, prompt)` — content-addressed, garbage-collected, with
+     **no timestamp and no session id**. It stores a per-session snapshot taken at
+     session creation, not a per-turn log, so it looks identical whether or not
+     live turns are pruned. Four unpruned rows only means no *new session* has
+     been created since the edit.
+   - **`prompt-size` without `HERMES_PLATFORM` also cannot answer it.** The
+     disabled-skills filter reads an ambient session hint
+     (`prompt_builder.py:1568` → `HERMES_PLATFORM` / `HERMES_SESSION_PLATFORM`,
+     else the gateway's `session_context`), **not** the `--platform` flag. In a
+     CLI process the hint is empty, so the filter resolves to zero disabled and
+     telegram reports the same 6,539 B as cli. Setting the env var is what makes
+     the check honest.
+
+   In the gateway the hint is bound per session via contextvars
+   (`approval.py:247`), and `build_system_prompt_parts` re-renders the prompt
+   every turn (the volatile tier carries a timestamp), so the diet applies to
+   in-flight sessions too — not just new ones.
