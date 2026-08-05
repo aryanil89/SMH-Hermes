@@ -1287,6 +1287,15 @@ svg {
   color: var(--ink-3);
 }
 
+/* Inbound path state, paired with the words in the text itself — never colour alone. */
+.tg-sub[data-status="ok"] {
+  color: var(--good);
+}
+
+.tg-sub[data-status="warning"] {
+  color: var(--warning);
+}
+
 .tg-thread {
   flex: 1 1 auto;
   min-height: 0;
@@ -1363,6 +1372,23 @@ svg {
 
 .bubble-text {
   display: block;
+  /* Telegram messages are multi-line (the alert text has real newlines in it),
+     and collapsing them turns a readable page into one run-on sentence. */
+  white-space: pre-wrap;
+}
+
+/* An empty thread has to say whether it is quiet or broken. */
+.tg-placeholder {
+  align-self: center;
+  max-width: 94%;
+  margin: auto 0;
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  border: 1px dashed var(--rule);
+  border-radius: 8px;
 }
 
 .bubble-meta {

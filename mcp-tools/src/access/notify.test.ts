@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { challengeText, notifyChallenge, resetNotifications } from "./notify.js";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { challengeText, drainSentNotifications, notifyChallenge, resetNotifications } from "./notify.js";
 import type { AccessEvent } from "./types.js";
 
 const event = (over: Partial<AccessEvent> = {}): AccessEvent => ({
@@ -92,5 +92,65 @@ describe("notifyChallenge", () => {
     // The WiFi-off beat guarantees this call fails. It must be invisible.
     const config = { botToken: "not-a-real-token", chatId: "0" };
     expect(() => notifyChallenge(event(), config)).not.toThrow();
+  });
+});
+
+describe("sent-notification log (what the wall display shows)", () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+    vi.restoreAllMocks();
+  });
+
+  /** Let the fire-and-forget send settle without exposing a promise from the API. */
+  const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it("records a successful push so the phone panel can show it", async () => {
+    // The reported bug: an access challenge reached the on-call's phone while the
+    // wall's Telegram panel stayed empty, because nothing told the panel.
+    globalThis.fetch = vi.fn(async () => new Response("{}", { status: 200 })) as typeof fetch;
+
+    notifyChallenge(event(), { botToken: "t", chatId: "c" });
+    await settle();
+
+    const sent = drainSentNotifications();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.delivered).toBe(true);
+    expect(sent[0]?.text).toMatch(/ACCESS WARNING - zone-east/);
+  });
+
+  it("records a failed push as undelivered rather than dropping it", async () => {
+    // During the WiFi-off beat this WILL fail. The wall must show that the page
+    // did not get through, not a confident outbound bubble.
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("fetch failed");
+    }) as typeof fetch;
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    notifyChallenge(event(), { botToken: "t", chatId: "c" });
+    await settle();
+
+    const sent = drainSentNotifications();
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.delivered).toBe(false);
+    expect(sent[0]?.error).toContain("fetch failed");
+  });
+
+  it("drains, so two readers cannot double-count one push", async () => {
+    globalThis.fetch = vi.fn(async () => new Response("{}", { status: 200 })) as typeof fetch;
+
+    notifyChallenge(event(), { botToken: "t", chatId: "c" });
+    await settle();
+
+    expect(drainSentNotifications()).toHaveLength(1);
+    expect(drainSentNotifications()).toHaveLength(0);
+  });
+
+  it("records nothing when Telegram is not configured", async () => {
+    notifyChallenge(event(), {});
+    await settle();
+
+    expect(drainSentNotifications()).toHaveLength(0);
   });
 });
