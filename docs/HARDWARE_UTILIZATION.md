@@ -136,11 +136,12 @@ The board's job is sensing, which is what a board with GPIO and an MCU is actual
 
 ⚠️ The board also has **no onboard environmental sensors**. Temperature/distance/button data comes
 from external **Modulino** modules on the Qwiic bus (`Wire1`) — see [../uno-q/README.md](../uno-q/README.md).
-There is no true leak sensor on hand. Two stand-ins exist: **button C** injects a `leak_detected`
-event (the primary stage trigger), and the **Distance** module doubles as a water-level probe —
-`distance_mm` reaches the laptop and is reported as "water-level distance". Level-based leak
-detection is implemented but **disabled** until `UNOQ_LEAK_DISTANCE_MM` is calibrated against the
-empty tray.
+There is no true leak sensor on hand. **Button C** is the working stand-in: press logs
+`leak_detected`, release logs `leak_cleared`. The **Distance** module was also wired as a
+water-level probe, but that path is **not currently reachable** — as of 2026-08-05 `sensor_tick`
+carries temperature and humidity only, and the laptop reads distance from the newest line, so
+`UNOQ_LEAK_DISTANCE_MM` has nothing to test against. The module now serves as a presence sensor
+instead (`object_entered` / `object_left` across a 1000mm threshold).
 
 ⚠️ **The official RPC resource is a dead link.** The deck's Arduino resource
 (`github.com/qualcomm/edge-ai-labs-arduino/tree/main/rpc`) 404s at both the path and the repo root;

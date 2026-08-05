@@ -1,18 +1,75 @@
 #!/bin/bash
 # Runs on the Uno Q's Linux host (not inside the App Lab container, which has
-# no ssh/scp). Every 10s, overwrites the laptop's copy of the sensor log with
-# the local JSON-lines file the app container is appending to. Loops forever;
-# started by the hermes-sensor-logger-push systemd unit.
+# no ssh/scp). Started by the hermes-sensor-logger-push systemd unit, loops
+# forever, and does two jobs off a 1-second tick:
+#
+#   1. boot_status.json -- WiFi / clock / SSH state for the LED matrix boot
+#      display. Written every tick because the matrix is meant to track the
+#      connect sequence as it happens. python/main.py reads it through the
+#      bind-mounted app directory and drives the sketch over the Bridge.
+#   2. sensor_log push -- the same 10s scp cadence to the laptop as before.
+#
+# The probing lives out here rather than in main.py because nmcli, timedatectl
+# and ssh only exist on the host: the app container has none of them.
 
-LOCAL_LOG="/home/arduino/ArduinoApps/hermes-sensor-logger/sensor_log.jsonl"
+APP_DIR="/home/arduino/ArduinoApps/hermes-sensor-logger"
+LOCAL_LOG="$APP_DIR/sensor_log.jsonl"
+STATUS_FILE="$APP_DIR/boot_status.json"
 SSH_TARGET="qc_de@qcworkshop24.tail453bf7.ts.net"
 REMOTE_PATH="C:/Users/qc_de/Downloads/QUAD/SMH-Hermes/arduino_uno_q-sensor_log.json"
 
+PUSH_EVERY=10      # ticks between scp pushes
+SSH_CHECK_EVERY=10 # ticks between ssh probes -- a full handshake is far too
+                   # slow to run every tick, so its result is cached between runs
+
+tick=0
+ssh_ok=false
+
 while true; do
-  if [ -f "$LOCAL_LOG" ]; then
+  # --- WiFi: the active connection profile bound to wlan0, if any ----------
+  ssid="$(nmcli -t -f NAME,DEVICE con show --active 2>/dev/null \
+          | awk -F: '$2=="wlan0"{print $1; exit}')"
+  if [ -n "$ssid" ]; then wifi_ok=true; else wifi_ok=false; fi
+
+  # --- Clock: NTP's own verdict, plus a year check ------------------------
+  # The year test catches the no-RTC-battery 1970 boot even in the window
+  # before timesyncd has made up its mind.
+  if [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = "yes" ] \
+     && [ "$(date -u +%Y)" -ge 2025 ]; then
+    time_ok=true
+  else
+    time_ok=false
+  fi
+  clock="$(date -u +%H:%M)"
+
+  # --- SSH: a real auth attempt, not just a port probe --------------------
+  # A reachable host with a broken key is still a failure for the push path
+  # this display reports on, so an actual authenticated command is the honest
+  # test. It must be `exit 0` and not `true`: the laptop's SSH shell is
+  # PowerShell, where `true` is not a command and every probe would report a
+  # false failure even though the link is fine.
+  if [ $((tick % SSH_CHECK_EVERY)) -eq 0 ]; then
+    if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
+         "$SSH_TARGET" "exit 0" >/dev/null 2>&1; then
+      ssh_ok=true
+    else
+      ssh_ok=false
+    fi
+  fi
+
+  # Write to a temp file and move it into place so the container never reads a
+  # half-written status file.
+  printf '{"wifi_ok": %s, "ssid": "%s", "time_ok": %s, "clock": "%s", "ssh_ok": %s}\n' \
+    "$wifi_ok" "$ssid" "$time_ok" "$clock" "$ssh_ok" > "$STATUS_FILE.tmp"
+  mv -f "$STATUS_FILE.tmp" "$STATUS_FILE"
+
+  # --- Push ---------------------------------------------------------------
+  if [ $((tick % PUSH_EVERY)) -eq 0 ] && [ -f "$LOCAL_LOG" ]; then
     scp -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
       "$LOCAL_LOG" "$SSH_TARGET:$REMOTE_PATH" \
       || echo "push_sensor_log: scp failed, will retry next cycle"
   fi
-  sleep 10
+
+  tick=$((tick + 1))
+  sleep 1
 done

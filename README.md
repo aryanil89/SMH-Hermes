@@ -150,8 +150,9 @@ prefill, but reproducibly fails tool-enabled requests (GenieX preview bug).
 
 ### 2. Sensors — Arduino UNO Q → laptop log file
 
-The board app auto-starts on boot and writes one `sensor_tick` line every 10s (plus one line per
-button press) to its local log. Getting that file **to the laptop** has two transports — pick one:
+The board app auto-starts on boot and writes one `sensor_tick` line (temperature + humidity) every
+10s to its local log, plus one line per button transition — both press *and* release — and one per
+ToF presence crossing. Getting that file **to the laptop** has two transports — pick one:
 
 **A. USB (bench / demo table — most reliable, zero network):**
 ```powershell
@@ -231,9 +232,9 @@ Already registered ("Environmental watch", every 5m, `hermes cron list` to confi
 `check-environmental.js` with **zero LLM cost per tick** and pushes to Telegram only on a
 threshold crossing or recovery — silence is the normal state. To exercise it end to end:
 
-1. Press **button C** on the UNO Q (logs a `leak_detected` event), or — if the water-level
-   threshold `UNOQ_LEAK_DISTANCE_MM` is calibrated and enabled — actually raise the level
-   (hand over the ToF sensor / water in the tray).
+1. Press and **hold** button C on the UNO Q (press logs `leak_detected`; releasing logs
+   `leak_cleared`, which cancels the alert rather than re-raising it). The water-level path is not
+   currently reachable — see the warning in [uno-q/README.md](uno-q/README.md).
 2. Within one 5-min tick (or immediately via `hermes cron run <job-id>`): **ALERT on the phone.**
 3. ~5–10 min later: a one-time "recovered to OK" push — that's edge-triggered recovery working,
    not a bug.
@@ -307,7 +308,7 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 
 ## Layout
 - `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive cron watchdog
-- `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic `sensor_tick` + button events over two Bridge channels), the USB `pull_sensor_log.ps1` transport fallback, and deployment/bring-up docs
+- `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic climate `sensor_tick`, both-edge button events, and ToF presence crossings over three Bridge channels, plus the LED-matrix boot/connection display), the USB `pull_sensor_log.ps1` transport fallback, and deployment/bring-up docs
 - `bench/` — NPU profiling harness (qnn-net-run against the W4A16 bundle); results in [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 - `hermes.env.example` — template for Hermes's own `.env` (copy to `%LOCALAPPDATA%\hermes\.env`); the
   only five settings that matter, everything else in Hermes's stock file can stay untouched

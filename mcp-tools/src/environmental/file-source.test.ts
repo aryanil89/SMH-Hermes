@@ -54,6 +54,23 @@ describe("readSensorLogReading", () => {
     expect(result.ok && !result.reading.leakDetected).toBe(true);
   });
 
+  it("clears leakDetected when leak_cleared follows leak_detected inside the window", async () => {
+    // Button C is held then released: the board logs leak_detected followed by
+    // leak_cleared. The clearing event must not itself re-raise the leak.
+    await writeFile(logPath, [line(120, "leak_detected"), line(60, "leak_cleared")].join("\n"));
+    const result = await readSensorLogReading({ path: logPath, now: NOW, leakWindowSeconds: 300 });
+    expect(result.ok && result.reading.leakDetected).toBe(false);
+  });
+
+  it("re-raises leakDetected when a new leak_detected follows a leak_cleared", async () => {
+    await writeFile(
+      logPath,
+      [line(200, "leak_detected"), line(150, "leak_cleared"), line(60, "leak_detected")].join("\n"),
+    );
+    const result = await readSensorLogReading({ path: logPath, now: NOW, leakWindowSeconds: 300 });
+    expect(result.ok && result.reading.leakDetected).toBe(true);
+  });
+
   it("tolerates a truncated trailing line from an in-flight push", async () => {
     const partial = '{"timestamp": "2026-08-03T11:59:5';
     await writeFile(logPath, [line(60, "door_open", 22.2, 48), partial].join("\n"));
