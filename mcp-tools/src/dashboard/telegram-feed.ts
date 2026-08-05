@@ -35,6 +35,31 @@ export interface TelegramFeedOptions {
   botLabel: string;
   chatTitle: string;
   ingestUrl: string;
+  /**
+   * Pulls messages the server has actually pushed to the phone since the last
+   * tick (the access sentry's challenge notifications).
+   *
+   * Injected rather than imported so the feed keeps no dependency on the access
+   * subsystem and stays testable without one. Without this, a challenge could
+   * land on the on-call's phone while this panel showed nothing -- the display
+   * missing the exact traffic it exists to mirror.
+   */
+  drainOutbound?: () => OutboundSend[];
+  /** Live status of the inbound path, for the panel to report honestly. */
+  inboundStatus?: () => InboundReport;
+}
+
+export interface OutboundSend {
+  at: string;
+  text: string;
+  delivered: boolean;
+  error?: string;
+}
+
+export interface InboundReport {
+  mode: string;
+  detail: string;
+  bot: string;
 }
 
 export interface IngestInput {
@@ -100,6 +125,10 @@ export class TelegramFeed {
       this.reconcile(state, summary, now);
     }
 
+    // Real pushes the server made since the last tick. Drained every tick,
+    // including the first, so a challenge fired during startup is not lost.
+    this.drainOutbound();
+
     const decision = decideAlert({
       currentStatus: reading.status,
       previous: state,
@@ -140,9 +169,39 @@ export class TelegramFeed {
           : { lastAlertAgeSeconds: Math.max(0, Math.round((now.getTime() - lastAlertMs) / 1000)) }),
       },
       ...(pending ? { pending } : {}),
+      inbound: this.opts.inboundStatus?.() ?? {
+        mode: "off",
+        detail:
+          "Inbound polling is not configured, so questions typed on the phone do not reach this panel. " +
+          "Set TELEGRAM_WALL_BOT_TOKEN (a second bot), or POST them to /api/telegram.",
+        bot: "none",
+      },
       ingestUrl: this.opts.ingestUrl,
       ingestedCount: this.ingestedCount,
     };
+  }
+
+  /**
+   * Move real outbound pushes onto the panel.
+   *
+   * `delivered` comes from whether the Telegram API call actually succeeded, so
+   * a send that failed with the WiFi off shows as an undelivered bubble instead
+   * of quietly claiming the on-call was paged.
+   */
+  private drainOutbound(): void {
+    const drain = this.opts.drainOutbound;
+    if (!drain) return;
+    for (const send of drain()) {
+      this.push({
+        at: send.at,
+        direction: "outbound",
+        origin: "gateway",
+        kind: "alert",
+        text: send.delivered ? send.text : `${send.text}\n\n[not delivered: ${send.error ?? "send failed"}]`,
+        delivered: send.delivered,
+      });
+      this.ingestedCount += 1;
+    }
   }
 
   /**

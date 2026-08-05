@@ -149,7 +149,13 @@ function setAttr(node, name, value) {
 
 function renderList(container, items, keyOf, create, update) {
   const existing = new Map();
-  for (const node of Array.from(container.children)) existing.set(node.dataset.key, node);
+  for (const node of Array.from(container.children)) {
+    // Unkeyed children are not ours -- the chat thread's empty-state placeholder
+    // lives in the same <ol>. Tracking them would make every tick delete and
+    // recreate the placeholder, and it would fight the insert positions below.
+    if (node.dataset.key === undefined) continue;
+    existing.set(node.dataset.key, node);
+  }
 
   let index = 0;
   for (const item of items) {
@@ -713,10 +719,61 @@ function renderServer(snap) {
 
 /* ── render: phone column ────────────────────────────────────────────────── */
 
+/** How the inbound path reads in the chat header. */
+const INBOUND_LABEL = {
+  live: { text: "receiving from phone", status: "ok" },
+  starting: { text: "connecting…", status: "unknown" },
+  off: { text: "outbound only", status: "unknown" },
+  conflict: { text: "inbound blocked", status: "warning" },
+  error: { text: "inbound error", status: "warning" },
+};
+
+function bubbleTag(message) {
+  if (message.kind === "system") return "wall";
+  if (!message.delivered) {
+    return message.origin === "watchdog" ? "queued · next watchdog tick" : "not delivered";
+  }
+  return message.direction === "inbound"
+    ? `phone → server · ${message.origin}`
+    : `server → phone · ${message.origin}`;
+}
+
+/**
+ * A thread with nothing in it is ambiguous — quiet system, or broken panel? Say
+ * which. This was the actual complaint: the panel looked dead because no traffic
+ * source was wired to it, and nothing on screen admitted that.
+ */
+function renderThreadPlaceholder(t) {
+  const real = t.messages.filter((m) => m.kind !== "system").length;
+  let node = els.tgThread.querySelector(".tg-placeholder");
+  if (real > 0) {
+    if (node) node.remove();
+    return;
+  }
+  if (!node) {
+    node = document.createElement("li");
+    node.className = "tg-placeholder";
+    els.tgThread.append(node);
+  } else {
+    els.tgThread.append(node);
+  }
+  const inboundOff = t.inbound?.mode !== "live";
+  setText(
+    node,
+    inboundOff
+      ? "No messages yet. Outbound pages appear here as they are sent; phone → server messages need an inbound source (see below)."
+      : "No messages yet. Connected to the phone — anything sent either way appears here immediately.",
+  );
+}
+
 function renderPhone(snap) {
   const t = snap.telegram;
+  const inbound = t.inbound ?? { mode: "off", detail: "", bot: "none" };
+  const label = INBOUND_LABEL[inbound.mode] ?? INBOUND_LABEL.off;
   setText(els.tgBot, t.botLabel);
-  setText(els.tgSub, t.chatTitle);
+  setText(els.tgSub, `${t.chatTitle} · ${label.text}`);
+  setAttr(els.tgSub, "data-status", label.status);
+  els.tgSub.title = inbound.detail || t.chatTitle;
 
   const messages = [...t.messages];
   if (t.pending) messages.push(t.pending);
@@ -745,12 +802,14 @@ function renderPhone(snap) {
       if (li.className !== className) li.className = className;
       setText(li.querySelector(".bubble-text"), message.text);
       setText(li.querySelector(".bubble-time"), clock(message.at));
-      setText(
-        li.querySelector(".bubble-tag"),
-        message.delivered ? `${message.origin} · sent` : "queued · next watchdog tick",
-      );
+      // Direction is spelled out, not left to which side the bubble sits on.
+      // Someone reading this across a room needs the arrow, and a screenshot of
+      // a single bubble has no other side to compare against.
+      setText(li.querySelector(".bubble-tag"), bubbleTag(message));
     },
   );
+
+  renderThreadPlaceholder(t);
 
   if (atBottom) els.tgThread.scrollTop = els.tgThread.scrollHeight;
 
@@ -771,11 +830,19 @@ function renderPhone(snap) {
         : "none on record",
     },
     { label: "State file", value: t.watchdog.stateFound ? "found" : "missing", status: t.watchdog.stateFound ? undefined : "warning" },
-    { label: "Gateway messages", value: String(t.ingestedCount) },
+    { label: "Real messages", value: String(t.ingestedCount) },
+    {
+      label: "Phone → server",
+      value: `${label.text}${inbound.bot !== "none" ? ` (${inbound.bot} bot)` : ""}`,
+      status: label.status === "unknown" ? undefined : label.status,
+      title: inbound.detail,
+    },
   ]);
   setText(
     els.watchdogNote,
-    "The cron watchdog re-checks every 5 minutes and pushes only on a threshold crossing or a recovery — silence is the normal state. A queued bubble is what the next tick will send, not something the phone has received.",
+    inbound.mode === "live"
+      ? "The cron watchdog re-checks every 5 minutes and pushes only on a threshold crossing or a recovery — silence is the normal state. A queued bubble is what the next tick will send, not something the phone has received."
+      : `${inbound.detail} — outbound pages still appear here the moment they are sent.`,
   );
 }
 

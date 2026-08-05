@@ -30,6 +30,41 @@ const TIMEOUT_MS = 5000;
 /** One notification per challenge id -- a 2s tick must not become a 2s pager. */
 const notified = new Set<string>();
 
+/**
+ * What actually went to the phone, waiting to be picked up by the wall display.
+ *
+ * The wall's Telegram panel used to show only the cron watchdog's alerts, so an
+ * access challenge could land on the on-call's phone while the panel sat empty --
+ * the display was silently missing the very traffic it claims to mirror.
+ *
+ * Entries are appended when the send *resolves*, not when it is queued, and carry
+ * whether it succeeded. A push shown as delivered has to have been delivered; the
+ * WiFi-off beat must show the failure, not a cheerful outbound bubble.
+ */
+export interface SentNotification {
+  at: string;
+  text: string;
+  delivered: boolean;
+  error?: string;
+}
+
+const SENT_LIMIT = 50;
+const sent: SentNotification[] = [];
+
+function record(entry: SentNotification): void {
+  sent.push(entry);
+  if (sent.length > SENT_LIMIT) sent.shift();
+}
+
+/**
+ * Take everything sent since the last call. Drain-on-read, so a display that is
+ * not running cannot make this grow without bound (the cap does that too) and two
+ * readers cannot double-count the same push.
+ */
+export function drainSentNotifications(): SentNotification[] {
+  return sent.splice(0, sent.length);
+}
+
 export interface NotifyConfig {
   botToken?: string;
   chatId?: string;
@@ -75,11 +110,23 @@ export function notifyChallenge(event: AccessEvent, config = notifyConfig()): bo
   // Bound the set: one entry per visit, and the audit log is capped at 50 anyway.
   if (notified.size > 200) notified.clear();
 
-  void send(config.botToken, config.chatId, challengeText(event)).catch((err: unknown) => {
-    // Logged to stderr and then dropped. See the note above: during the
-    // WiFi-off beat this WILL fail, and it must be invisible.
-    console.error("[access] telegram notify failed (ignored):", err);
-  });
+  const text = challengeText(event);
+  void send(config.botToken, config.chatId, text).then(
+    () => record({ at: new Date().toISOString(), text, delivered: true }),
+    (err: unknown) => {
+      // Logged to stderr and then dropped. See the note above: during the
+      // WiFi-off beat this WILL fail, and it must be invisible *as an error* --
+      // but the attempt is still recorded, marked undelivered, so the wall shows
+      // that the page did not get through rather than nothing at all.
+      console.error("[access] telegram notify failed (ignored):", err);
+      record({
+        at: new Date().toISOString(),
+        text,
+        delivered: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    },
+  );
   return true;
 }
 
@@ -99,7 +146,8 @@ async function send(token: string, chatId: string, text: string): Promise<void> 
   }
 }
 
-/** Test-only: forget which challenges have been notified. */
+/** Test-only: forget which challenges have been notified, and drop the sent log. */
 export function resetNotifications(): void {
   notified.clear();
+  sent.length = 0;
 }

@@ -49,6 +49,9 @@ table (usually the board clock, step 2 ⚠️).
 | `ALERT_STATE_PATH` | `mcp-tools/.state/environmental-watch.json` | The watchdog state file the phone panel mirrors |
 | `TELEGRAM_BOT_LABEL` | `Hermes Ops` | Name shown on the phone panel |
 | `TELEGRAM_CHAT_TITLE` | `On-call · Telegram` | Subtitle under it |
+| `TELEGRAM_WALL_BOT_TOKEN` | unset | A **second** bot the wall polls for phone → server messages. The safe option — see below |
+| `TELEGRAM_POLL` | unset | `1` polls the shared `TELEGRAM_BOT_TOKEN` instead. **Conflicts with `hermes gateway`** |
+| `TELEGRAM_ALLOWED_USERS` | unset | Comma-separated numeric ids allowed to appear on the wall |
 | `SIM_WORLD_WINDOW_S` | `60` | How long the simulated families hold still — shared with the MCP tools |
 | `HERMES_MODEL` / `HERMES_ACCELERATOR` | Qwen3-4B / Hexagon NPU | Header captions only — the page never talks to the model |
 | `ACCESS_STATE_PATH` | `mcp-tools/.state/access.json` | Open challenge + the access audit trail |
@@ -228,8 +231,10 @@ a message on it, and each bubble says which:
    so the wall knows before the phone does. Rendered greyed, dashed and explicitly
    labelled. When the watchdog then fires, that exact queued text is promoted to
    a delivered bubble.
-3. **`gateway · sent`** — posted in over `POST /api/telegram`, verbatim, either
-   direction.
+3. **`gateway`** — real traffic, verbatim, either direction: an access challenge
+   the sentry actually pushed to the phone (marked delivered or not by whether
+   the Telegram call itself succeeded), a message the inbound poller received, or
+   anything posted to `POST /api/telegram`.
 
 The alternative — letting the dashboard run its own alert loop against its own
 state file — would produce a plausible message stream that no phone ever
@@ -239,10 +244,55 @@ Both the watchdog and the dashboard build their alert text from
 `src/alert-skill/summarize.ts`, so the wording on the wall is the wording on the
 phone, character for character.
 
+### The two directions, and which side of the thread they sit on
+
+| Direction | Alignment | Where it comes from |
+|---|---|---|
+| **server → phone** | **left**, tagged `server → phone` | the cron watchdog's alerts, and every access challenge the sentry actually pushes |
+| **phone → server** | **right**, tagged `phone → server` | the inbound poller, or anything posted to `/api/telegram` |
+| wall's own notes | centred, tagged `wall` | the dashboard itself; never a Telegram message |
+
+Outbound pushes carry the send's real outcome: a challenge that failed to reach
+Telegram (the WiFi-off beat guarantees one will) shows as an **undelivered**
+bubble with the error, not a confident outbound message.
+
+### Getting phone → server messages onto the panel
+
+Outbound works with no configuration. Inbound needs a source, and the panel's
+header says which state it is in (`receiving from phone` / `outbound only` /
+`inbound blocked`) so a quiet thread is never mistaken for a broken one.
+
+⚠️ **Telegram's `getUpdates` is single-consumer per bot token.** `hermes gateway`
+long-polls `TELEGRAM_BOT_TOKEN` for the entire demo — that is how a question from
+the phone reaches the agent. If the wall polled the same token, Telegram would
+answer one of them with `409 Conflict` and the two would starve each other. A
+display that breaks the thing it depicts is the worst failure available here, so
+this is off by default.
+
+Pick one:
+
+1. **A second bot (recommended).** Make another bot with
+   [@BotFather](https://t.me/BotFather) and set `TELEGRAM_WALL_BOT_TOKEN`.
+   Nothing else polls it, so there is no conflict. Message *that* bot from the
+   phone and it appears on the wall within a second.
+   ```powershell
+   $env:TELEGRAM_WALL_BOT_TOKEN = "<second bot token>"
+   $env:TELEGRAM_ALLOWED_USERS  = "<your numeric id>"
+   npm run start:dashboard
+   ```
+2. **Push them in** over `POST /api/telegram` from whatever already has them.
+   Exact, no polling, no conflict.
+3. **`TELEGRAM_POLL=1`** to poll the shared bot — **only** when the Hermes
+   gateway is not running. If it is, the poller detects the 409, **shuts itself
+   down permanently rather than fighting for updates**, and says so on the panel.
+
+`TELEGRAM_ALLOWED_USERS` is the same allowlist Hermes uses. Set it: without it,
+anyone who finds the bot can put text on a display standing in front of an
+audience.
+
 ### Showing real phone traffic
 
-The watchdog path is real but it is only the proactive half. To put genuine
-question-and-answer traffic on the panel, post it in:
+Beyond the poller, anything that already holds a message can push it straight in:
 
 ```powershell
 curl.exe -X POST http://127.0.0.1:7788/api/telegram `
@@ -251,10 +301,10 @@ curl.exe -X POST http://127.0.0.1:7788/api/telegram `
 ```
 
 `direction` is `inbound` (phone → server) or `outbound` (server → phone); `text`
-is required; `kind` and `at` are optional. Anything ingested is marked
-`gateway · sent` and pushes a frame immediately rather than waiting for the next
-tick. Hermes does not post to this endpoint on its own — wiring the gateway to it
-is a small integration that has not been built.
+is required; `kind` and `at` are optional. Anything ingested pushes a frame
+immediately rather than waiting for the next tick. **Hermes itself does not post
+here** — bridging the agent's own gateway traffic is still unbuilt, which is why
+the second-bot route above exists.
 
 ## Design notes
 

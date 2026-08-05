@@ -167,6 +167,20 @@ export interface TelegramView {
   };
   /** The alert the watchdog would raise right now, if any. */
   pending?: TelegramMessage;
+  /**
+   * Whether phone -> server messages can reach this panel at all.
+   *
+   * Load-bearing for honesty: with no inbound source configured the thread is
+   * one-directional, and a panel that just looks quiet is indistinguishable from
+   * a broken one. The page says which it is.
+   */
+  inbound: {
+    /** off | starting | live | conflict | error */
+    mode: string;
+    detail: string;
+    /** dedicated | shared | none */
+    bot: string;
+  };
   ingestUrl: string;
   ingestedCount: number;
 }
