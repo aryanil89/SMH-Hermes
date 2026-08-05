@@ -264,6 +264,12 @@ supported fallback pulls the log over the cable.
 The UNO Q has **no RTC battery** — it boots thinking it's 1970 and only gets real time from NTP,
 which needs WiFi. With a wrong clock, every log timestamp is wrong and the laptop's staleness
 guard (`UNOQ_LOG_MAX_AGE_S`) will — correctly — refuse the data as stale and fall back to mock.
+
+**Since 2026-08-05 the boot sequence handles this automatically when NTP is reachable** — Tailscale
+is ordered behind the clock, so the VPN can no longer come up on a 1970 clock. See
+[Boot sequence and timing](#boot-sequence-and-timing) below. The manual fix is still needed when
+there is *no* NTP at all (offline bench, captive portal).
+
 `sudo` over `adb shell` wants a password, but the `arduino` user is in the `docker` group and the
 image entrypoint runs as a non-root container user, so set the kernel clock like this (one line,
 from the laptop, fill in current UTC):
@@ -273,8 +279,89 @@ $utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
 adb shell "docker run --rm --user 0 --cap-add SYS_TIME --entrypoint date ghcr.io/arduino/app-bricks/python-apps-base:0.5.0 -u -s '$utc'"
 ```
 
-Do this after every board power-up when it isn't on a network with NTP — and at the venue,
-re-auth Tailscale (`tailscale status` on the board currently says logged out).
+Do this after every board power-up when it isn't on a network with NTP.
+
+## Boot sequence and timing
+
+**Budget ~70 seconds from power-on to a useful board**, and more on a network with slow or blocked
+NTP. Power it up before you need it, not during the demo.
+
+Measured on 2026-08-05 across five graceful reboots on the venue network:
+
+```
+Startup finished in 4.6s (firmware) + 1.5s (loader) + 5.2s (kernel)
+                  + ~57.6s (userspace) = ~1min 9s
+```
+
+### Tailscale waits for the clock
+
+`systemd-time-wait-sync.service` is **enabled** (it ships disabled on Debian), and `tailscaled` is
+ordered behind it by a drop-in. Two files, both installed on the board only — they are *not* in
+this repo, since they are host system config rather than app code:
+
+| Path | Contents |
+|---|---|
+| `/etc/systemd/system/tailscaled.service.d/10-wait-for-time.conf` | `Wants=` + `After=systemd-time-wait-sync.service` |
+| `/etc/systemd/system/systemd-time-wait-sync.service.d/10-timeout.conf` | `TimeoutStartSec=48` |
+
+`Wants=` and not `Requires=` is deliberate: if time sync fails or times out, Tailscale must still
+start. You get a possibly-wrong clock, not a dead VPN.
+
+Verify the ordering actually took with:
+
+```bash
+adb shell 'systemd-analyze critical-chain tailscaled.service'
+# tailscaled.service +453ms
+# └─systemd-time-wait-sync.service @2.023s +36.332s
+```
+
+### Where the 48s timeout came from
+
+`TimeoutStartSec` bounds how long boot waits for NTP. Without it the unit waits forever, and
+because `tailscaled` is ordered `After=` it, the VPN would never start at all on a network with no
+time server.
+
+The value is **measured mean + 10s**, not a guess. Five reboots against the venue network:
+
+| Reboot | NTP wait |
+|---|---|
+| 1 | 35.637 s |
+| 2 | 40.690 s |
+| 3 | 35.733 s |
+| 4 | 40.881 s |
+| verification (under the new bound) | 36.332 s |
+
+Mean of the first four **38.235 s**, stddev 2.551 s, worst 40.881 s → **48 s**.
+
+⚠️ **That leaves only ~7s over the worst case observed**, and the samples are bimodal (clustering
+near 35.7s and 40.8s, which looks like NTP poll alignment rather than noise). This network is fast
+and known; a congested or unfamiliar one could exceed 48s, in which case the wait times out and
+Tailscale starts with a possibly-wrong clock — the exact failure the ordering exists to prevent.
+**Re-measure when the usual network changes.** 60–75s would buy real headroom while still capping
+the bad case well under the systemd default.
+
+To re-measure, reboot several times and read the wait off each boot:
+
+```bash
+adb shell 'systemctl show systemd-time-wait-sync.service \
+  -p ExecMainStartTimestampMonotonic -p ExecMainExitTimestampMonotonic -p Result'
+```
+
+### Rebooting the board
+
+`adb reboot` is **not supported** on this board, and plain `reboot` / `systemctl reboot` as the
+`arduino` user fails with `Interactive authentication required`. Reboot gracefully as root through
+the container instead:
+
+```bash
+adb shell 'sync; docker run --rm --user 0 --privileged -v /:/host \
+  --entrypoint sh ghcr.io/arduino/app-bricks/python-apps-base:0.5.0 \
+  -c "chroot /host /bin/systemctl reboot"'
+```
+
+Prefer this over pulling the USB cable. An unclean power cut leaves NUL-filled blocks in
+`sensor_log.jsonl` (ext4 delayed allocation: blocks allocated, data never flushed) — harmless to
+the reader, which skips to the newest parseable line, but it costs you a gap in the history.
 
 ## Rebuilding / redeploying
 

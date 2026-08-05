@@ -194,8 +194,22 @@ adb shell "arduino-app-cli app restart user:hermes-sensor-logger"
 adb shell "sudo systemctl restart hermes-sensor-logger-push"
 ```
 
-**After any board power-up without network**, the UNO Q boots in 1970 (no RTC battery) and
-the staleness guard correctly rejects its data:
+**Boot takes ~70s.** Most of it is the board waiting for NTP before it starts Tailscale, so the VPN
+never comes up on a 1970 clock — see
+[boot sequence and timing](../uno-q/hermes-sensor-logger/README.md#boot-sequence-and-timing).
+Power the board up well before you need it.
+
+To reboot it, don't pull the cable — `adb reboot` is unsupported here and `reboot` needs polkit
+auth, so go through the container as root:
+
+```bash
+adb shell 'sync; docker run --rm --user 0 --privileged -v /:/host \
+  --entrypoint sh ghcr.io/arduino/app-bricks/python-apps-base:0.5.0 \
+  -c "chroot /host /bin/systemctl reboot"'
+```
+
+**After a board power-up with no NTP reachable at all** (offline bench, captive portal), the UNO Q
+boots in 1970 (no RTC battery) and the staleness guard correctly rejects its data:
 
 ```powershell
 $utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
@@ -298,7 +312,7 @@ The real prefill drivers, in order:
 | Model replies in prose, calls no tools | `tool_search` re-enabled, or gateway not restarted after a config edit. |
 | Tool "does not exist" | Gateway started before the `config.yaml` edit; or `npm run build` not run. |
 | `"source": "mock"` + `fallbackReason` | Sensor pipeline down — the reason string says which half. |
-| Board data rejected as stale | UNO Q booted without network → 1970 clock. Set the date. |
+| Board data rejected as stale | UNO Q booted with no NTP reachable → 1970 clock. With NTP, boot fixes itself in ~70s; without it, set the date. |
 | `status=203/EXEC` on a file that exists | CRLF line endings on a board shell script. |
 | Rule fired once, never again | `level` rules latch. Working as designed. |
 | GenieX gone, no error anywhere | The silent-exit bug. Run the supervisor. |

@@ -251,9 +251,15 @@ the board; re-auth after long offline periods).
 **USB-C is configuration only** — flashing the board app, initial WiFi/Tailscale provisioning, and
 one-off admin commands like the clock sync below. It never carries sensor data to the server.
 
-⚠️ **After any board power-up without network**: the UNO Q has no RTC battery — it boots in 1970,
-all timestamps go wrong, and the staleness guard will (correctly) reject its data. Fix from the
-laptop over USB:
+⏱️ **Budget ~70 seconds from power-on.** Boot is ~1min 9s measured, and most of that is the board
+waiting for NTP before it starts Tailscale — deliberate, so the VPN never comes up on a 1970 clock.
+Power the board up before you need it, not during the demo. Detail and the measured numbers:
+[uno-q/hermes-sensor-logger/README.md](uno-q/hermes-sensor-logger/README.md#boot-sequence-and-timing).
+
+⚠️ **After a board power-up with no NTP at all** (offline bench, captive portal): the UNO Q has no
+RTC battery — it boots in 1970, all timestamps go wrong, and the staleness guard will (correctly)
+reject its data. On a network with working NTP the boot sequence now fixes this by itself. When it
+can't, set the clock from the laptop over USB:
 ```powershell
 $utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
 adb shell "docker run --rm --user 0 --cap-add SYS_TIME --entrypoint date ghcr.io/arduino/app-bricks/python-apps-base:0.5.0 -u -s '$utc'"
@@ -423,7 +429,8 @@ Every row here cost us real time; none are hypothetical.
 |---|---|---|
 | Telegram **questions** fail — *"model provider failed after retries"*; log shows `APIConnectionError … 127.0.0.1:18181` | **GenieX isn't running.** Nothing auto-starts it after a reboot | Redo step 1. Note the **cron alerts keep arriving while this is broken** — they never call the model, so "alerts are fine" is *not* evidence the agent is fine |
 | Replies never finalize; Hermes retries forever | The non-streaming patch was reverted — usually by `hermes update` | Re-apply the patch and keep `HERMES_FORCE_NONSTREAM=1` |
-| `"source": "mock"`, reason *"sensor log is stale"* | Board clock is wrong. The UNO Q has **no RTC battery**, so every power-up without network resumes hours behind and its timestamps look ancient | Set the clock over USB — step 2 ⚠️. **Do this after every board boot** |
+| `"source": "mock"`, reason *"sensor log is stale"* | Board clock is wrong. The UNO Q has **no RTC battery**, so a power-up with no reachable NTP resumes hours behind and its timestamps look ancient | On a network with NTP the boot sequence fixes this itself — just wait ~70s. With no NTP, set the clock over USB — step 2 ⚠️ |
+| Board takes over a minute to appear after power-on | Expected. Boot waits for NTP before starting Tailscale (~38s of a ~69s boot) so the VPN never comes up on a 1970 clock | Nothing to fix — budget ~70s. See [boot timing](uno-q/hermes-sensor-logger/README.md#boot-sequence-and-timing) |
 | An alert arrives with plausible-but-invented numbers | Same as above. The mock fallback labels itself honestly, but the *severity* still reads as real | Check `source` before trusting any alert. `mock` = the physical path is down |
 | Model answers but `tool_calls` is `null` | Wrong quantization — Q4_K_M | Use **Q4_0** |
 | `SDKError(Model loading failed)` on tool-enabled requests | `--compute gpu` | Use `--compute npu` |
