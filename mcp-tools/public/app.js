@@ -728,6 +728,14 @@ const INBOUND_LABEL = {
   error: { text: "inbound error", status: "warning" },
 };
 
+/** Where phone → server messages are coming from, in words rather than a keyword. */
+const INBOUND_SOURCE = {
+  gateway: "Hermes gateway transcript",
+  dedicated: "dedicated wall bot",
+  shared: "shared bot",
+  none: "",
+};
+
 function bubbleTag(message) {
   if (message.kind === "system") return "wall";
   if (!message.delivered) {
@@ -762,7 +770,7 @@ function renderThreadPlaceholder(t) {
     node,
     inboundOff
       ? "No messages yet. Outbound pages appear here as they are sent; phone → server messages need an inbound source (see below)."
-      : "No messages yet. Connected to the phone — anything sent either way appears here immediately.",
+      : "No messages yet. Both directions are wired — server → phone on the left, phone → server on the right, as soon as either carries anything.",
   );
 }
 
@@ -833,7 +841,7 @@ function renderPhone(snap) {
     { label: "Real messages", value: String(t.ingestedCount) },
     {
       label: "Phone → server",
-      value: `${label.text}${inbound.bot !== "none" ? ` (${inbound.bot} bot)` : ""}`,
+      value: `${label.text}${INBOUND_SOURCE[inbound.bot] ? ` (${INBOUND_SOURCE[inbound.bot]})` : ""}`,
       status: label.status === "unknown" ? undefined : label.status,
       title: inbound.detail,
     },
@@ -913,6 +921,7 @@ const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
 const tabPanels = {
   overview: $("panel-overview"),
   architecture: $("panel-architecture"),
+  logical: $("panel-logical"),
   live: $("panel-live"),
 };
 

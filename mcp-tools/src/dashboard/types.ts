@@ -178,7 +178,7 @@ export interface TelegramView {
     /** off | starting | live | conflict | error */
     mode: string;
     detail: string;
-    /** dedicated | shared | none */
+    /** gateway (the Hermes transcript bridge) | dedicated | shared | none */
     bot: string;
   };
   ingestUrl: string;

@@ -97,7 +97,18 @@
         data-tab="architecture"
         tabindex="-1"
       >
-        Architecture
+        Conceptual architecture
+      </button>
+      <button
+        class="tab-btn"
+        id="tab-btn-logical"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-logical"
+        data-tab="logical"
+        tabindex="-1"
+      >
+        Logical architecture
       </button>
       <button
         class="tab-btn"
@@ -116,19 +127,28 @@
          Tab 1 — Executive overview. Static prose, the approved wording from
          docs/POSITIONING.md so this page never drifts from the slide deck
          or the judge Q&A card.
+
+         Laid out to fit one screen without scrolling: the head runs as a
+         two-column strip and the four positioning cards as one row, because
+         this page is read off a wall from several feet away, and a scrollbar
+         on a wall display is a paragraph nobody ever reads.
          ══════════════════════════════════════════════════════════════════ -->
     <section class="tab-panel active" id="panel-overview" role="tabpanel" aria-labelledby="tab-btn-overview" tabindex="0">
       <div class="brief">
-        <p class="kicker">Executive overview · Snapdragon Multiverse Hackathon 2026</p>
-        <h1 class="brief-title">Hermes: On-Device AI Operations Engineer</h1>
-        <p class="brief-lede">
-          Hermes is an AI operations engineer that runs entirely on a Snapdragon X Elite —
-          no cloud AI, no data leaving the laptop. It correlates real physical sensor signals with
-          infrastructure telemetry to tell an on-call engineer what is wrong, why it matters, and
-          what to do next.
-        </p>
+        <div class="brief-head">
+          <div>
+            <p class="kicker">Executive overview · Snapdragon Multiverse Hackathon 2026</p>
+            <h1 class="brief-title">Hermes: On-Device AI Operations Engineer</h1>
+          </div>
+          <p class="brief-lede">
+            Hermes is an AI operations engineer that runs entirely on a Snapdragon X Elite —
+            no cloud AI, no data leaving the laptop. It correlates real physical sensor signals with
+            infrastructure telemetry to tell an on-call engineer what is wrong, why it matters, and
+            what to do next.
+          </p>
+        </div>
 
-        <div class="brief-grid">
+        <div class="brief-cards">
           <article class="card">
             <header class="card-head"><h3>What Hermes is</h3></header>
             <p>
@@ -144,18 +164,26 @@
               does not collect the signals — it judges them.
             </p>
           </article>
+          <article class="card card--accent">
+            <header class="card-head"><h3>The offline claim</h3></header>
+            <p>
+              The intelligence is offline: the model, the reasoning, the tool calls and the sensor
+              path all run on the Snapdragon — provable by cutting the WiFi mid-demo. The one
+              internet hop is the phone notification, a message relay, not intelligence, and a
+              swappable adapter — Slack, Teams, Discord, WhatsApp and Signal share the same
+              gateway; we demo on Telegram.
+            </p>
+          </article>
+          <article class="card note-card">
+            <header class="card-head"><h3>Disclosure</h3></header>
+            <p>
+              Network, storage and compute telemetry are <strong>simulated</strong> with realistic
+              data patterns; the environmental path is <strong>live</strong> from an Arduino UNO Q.
+              The MCP adapters are the seam — the same tools can be pointed at real DCIM/BMS/SNMP
+              without touching the reasoning layer.
+            </p>
+          </article>
         </div>
-
-        <article class="card card--accent">
-          <header class="card-head"><h3>The offline claim</h3></header>
-          <p>
-            The intelligence is offline: the model, the reasoning, the tool calls and the sensor
-            path all run on the Snapdragon — provable by cutting the WiFi mid-demo. The one
-            internet hop is the phone notification, a message relay, not intelligence, and a
-            swappable adapter — Slack, Teams, Discord, WhatsApp and Signal share the same gateway;
-            we demo on Telegram.
-          </p>
-        </article>
 
         <h2 class="brief-h2">What we built</h2>
         <div class="table-wrap">
@@ -195,23 +223,18 @@
             </tbody>
           </table>
         </div>
-
-        <article class="card note-card">
-          <header class="card-head"><h3>Disclosure</h3></header>
-          <p>
-            Network, storage and compute telemetry are <strong>simulated</strong> with realistic
-            data patterns; the environmental path is <strong>live</strong> from an Arduino UNO Q.
-            The MCP adapters are the seam — the same tools can be pointed at real DCIM/BMS/SNMP
-            without touching the reasoning layer.
-          </p>
-        </article>
       </div>
     </section>
 
     <!-- ══════════════════════════════════════════════════════════════════
-         Tab 2 — Architecture. Static connectivity diagram plus what each
-         device does and the components that make it happen, from
-         docs/ARCHITECTURE.md §1.
+         Tab 2 — Conceptual architecture. What the boxes ARE: the three
+         physical devices, the links between them, and the components that
+         live on each, from docs/ARCHITECTURE.md §1.
+
+         Its sibling tab answers the other question — what MOVES between
+         them. Keeping the two apart is deliberate: a judge asking "what did
+         you build" and a judge asking "how does a reading become a page" are
+         asking different questions and a single diagram answers neither well.
          ══════════════════════════════════════════════════════════════════ -->
     <section
       class="tab-panel"
@@ -221,12 +244,16 @@
       tabindex="0"
     >
       <div class="brief">
-        <p class="kicker">System architecture</p>
-        <h1 class="brief-title">Three devices, one pipeline</h1>
-        <p class="brief-lede">
-          Everything inside the laptop survives a WiFi cut. Telegram — and only Telegram — needs
-          the internet, and it carries chat text, never the authorisation to open a door.
-        </p>
+        <div class="brief-head">
+          <div>
+            <p class="kicker">Conceptual architecture · what the parts are</p>
+            <h1 class="brief-title">Three devices, one pipeline</h1>
+          </div>
+          <p class="brief-lede">
+            Everything inside the laptop survives a WiFi cut. Telegram — and only Telegram — needs
+            the internet, and it carries chat text, never the authorisation to open a door.
+          </p>
+        </div>
 
         <div class="arch-flow">
           <div class="arch-node" data-tier="sense">
@@ -349,7 +376,193 @@
     </section>
 
     <!-- ══════════════════════════════════════════════════════════════════
-         Tab 3 — Live system. Unchanged: the original wall display, driven
+         Tab 3 — Logical architecture. The other half of the question: not
+         which box is which, but what actually moves, in what order, and
+         what each stage is allowed to decide.
+
+         Every module named here is a real file, so this tab and the code
+         can be checked against each other. The three decision branches are
+         drawn separately because they have genuinely different rules — one
+         can be withheld, one requires a human, one is conversational.
+         ══════════════════════════════════════════════════════════════════ -->
+    <section
+      class="tab-panel"
+      id="panel-logical"
+      role="tabpanel"
+      aria-labelledby="tab-btn-logical"
+      tabindex="0"
+    >
+      <div class="brief">
+        <div class="brief-head">
+          <div>
+            <p class="kicker">Logical architecture · what moves</p>
+            <h1 class="brief-title">From a bus read to a page on the phone</h1>
+          </div>
+          <p class="brief-lede">
+            One tick of information, end to end. Each stage may only use what the stage before it
+            produced, and only two stages are allowed to act on the world: the one that pages the
+            on-call, and the one that asks a human about a stranger at the rack.
+          </p>
+        </div>
+
+        <ol class="flow-rail">
+          <li class="flow-stage" data-tier="sense">
+            <p class="flow-step">1 · Acquire</p>
+            <h3>Physical signal → log line</h3>
+            <ul class="flow-items">
+              <li>I2C sample: thermo, ToF distance, button edges</li>
+              <li><code>sketch.ino</code> → <code>main.py</code> appends <code>sensor_log.jsonl</code></li>
+              <li>scp to the laptop over Tailscale, every 10s</li>
+            </ul>
+            <p class="flow-out"><span>carries</span> climate tick ~10s · edge events on change</p>
+          </li>
+
+          <li class="flow-stage" data-tier="ingest">
+            <p class="flow-step">2 · Ingest</p>
+            <h3>Log line → trusted reading</h3>
+            <ul class="flow-items">
+              <li><code>sensor-log.ts</code> tails the file: size, lines, newest timestamp</li>
+              <li>Freshness gate <code>UNOQ_LOG_MAX_AGE_S</code> decides real vs stale</li>
+              <li>Stale or unreadable → mock reading, <strong>labelled as mock</strong></li>
+            </ul>
+            <p class="flow-out"><span>carries</span> one <code>EnvironmentalResult</code> + its provenance</p>
+          </li>
+
+          <li class="flow-stage" data-tier="derive">
+            <p class="flow-step">3 · Derive</p>
+            <h3>Events → state</h3>
+            <ul class="flow-items">
+              <li>Paired edges → door / lighting / presence; newest edge wins</li>
+              <li>No edge in the window → <strong>unknown</strong>, never "closed"</li>
+              <li>Network / storage / compute drawn from a 60s seeded world</li>
+            </ul>
+            <p class="flow-out"><span>carries</span> channel states · climate trend · four families</p>
+          </li>
+
+          <li class="flow-stage" data-tier="reason">
+            <p class="flow-step">4 · Correlate</p>
+            <h3>State → verdict</h3>
+            <ul class="flow-items">
+              <li><code>assessIncident()</code> — the call behind <code>get_incident_assessment</code></li>
+              <li>Risk index /100, confidence, evidence, likely cause, action</li>
+              <li>One tick = one world seed, so no panel disagrees with another</li>
+            </ul>
+            <p class="flow-out"><span>carries</span> an assessment every side of the system shares</p>
+          </li>
+
+          <li class="flow-stage" data-tier="decide">
+            <p class="flow-step">5 · Decide</p>
+            <h3>Verdict → who is told</h3>
+            <ul class="flow-items">
+              <li>Alerting, access and conversation branch here</li>
+              <li>Only these paths may write or send anything</li>
+              <li>Every send records whether it was actually delivered</li>
+            </ul>
+            <p class="flow-out"><span>carries</span> a page, a challenge, a reply — or deliberate silence</p>
+          </li>
+
+          <li class="flow-stage" data-tier="surface">
+            <p class="flow-step">6 · Surface</p>
+            <h3>Everything → one frame</h3>
+            <ul class="flow-items">
+              <li><code>snapshot.ts</code> assembles one <code>DashboardSnapshot</code> per 2s tick</li>
+              <li>SSE <code>/api/stream</code> → this wall, rendered as a keyed diff</li>
+              <li><code>gateway-bridge.ts</code> mirrors the phone thread, both directions</li>
+            </ul>
+            <p class="flow-out"><span>carries</span> the wall · the phone terminal · <code>/api/state</code></p>
+          </li>
+        </ol>
+
+        <div class="flow-branches">
+          <article class="card" data-branch="alert">
+            <header class="card-head">
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-warn" /></svg>Alerting path</h3>
+              <span class="badge">may stay silent</span>
+            </header>
+            <ol class="flow-chain">
+              <li><code>decideAlert()</code> — threshold crossing, cooldown, escalation</li>
+              <li><code>suppress.ts</code> reads <code>.state/access.json</code></li>
+              <li>Verdict <code>expected</code> → the page is <strong>held, not cancelled</strong></li>
+              <li>Cron watchdog every 5 min writes <code>environmental-watch.json</code></li>
+              <li>Telegram send · the wall mirrors the state file after the fact</li>
+            </ol>
+            <p class="flow-note">
+              Held pages fire the moment the responder leaves, annotated as held. A stale
+              <code>access.json</code> fails open and pages anyway — a watchdog silenced by a dead
+              input is indistinguishable from one silenced by good news.
+            </p>
+          </article>
+
+          <article class="card" data-branch="access">
+            <header class="card-head">
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access path</h3>
+              <span class="badge">needs a human</span>
+            </header>
+            <ol class="flow-chain">
+              <li>Presence edge (ToF &lt; 1000mm) → <code>AccessSentry.update()</code></li>
+              <li><code>identify.ts</code> — detection only, so everyone reads <em>unknown</em></li>
+              <li><code>decide.ts</code> → clear · expected · challenge · tailgating…</li>
+              <li><code>notify.ts</code> pushes the challenge to the phone (text only)</li>
+              <li>Approve/deny on <code>phone.html</code> — tailnet, never Telegram</li>
+              <li>Append-only audit entry in <code>.state/access.json</code></li>
+            </ol>
+            <p class="flow-note">
+              The image is resolved and dropped; nothing on this path writes image bytes to disk. A
+              decision relaxes the severity but never rewrites the finding.
+            </p>
+          </article>
+
+          <article class="card" data-branch="chat">
+            <header class="card-head">
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-check" /></svg>Conversational path</h3>
+              <span class="badge">on demand</span>
+            </header>
+            <ol class="flow-chain">
+              <li>Question typed on the phone → Telegram Bot API</li>
+              <li><code>hermes gateway</code> long-polls it — sole consumer of the token</li>
+              <li>Hermes Agent calls the MCP tools over stdio</li>
+              <li>GenieX → Qwen3-4B on the Hexagon NPU, 127.0.0.1:18181</li>
+              <li>Reply back over Telegram to the phone</li>
+              <li>The wall reads the transcript read-only and shows both sides</li>
+            </ol>
+            <p class="flow-note">
+              The same tool functions answer the agent and this display, so the wall and the phone
+              cannot contradict each other about what the rack is doing.
+            </p>
+          </article>
+        </div>
+
+        <div class="flow-facts">
+          <article class="card note-card">
+            <header class="card-head"><h3>What crosses the internet</h3></header>
+            <p>
+              Telegram text only: the question, the reply, the page, the challenge notice. Never an
+              approval, never an image, never a sensor stream. Cut the WiFi and every stage above
+              still runs — only the notification hop stops.
+            </p>
+          </article>
+          <article class="card note-card">
+            <header class="card-head"><h3>What persists</h3></header>
+            <p>
+              <code>sensor_log.jsonl</code> (append-only) · <code>environmental-watch.json</code>
+              (watchdog) · <code>access.json</code> (challenge + audit) · <code>roster.json</code>
+              (embeddings, never images). One writer per file.
+            </p>
+          </article>
+          <article class="card note-card">
+            <header class="card-head"><h3>What is real</h3></header>
+            <p>
+              Environmental and access are live from the board. Network, storage and compute are
+              simulated with realistic patterns and every card says so. The MCP adapters are the
+              seam where real DCIM/BMS/SNMP would replace them.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         Tab 4 — Live system. Unchanged: the original wall display, driven
          by app.js over the /api/stream SSE feed.
          ══════════════════════════════════════════════════════════════════ -->
     <main class="wall tab-panel" id="panel-live" role="tabpanel" aria-labelledby="tab-btn-live" tabindex="0">

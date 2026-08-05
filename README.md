@@ -345,7 +345,10 @@ has two causes now — nothing wrong, or someone is on site. The wall says which
 A local web page for the demo table: the UNO Q and its door / lighting / leak / temperature /
 humidity state on the left, the server ingesting that feed alongside the network, storage and
 compute telemetry — and the inference it draws from them — in the middle, and the phone's Telegram
-thread on the right.
+thread on the right, **both directions** — pages the server sent on the left rail, questions the
+phone sent on the right. Three static tabs sit alongside the live one: the executive overview, the
+conceptual architecture (what the parts are) and the logical architecture (what moves, stage by
+stage).
 
 ```powershell
 cd mcp-tools
@@ -361,8 +364,13 @@ delivering, and the Ingest card carries the reason string.
 It reads the same functions the MCP tools call, so it cannot disagree with the agent; it never
 writes anything; and it is loopback-only, so it works with the WiFi off. Set
 `UNOQ_LOG_MAX_AGE_S=180` here too, to match the environmental server's env block — otherwise the
-agent falls back to mock while the wall still shows a live feed. Full reference, including how to
-put real phone traffic on the Telegram panel: **[docs/DASHBOARD.md](docs/DASHBOARD.md)**.
+agent falls back to mock while the wall still shows a live feed.
+
+The phone thread is real traffic in both directions with nothing to configure: the wall opens
+Hermes's own transcript (`%LOCALAPPDATA%\hermes\state.db`) **read-only** and mirrors it. It does not
+poll Telegram — `hermes gateway` is the single allowed consumer of that bot token, and a second
+poller would starve the agent of the very questions it exists to answer. Full reference:
+**[docs/DASHBOARD.md](docs/DASHBOARD.md)**.
 
 ### 7. The access terminal — the phone
 
