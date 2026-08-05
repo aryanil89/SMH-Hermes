@@ -176,10 +176,11 @@
               <tr>
                 <td>Physical access</td>
                 <td>
-                  Presence → challenge → QR-badge / detection-only identity → human approve/deny on
-                  the phone → append-only audit trail
+                  Presence (ToF, &lt;1000mm) → challenge → photo captured → human approve/deny on
+                  the phone → append-only audit trail. No automated identity match — a person
+                  makes the call
                 </td>
-                <td>Face-embedding identity rung on the X Elite NPU</td>
+                <td>Automated identity resolution (badge / QR / face) — not supported today</td>
               </tr>
               <tr>
                 <td>Phone's role</td>
@@ -242,7 +243,7 @@
             <p class="arch-node-sub">Rack environmental monitor</p>
           </div>
           <div class="arch-link">
-            <span class="arch-link-label">sensor feed · USB (adb) or Tailscale scp, every 10s</span>
+            <span class="arch-link-label">sensor feed · WiFi + Tailscale VPN · scp, every 10s</span>
             <span class="arch-arrow" aria-hidden="true"></span>
           </div>
           <div class="arch-node" data-tier="reason">
@@ -273,21 +274,23 @@
             <p class="arch-does">
               Samples temperature, humidity, ToF distance and button state over I2C, and pushes a
               periodic climate tick (~10s) plus edge-triggered button and presence events to the
-              laptop. It has no RTC battery, so every cold boot needs its clock set before its
-              data is trusted.
+              laptop over its WiFi + Tailscale link. It has no RTC battery, so every cold boot
+              needs its clock set before its data is trusted. USB-C is used only to flash and
+              configure the board — it carries no sensor traffic.
             </p>
             <h4 class="sub-head">Components on this device</h4>
             <ul class="arch-components">
               <li><span class="arch-comp-name">Modulino Thermo</span> — temperature + humidity, Qwiic/I2C</li>
-              <li><span class="arch-comp-name">Modulino Distance</span> — ToF mm, presence gate at 1000mm, leak signal</li>
+              <li><span class="arch-comp-name">Modulino Distance</span> — ToF mm, presence gate at 1000mm; the only physical-security signal in the system</li>
               <li><span class="arch-comp-name">Modulino Buttons</span> — A / B / C, both-edge events</li>
               <li><span class="arch-comp-name">STM32 sketch.ino</span> — reads the bus, bridges to the Linux side</li>
               <li><span class="arch-comp-name">main.py</span> — App Lab container, writes <code>sensor_log.jsonl</code></li>
-              <li><span class="arch-comp-name">push_sensor_log.sh</span> — scp's the log out every 10s</li>
+              <li><span class="arch-comp-name">push_sensor_log.sh</span> — scp's the log to the laptop over Tailscale every 10s</li>
             </ul>
             <dl class="kv">
-              <dt>Sends to</dt><dd>Laptop, via USB or Tailscale</dd>
+              <dt>Sends to</dt><dd>Laptop, via WiFi + Tailscale VPN</dd>
               <dt>Receives</dt><dd>Nothing — one-way telemetry</dd>
+              <dt>USB-C</dt><dd>Configuration only — flashing, provisioning, debug shell</dd>
             </dl>
           </article>
 
@@ -325,8 +328,9 @@
             </header>
             <p class="arch-does">
               Runs the Telegram app as the on-call's notification and reactive-question client, and
-              opens the laptop-served access terminal page for physical badge-in decisions — the
-              only surface in the whole system a human writes to. Its own NPU is not in use today.
+              opens the laptop-served access terminal page to review and approve/deny physical
+              access — the only surface in the whole system a human writes to. Its own NPU is not
+              in use today.
             </p>
             <h4 class="sub-head">Components on this device</h4>
             <ul class="arch-components">
