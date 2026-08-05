@@ -1,0 +1,40 @@
+[
+  {
+    "config": "Q4_0-npu",
+    "compute": "npu",
+    "model": "unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_0",
+    "reps": 5,
+    "load_s": 11.0,
+    "error": "[WinError 10054] An existing connection was forcibly closed by the remote host"
+  },
+  {
+    "config": "Q4_0-cpu",
+    "compute": "cpu",
+    "model": "unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_0",
+    "reps": 5,
+    "load_s": 9.1,
+    "prefill_tokens": 3866,
+    "prefill_tok_s": 35,
+    "prefill_tok_s_std": 7.2,
+    "prefill_tok_s_runs": [
+      45.5,
+      39.4,
+      34.3,
+      27.0,
+      31.0
+    ],
+    "decode_tokens": 405,
+    "decode_tok_s": 11.3,
+    "decode_tok_s_std": 2.47,
+    "decode_tok_s_runs": [
+      6.98,
+      11.72,
+      12.58,
+      12.96,
+      12.38
+    ],
+    "cpu_pct_during_decode": 33,
+    "rss_gb": 11.61,
+    "tool_call": "PASS"
+  }
+]
