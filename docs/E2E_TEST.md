@@ -95,6 +95,11 @@ curl -s http://127.0.0.1:18181/v1/chat/completions -H "Content-Type: application
 **Expect** `"finish_reason": "tool_calls"` and a populated `tool_calls` array. First call after
 start adds ~30 s of model load.
 
+> `get_environmental_reading` above is a **throwaway tool definition invented for this smoke test**,
+> not one of this project's tools — the point is only to prove the endpoint emits structured
+> `tool_calls` at all. The real tool names are `get_network_status`, `get_storage_status`,
+> `get_compute_status`, `get_environmental_status` and `get_incident_assessment`.
+
 **Confirm it's really on the NPU**: during generation, CPU should sit at **12–17%**, not 56–74%,
 and Task Manager's NPU graph should be active.
 
@@ -215,6 +220,45 @@ delivery works? (7c).
 
 ---
 
+## Layer 9 — the wall display
+
+Optional for the chain to work, but it is what the audience looks at, so it gets checked before
+stage. It is a read-only observer: if it is wrong, nothing else is affected — but a wall that
+disagrees with the phone is worse than no wall.
+
+**Test**
+
+```powershell
+cd $R\mcp-tools
+$env:UNOQ_LOG_MAX_AGE_S = "180"     # must match the environmental server's env block
+npm run start:dashboard
+# then, from another shell:
+curl.exe -s http://127.0.0.1:7788/api/health
+```
+
+**Expect** `{"ok":true,"tick":<climbing>,"clients":<n>,"feedConnected":true}`, and in the browser:
+the header tick counter climbing, a green `live` dot, and a new `climate tick` line in the left
+column every ~10 s.
+
+**If `feedConnected` is false** the display is right and the sensor path is down — the Ingest card
+carries the reason string verbatim. Go back to layer 1/2; this is the same staleness gate the
+environmental tool applies, which is exactly why it fires here first.
+
+**The check that actually matters** — the wall and the phone must agree. During layer 8, watch the
+Telegram panel:
+
+1. On `leak_detected`, a **greyed, dashed** bubble appears marked *"queued · next watchdog tick"*.
+   The wall knows before the phone does; it must not claim a delivery.
+2. When the real tick fires, that same bubble turns solid and marked *"watchdog · sent"* — with
+   **identical text** to what landed on the phone. Compare them character for character; both are
+   built from `src/alert-skill/summarize.ts`.
+3. On recovery, one *"recovered to OK"* bubble, same rules.
+
+**If a bubble says `sent` and the phone has nothing**, the watchdog state file moved without a
+delivery — check `cron\jobs.json` `last_status`, not the wall.
+
+---
+
 ## Traps that produce a false pass
 
 | Trap | Why it fools you |
@@ -250,7 +294,10 @@ $l = Get-Content "$R\arduino_uno_q-sensor_log.json" -Tail 1 | ConvertFrom-Json
 
 # 5. phone reachable?
 & $H send -t telegram "pre-stage check ok"
+
+# 6. wall display up and receiving?
+curl.exe -s http://127.0.0.1:7788/api/health
 ```
 
 All green = log age < 30 s, source not `mock`, models endpoint answers, cron status `ok` with the
-gateway running, and a message on the phone.
+gateway running, a message on the phone, and the wall reporting `"feedConnected":true`.

@@ -1,6 +1,6 @@
 # SMH-Hermes — Progress & Plan (living doc)
 
-Last updated: **2026-08-03** (evening). One file for where the project stands, what's proven,
+Last updated: **2026-08-05**. One file for where the project stands, what's proven,
 and what's next. Detail lives in the linked docs; this is the map.
 
 ## Current state — what is DONE and verified
@@ -17,6 +17,7 @@ and what's next. Detail lives in the linked docs; this is the map.
 | 8 | **UNO Q provisioned** — WiFi, Tailscale, SSH-to-laptop, button-triggered sensor logging pushed to the laptop every 10s | [docs/UNOQ_SETUP.md](docs/UNOQ_SETUP.md) |
 | 9 | **Newcomer glossary + doc-hygiene pass** — "who does what" orientation doc (cast list, 5-layer stack, build-time vs demo-time, request walkthrough, confused-pairs); bogus UNO Q specs corrected from the audit; obsolete WSL2 risk closed in FEASIBILITY + HARDWARE_UTILIZATION; competitor claim softened; mcp-tools status + env-var docs corrected; **`.gitignore` now blocks `telegram_info` and the confidential hackathon PDF** from reaching the public repo | [docs/GLOSSARY.md](docs/GLOSSARY.md) |
 | 10 | **Architecture diagrams** — 4 Mermaid diagrams (runtime demo path with gap markers; reactive + proactive sequence flows; QUAD build-time graph with per-tool usage status; one-model-two-artifacts table). All 4 validated with mermaid-cli. Encodes the disjoint-graphs fact: QUAD and the runtime share only the laptop | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 11 | **Live operations wall** (2026-08-05) — a local read-only page showing the whole demo at once: the UNO Q's door/lighting/leak/temperature/humidity state, that feed arriving at the server beside the network/storage/compute telemetry, the assessment drawn from all of it, and the phone's Telegram thread. Calls the same functions the MCP tools call (one world seed per tick), so it cannot disagree with the agent. No dependencies, no build step, loopback only — it survives the WiFi cut. Verified end to end on a live log: leak → CRITICAL → queued alert → real watchdog tick → delivered bubble carrying the identical text → recovery. **15 new tests, suite 107/107** | [docs/DASHBOARD.md](docs/DASHBOARD.md) |
 
 ## Locked architecture decisions (from the audit + spike)
 

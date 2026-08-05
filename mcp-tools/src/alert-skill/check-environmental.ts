@@ -23,6 +23,7 @@ import { existsSync } from "node:fs";
 import { getEnvironmentalReading } from "../environmental/source.js";
 import { readState, writeState } from "./state-store.js";
 import { decideAlert } from "./decide-alert.js";
+import { summarizeReading } from "./summarize.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // dist/alert-skill/check-environmental.js -> package root is two levels up.
@@ -38,17 +39,6 @@ if (!process.env.UNOQ_SENSOR_LOG && existsSync(DEFAULT_SENSOR_LOG)) {
   process.env.UNOQ_SENSOR_LOG = DEFAULT_SENSOR_LOG;
 }
 
-function summarize(reading: Awaited<ReturnType<typeof getEnvironmentalReading>>): string {
-  const leak = reading.leakDetected
-    ? reading.leakVia === "level"
-      ? "LEAK DETECTED (water level rising)"
-      : "LEAK DETECTED (leak event)"
-    : "no leak";
-  const dist = reading.distanceMm !== undefined ? `, water-level distance ${reading.distanceMm}mm` : "";
-  const src = reading.source === "mock" ? ` (mock data: ${reading.fallbackReason ?? "no board configured"})` : " (real sensor)";
-  return `Temperature ${reading.temperatureC}C, humidity ${reading.humidityPct}%${dist}, ${leak}${src}.`;
-}
-
 async function main(): Promise<void> {
   const statePath = process.env.ALERT_STATE_PATH ?? DEFAULT_STATE_PATH;
   const asJson = process.argv.includes("--json");
@@ -59,7 +49,7 @@ async function main(): Promise<void> {
     currentStatus: reading.status,
     previous,
     now: new Date(),
-    summary: summarize(reading),
+    summary: summarizeReading(reading),
   });
 
   await writeState(statePath, decision.nextState);
