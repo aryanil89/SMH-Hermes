@@ -42,6 +42,9 @@ flowchart TD
         GX["GenieX serve — 127.0.0.1:18181  ✅ running"]
         MOD["Qwen3-4B-Instruct-2507 — GGUF Q4_0, 64K ctx"]
         NPU["Hexagon NPU v73 — CPU stays at 12-17%"]
+        STATE["mcp-tools/.state/environmental-watch.json"]
+        WALL["wall display — 127.0.0.1:7788, SSE every 2s"]
+        BROW["local browser (demo table)"]
         FILE --> ENV
         ENV -->|stdio| HA
         NET -->|stdio| HA
@@ -50,6 +53,10 @@ flowchart TD
         HA -->|"POST /v1/chat/completions"| GX
         GX -->|"llama.cpp Hexagon backend"| MOD
         MOD --> NPU
+        HA -->|"cron tick writes"| STATE
+        FILE -.->|"reads the log directly"| WALL
+        STATE -.->|"mirrors real deliveries"| WALL
+        WALL --> BROW
     end
 
     subgraph phone["Galaxy S25+  (mobility tier)"]
@@ -67,6 +74,12 @@ flowchart TD
 
 Everything inside the laptop box survives a WiFi cut — that is the scoped offline demo beat.
 Telegram (and only Telegram) needs the internet.
+
+The **wall display** is drawn with dashed edges deliberately: it is a read-only observer, not part
+of the reasoning path. It re-derives its numbers by calling the same functions the MCP tools call
+(`getEnvironmentalReading`, `assessIncident`, the three family generators) rather than intercepting
+anything, so removing it changes nothing about what the agent does or answers. It reads the sensor
+log and the watchdog's state file; it writes neither. Detail in [DASHBOARD.md](DASHBOARD.md).
 
 ## §2 The two request paths
 

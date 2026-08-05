@@ -62,7 +62,12 @@ function envNumber(name: string, fallback: number | undefined): number | undefin
   return Number.isFinite(n) ? n : fallback;
 }
 
-function parseLine(line: string): SensorLogLine | undefined {
+/**
+ * Parse one JSON-lines record, tolerating garbage. Exported because the live
+ * dashboard reads the same file and must agree, line for line, with what the
+ * MCP tool considers a valid reading.
+ */
+export function parseSensorLogLine(line: string): SensorLogLine | undefined {
   try {
     const obj = JSON.parse(line) as Partial<SensorLogLine>;
     if (
@@ -111,7 +116,7 @@ export async function readSensorLogReading(opts: ReadSensorLogOptions): Promise<
   let latest: SensorLogLine | undefined;
   for (let i = lines.length - 1; i >= 0 && !latest; i--) {
     const candidate = lines[i];
-    if (candidate !== undefined) latest = parseLine(candidate);
+    if (candidate !== undefined) latest = parseSensorLogLine(candidate);
   }
   if (!latest) {
     return { ok: false, reason: `sensor log at ${opts.path} has no parseable lines` };
@@ -144,7 +149,7 @@ export async function readSensorLogReading(opts: ReadSensorLogOptions): Promise<
   for (let i = lines.length - 1; i >= 0 && !eventLeak; i--) {
     const rawLine = lines[i];
     if (rawLine === undefined) continue;
-    const line = parseLine(rawLine);
+    const line = parseSensorLogLine(rawLine);
     if (!line) continue;
     const ts = Date.parse(line.timestamp);
     if (!Number.isNaN(ts) && ts < leakCutoffMs) break; // lines are appended in order

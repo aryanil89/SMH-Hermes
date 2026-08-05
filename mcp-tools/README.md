@@ -12,6 +12,11 @@ categories, not tied to any specific tool like CI/CD:
 | Environmental / physical | **Real** — Arduino UNO Q sensor, see [../uno-q](../uno-q) |
 | **Incident assessment** | Derived — correlates all four into one verdict (risk + confidence + evidence) |
 
+A third consumer sits alongside the agent: the **live operations wall**
+([src/dashboard/](src/dashboard/), docs in [../docs/DASHBOARD.md](../docs/DASHBOARD.md)) — a local
+read-only web page for the demo table. It calls the same functions the tools call, so it cannot
+disagree with the agent; it never writes; and it is loopback-only, so it survives the WiFi cut.
+
 Alongside the pull-based tools above, a Hermes cron job watches the environmental data every 5 min
 and proactively pushes a Telegram alert when a threshold is crossed or recovers. It runs in
 **`--no-agent` script mode** ([cron/environmental-watch.py](cron/environmental-watch.py)), so no LLM
@@ -36,8 +41,11 @@ mock/real split.
 - The proactive watchdog: [cron/environmental-watch.py](cron/environmental-watch.py) (production,
   `--no-agent`) plus [skills/environmental-watch/](skills/environmental-watch/), retained for
   manual/agent-narrated runs only.
+- The **live operations wall** (added 2026-08-05): [src/dashboard/](src/dashboard/) plus the
+  dependency-free page in [public/](public/). `npm run start:dashboard` →
+  `http://127.0.0.1:7788`. Full reference: [../docs/DASHBOARD.md](../docs/DASHBOARD.md).
 
-Run the tests with `npm test` (90 tests).
+Run the tests with `npm test` (107 tests).
 
 ### Thermal coupling — why the correlation is real
 
@@ -111,6 +119,12 @@ level detection means putting `distance_mm` back on the tick, board-side.
 Background on the push pipeline:
 [../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md).
 
-**Wired into Hermes and verified end to end** (2026-08-03) — all four servers are registered in
+**Wired into Hermes and verified end to end** (2026-08-03) — the four status servers are registered in
 `%LOCALAPPDATA%\hermes\config.yaml` and have been exercised over the NPU-served endpoint with real
 tool calls. See [../PROGRESS.md](../PROGRESS.md) NEXT item 3.
+
+⚠️ **`assessment` is the fifth server and was added after that verification.** It is built and
+tested here, but a `config.yaml` written before it existed will not list it — and without it the
+agent has to make four separate status calls, which on the NPU is a ten-minute answer. Check with
+`hermes -z "assess the current incident"`; the registration block is in the
+[root README](../README.md#0-setting-this-up-on-a-fresh-machine), step 5.

@@ -30,17 +30,18 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 
 ## Run it yourself — the whole flow, in start order
 
-The stack is five pieces. Start them in this order; each step says what it is, the exact command,
+The stack is six pieces. Start them in this order; each step says what it is, the exact command,
 and how to know it worked. The flow being started:
 
 ```
 [1] GenieX model server (NPU)  ←  [3] Hermes Agent  →  [4] Telegram gateway → phone
                                         ↑ stdio (automatic)
                                   [MCP tool servers: network/storage/compute = mock,
-                                   environmental = real]
+                                   environmental = real, assessment = the one-call verdict]
                                         ↑ log file
                                   [2] Arduino UNO Q sensors → USB or Tailscale
                                   [5] cron watchdog → proactive Telegram alerts
+                                  [6] wall display  → local browser (read-only view of all of it)
 ```
 
 ### 0. Setting this up on a fresh machine
@@ -68,7 +69,7 @@ for anywhere else.
 & "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" ls          # expect the Q4_0 precision listed
 
 # 2. MCP tool servers
-cd mcp-tools; npm install; npm run build; npm test      # expect 60/60 passing
+cd mcp-tools; npm install; npm run build; npm test      # expect 107/107 passing
 cd ..
 
 # 3. Hermes Agent — native ARM64 installer → %LOCALAPPDATA%\hermes\  (this is HERMES_HOME;
@@ -106,7 +107,19 @@ mcp_servers:                              # absolute paths — see "Paths to cha
       UNOQ_SENSOR_LOG: "<REPO>\\arduino_uno_q-sensor_log.json"
       UNOQ_LOG_MAX_AGE_S: "180"           # older than this -> honest mock, not stale "real"
       # UNOQ_LEAK_DISTANCE_MM: "150"      # water-level leak threshold; unset = level detection off
+  assessment:                             # get_incident_assessment - one call, one verdict
+    command: node
+    args: [ "<REPO>\\mcp-tools\\dist\\servers\\assessment-server.js" ]
+    env:
+      UNOQ_SENSOR_LOG: "<REPO>\\arduino_uno_q-sensor_log.json"
+      UNOQ_LOG_MAX_AGE_S: "180"           # it reads the sensor path too - keep these in sync
 ```
+
+⚠️ **Register `assessment` — it is easy to miss and it is the one that matters on stage.** Each
+agent turn costs a full prompt re-prefill on the NPU (2–4 min), so a four-status-call answer is a
+ten-minute answer. `get_incident_assessment` does all four families plus the risk and confidence
+arithmetic in one call. Confirm it is live with `hermes -z "assess the current incident"`. If the
+laptop's existing `config.yaml` only lists four servers, this is the missing one.
 
 **6. Proactive alert job** (see [mcp-tools/cron/](mcp-tools/cron/)):
 
@@ -125,7 +138,7 @@ Every absolute path lives in exactly four places — grep for `C:\Users\qc_de` t
 
 | Where | What |
 |---|---|
-| `%LOCALAPPDATA%\hermes\config.yaml` | 4 × `mcp_servers` args + `UNOQ_SENSOR_LOG` |
+| `%LOCALAPPDATA%\hermes\config.yaml` | 5 × `mcp_servers` args + 2 × `UNOQ_SENSOR_LOG` |
 | `%LOCALAPPDATA%\hermes\scripts\environmental-watch.py` | `REPO_ROOT` (or set `SMH_HERMES_ROOT` instead of editing) |
 | `bench/bench.py` | `SDK`, `GX`, `BUNDLE` constants — only if profiling |
 | `docs/` | Illustrative paths in prose; harmless if left |
@@ -239,7 +252,31 @@ threshold crossing or recovery — silence is the normal state. To exercise it e
 3. ~5–10 min later: a one-time "recovered to OK" push — that's edge-triggered recovery working,
    not a bug.
 
-### Quick health check, all five
+### 6. The wall display — one page showing all of the above
+
+A local web page for the demo table: the UNO Q and its door / lighting / leak / temperature /
+humidity state on the left, the server ingesting that feed alongside the network, storage and
+compute telemetry — and the inference it draws from them — in the middle, and the phone's Telegram
+thread on the right.
+
+```powershell
+cd mcp-tools
+npm run start:dashboard          # then open http://127.0.0.1:7788 in Edge on this laptop
+cd ..
+```
+
+**Worked when:** the header tick counter climbs, the `live` dot is green, and the left column grows
+a `climate tick` line every ~10s. A header pill reading **"Sensor feed down · environmental reading
+is mock"** means the display is working and telling you the truth — the sensor path is not
+delivering, and the Ingest card carries the reason string.
+
+It reads the same functions the MCP tools call, so it cannot disagree with the agent; it never
+writes anything; and it is loopback-only, so it works with the WiFi off. Set
+`UNOQ_LOG_MAX_AGE_S=180` here too, to match the environmental server's env block — otherwise the
+agent falls back to mock while the wall still shows a live feed. Full reference, including how to
+put real phone traffic on the Telegram panel: **[docs/DASHBOARD.md](docs/DASHBOARD.md)**.
+
+### Quick health check, all six
 
 ```powershell
 curl.exe -s http://127.0.0.1:18181/v1/models                      # [1] model server up
@@ -248,6 +285,7 @@ node mcp-tools\dist\alert-skill\check-environmental.js --json     # [tools] sour
 hermes -z "what's the temperature in rack B1?"                    # [3] agent + tools + NPU
 hermes gateway status                                             # [4] telegram connected
 hermes cron list                                                  # [5] Environmental watch active
+curl.exe -s http://127.0.0.1:7788/api/health                      # [6] wall display up, feed state
 ```
 
 ## Troubleshooting — symptom → cause
@@ -271,6 +309,10 @@ Every row here cost us real time; none are hypothetical.
 Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TEST.md)**.
 
 ## Docs
+- **[The live operations wall](docs/DASHBOARD.md)** — the demo-table display: what each panel reads
+  and whether it is real or simulated, the rules that stop the phone panel from claiming a delivery
+  that has not happened, the `/api/telegram` seam for showing genuine phone traffic, and why the
+  trend line can legitimately disagree with the number above it
 - **[Glossary — who does what](docs/GLOSSARY.md)** — new to GenieX / QAIRT / QUAD / MCP? **Start
   here.** Every term with its one job, the five-layer stack, build-time vs demo-time, a request
   traced end to end, and the pairs that get confused for each other
@@ -307,7 +349,7 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
   CR-1..CR-8 and sensor upgrades S-1..S-6 with status markers (CR-1/2/3/5 + S-1 done, live-verified)
 
 ## Layout
-- `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive cron watchdog
+- `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive cron watchdog, plus the local wall display (`src/dashboard/` + the dependency-free page in `public/`, see [docs/DASHBOARD.md](docs/DASHBOARD.md))
 - `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic climate `sensor_tick`, both-edge button events, and ToF presence crossings over three Bridge channels, plus the LED-matrix boot/connection display), the USB `pull_sensor_log.ps1` transport fallback, and deployment/bring-up docs
 - `bench/` — NPU profiling harness (qnn-net-run against the W4A16 bundle); results in [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 - `hermes.env.example` — template for Hermes's own `.env` (copy to `%LOCALAPPDATA%\hermes\.env`); the
