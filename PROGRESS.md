@@ -206,7 +206,13 @@ and what's next. Detail lives in the linked docs; this is the map.
 ## Open risks still live
 
 - **Long-context prefill latency untested** — a real 64K prompt has never been timed; test before
-  demoing long sessions (P0-adjacent).
+  demoing long sessions (P0-adjacent). **Partially defused 2026-08-05:** the reason no long session
+  could survive was Hermes's 180 s non-stream stale kill — the `("qwen3", 180)` reasoning-floor
+  entry in the vendored `agent/reasoning_timeouts.py` matches our Instruct slug and deliberately
+  bypasses the local-endpoint exemption. Fixed with `providers.custom.stale_timeout_seconds: 900`
+  in `%LOCALAPPDATA%\hermes\config.yaml` (picked up without restart; mtime invalidates the config
+  cache). The direct-server 64K timing itself is still to be run — and even fixed, a ~60K session
+  costs ~3 min of prefill per iteration at measured rates, so keep demo sessions short regardless.
 - **~15–16 tok/s decode** — keep agent replies terse via system prompt or demos drag.
 - **Hermes Node 26 migration churn** (landed 2026-08-02) — pin whatever the installer gives; don't
   `hermes upgrade` mid-week.

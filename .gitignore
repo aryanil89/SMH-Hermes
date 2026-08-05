@@ -59,3 +59,12 @@ Thumbs.db
 
 # Claude Code local settings (machine-specific, not shared)
 .claude/settings.local.json
+
+# Benchmark evidence — keep these LAST so they override earlier ignores.
+# bench/artifacts/ holds the §3 per-op profiling outputs (QAIRT Visualizer
+# inputs); its token_ar1 dir names collide with *token* above, and its
+# qnn-profiling-data_0.log files with *.log. llm-serving-bench serve logs
+# are the §1 crash evidence RESULTS.md cites.
+!bench/artifacts/
+!bench/artifacts/**
+!llm-serving-bench/**/*.log

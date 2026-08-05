@@ -40,9 +40,29 @@ Hexagon + historically template-based tool calling).
 ## Decision rule (agreed)
 
 No swap without numbers, no numbers without the gate: a candidate must PASS the OpenAI
-tool-call test in `llm-serving-bench/bench.py`, beat the baseline's modeled agent iteration
-(~32s), and survive one live Hermes MCP turn. Otherwise Qwen3-4B-Instruct-2507 stays, and this
+tool-call test in `llm-serving-bench/bench.py`, beat the baseline's modeled agent iteration,
+and survive one live Hermes MCP turn. Otherwise Qwen3-4B-Instruct-2507 stays, and this
 document is the "alternatives were evaluated" evidence.
+
+## Addendum 2026-08-05 (second research pass, web-verified)
+
+- **The baseline agent iteration is ~42 s, not ~32 s** — the 8K/150 request shape the gate
+  originally modeled understated the measured Hermes mean (12,670 prompt / 105 completion
+  tokens, state.db). `bench.py` now scores with the measured shape and takes `--model`, so the
+  gate runs without editing the file: `python bench.py --model <hf-repo:quant> --modes npu`.
+- **Weight candidates ~12:1 on prefill.** Measured input:output is ~120:1 and the winning
+  config spends ~82% of an iteration in prefill — decode deltas barely move the score. This
+  strengthens Ministral-3 (dense transformer, full NPU prefill) relative to its ranking above,
+  and makes gpt-oss-20b's four-session dispatch overhead its make-or-break number.
+- **One check against gpt-oss-20b's #1 slot:** on the agentic benchmark closest to our
+  workload it is *weaker*, not stronger, than Qwen3.5-4B — tau-bench Retail 54.8 (OpenAI model
+  card) vs Qwen3.5-4B's reported TAU2 79.9 — while costing ~3× the memory. Its "o3-mini-class"
+  reputation is general-reasoning, not tool-calling. Also still unconfirmed anywhere: an
+  X Elite NPU bundle (the `qualcomm/GPT-OSS-20B` HF repo is gated; an onnxruntime NPU request
+  from 2025-08 sits unanswered) and any published X Elite tok/s.
+- Net: the conclusion above stands — **keep Qwen3-4B-Instruct-2507** — and the honest slide
+  line is: "evaluated Qwen3.5-4B, gpt-oss-20b, Ministral 3; kept the only candidate with a
+  validated NPU tool-calling path."
 
 Full sources (model cards, llama.cpp snapdragon docs, GenieX README, benchmark comparisons)
 are cited in the research transcript; key ones: huggingface.co/Qwen/Qwen3.5-4B ·
