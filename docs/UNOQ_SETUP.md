@@ -12,12 +12,15 @@ UNO Q sketch (Zephyr, STM32U5)          UNO Q Linux (QCS2210, Debian 13 trixie)
   on Wire1 (Qwiic bus), read every           Bridge.provide("button_pressed", ...)
   300ms to drive the LED matrix             -> appends sensor_log.jsonl (no network access
         |                                       inside the container), tick + event lines
-        | Bridge.notify("button_pressed",          |
+        | Bridge.notify("button_event",            |
         |   event, distance, temp, humidity)       v
-        | -- periodic sensor_tick ~10s,       main.py callback                    Laptop
-        |    PLUS one line per button rising
-        |    edge: event = door_open /
-        |    light_on / leak_detected (A/B/C)
+        | -- climate sensor_tick ~10s         main.py callback                    Laptop
+        |    (temp + humidity only),
+        |    PLUS one line per button edge
+        |    (both directions: door_open/
+        |    door_closed, light_on/light_off,
+        |    leak_detected/leak_cleared),
+        |    PLUS object_entered/object_left
         v                                            |                          (Windows,
   Arduino_RouterBridge  ------------------->  (bind-mounted file,                OpenSSH
                                                same path on host)                Server)
@@ -37,8 +40,10 @@ just re-syncs whatever's in the local file on its own timer. The log grows two w
 `sensor_tick` line roughly every 10s (this is what keeps the environmental tool on **real** data
 between demos — see CR-1 in
 [REVIEW_AND_SENSOR_PLAN_2026-08-03.md](REVIEW_AND_SENSOR_PLAN_2026-08-03.md)), plus one event line
-whenever a button is physically pressed. Earlier revisions of this doc said logging happened *only*
-on a button press; that was true before periodic sampling landed, and is no longer.
+per button **transition** — both press and release — and one per ToF presence crossing. Earlier
+revisions of this doc said logging happened *only* on a button press; that was true before periodic
+sampling landed, and is no longer. As of 2026-08-05 the tick carries **temperature and humidity
+only**: distance appears on presence and button lines instead.
 
 Two systemd units on the board's Linux side make this run unattended from boot:
 
@@ -114,8 +119,10 @@ testing (see below).
 
 7. **Event-driven logging + LED matrix display (2026-08-03 follow-up).** Originally the sketch
    sampled all sensors and pushed one `Bridge.notify` every 10s regardless of button state. Changed
-   to: read sensors every 300ms (for the display only), detect each button's rising edge, and only
-   call `Bridge.notify("button_pressed", ...)` on an actual press. The board's LED matrix
+   to: read sensors every 300ms (for the display only), detect each button's edges, and only call
+   `Bridge.notify(...)` on an actual transition. (Originally rising-edge only under the name
+   `button_pressed`; since 2026-08-05 both edges are logged and the method is `button_event`.)
+   The board's LED matrix
    (`Arduino_LED_Matrix` + `ArduinoGraphics`, bundled with the `arduino:zephyr` core — confirmed by
    grepping the core package for `matrixBegin`/`ArduinoGraphics` and reading the bundled
    `examples:weather-forecast` and `Arduino_LED_Matrix/examples/Basic` sketches for the real API)

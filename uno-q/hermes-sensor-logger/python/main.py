@@ -1,5 +1,8 @@
 import datetime
 import json
+import threading
+import time
+
 from arduino.app_utils import App, Bridge
 
 # Relative to the app's working directory inside the App Lab container (/app),
@@ -8,51 +11,162 @@ from arduino.app_utils import App, Bridge
 # container by push_sensor_log.sh, since this container has no ssh/scp.
 LOCAL_LOG_PATH = "sensor_log.jsonl"
 
+# Written once a second by push_sensor_log.sh on the host. The container has no
+# nmcli/timedatectl/ssh of its own, so this file is the only way in to the
+# WiFi / clock / SSH state the boot display reports.
+STATUS_PATH = "boot_status.json"
 
-def button_pressed(event: str, distance_mm: float, celsius: float, humidity: float):
-    """Callback invoked by the board sketch via Bridge.notify on each button press
-    (rising edge only -- one call per press, not a polling tick). Appends one JSON
-    line capturing the simulated event and the sensor readings at that instant.
+# Stage codes shared with sketch/sketch.ino -- keep in sync with its Stage enum.
+STAGE_BOOT = 0
+STAGE_WIFI = 1
+STAGE_TIME = 2
+STAGE_SSH = 3
+STAGE_RUN = 4
 
-    Button-to-event mapping (see sketch/sketch.ino BUTTON_EVENTS): A -> door_open,
-    B -> light_on, C -> leak_detected.
+# Each stage holds the display long enough to actually be read; without this the
+# sequence would blink past on a board that connects quickly.
+MIN_DWELL_S = 3.0
+
+# How long to keep waiting on a stage that will not come good. Hitting this is
+# not fatal: the sequence moves on so the sensor readout still appears, and the
+# failing stage has been showing its frown the whole time.
+STAGE_TIMEOUT_S = 60.0
+
+
+def _log_reading(event: str, celsius: float, humidity: float, distance_mm: float | None = None):
+    """Append one JSON line.
+
+    `distance_mm` is omitted entirely when None -- the periodic climate channel
+    carries no distance. When present it is -1.0 for "no usable reading", which
+    the laptop side already treats as "no sample" rather than a measurement.
     """
     reading = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "event": event,
         "temperature_c": celsius,
         "humidity_pct": humidity,
-        "distance_mm": distance_mm,
     }
+    if distance_mm is not None:
+        reading["distance_mm"] = distance_mm
 
     with open(LOCAL_LOG_PATH, "a") as f:
         f.write(json.dumps(reading) + "\n")
 
 
-def sensor_tick(event: str, distance_mm: float, celsius: float, humidity: float):
-    """Callback for the board's periodic telemetry channel (every ~10s, no human
-    involved). Same line shape as button events with event="sensor_tick", so the
-    laptop-side reader needs no schema change -- it just sees fresher lines.
-    Keeps the environmental MCP tool on real data instead of tripping the
-    staleness guard whenever nobody has pressed a button for a while.
+def button_event(event: str, distance_mm: float, celsius: float, humidity: float):
+    """Callback invoked by the sketch on every button *transition* -- both edges,
+    one call per change of state, never one per polling tick.
+
+    The buttons model a state rather than a momentary trigger, so each has a
+    paired event (see sketch/sketch.ino BUTTON_EVENTS_PRESSED / _RELEASED):
+    A -> door_open / door_closed, B -> light_on / light_off,
+    C -> leak_detected / leak_cleared.
     """
-    reading = {
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        "event": "sensor_tick",
-        "temperature_c": celsius,
-        "humidity_pct": humidity,
-        "distance_mm": distance_mm,
-    }
-
-    with open(LOCAL_LOG_PATH, "a") as f:
-        f.write(json.dumps(reading) + "\n")
+    _log_reading(event, celsius, humidity, distance_mm)
 
 
-print("Registering 'button_pressed' callback.")
-Bridge.provide("button_pressed", button_pressed)
+def sensor_tick(event: str, celsius: float, humidity: float):
+    """Callback for the board's periodic climate channel (every ~10s, no human
+    involved). Temperature and humidity only -- distance is reported by the
+    presence channel on crossings instead.
+
+    This channel exists to keep the environmental MCP tool on real data rather
+    than tripping its staleness guard whenever nobody has touched the board.
+    """
+    _log_reading("sensor_tick", celsius, humidity)
+
+
+def presence_event(event: str, distance_mm: float, celsius: float, humidity: float):
+    """Callback for the ToF presence channel: one line when an object comes within
+    the sketch's PRESENCE_THRESHOLD_MM (`object_entered`) and one when it leaves
+    again (`object_left`).
+
+    Edge-triggered and debounced in the sketch, so an object parked in front of
+    the sensor produces exactly one line on arrival and one on departure -- not a
+    line per tick.
+    """
+    _log_reading(event, celsius, humidity, distance_mm)
+
+
+def _set_stage(stage: int, ok: bool = False, text: str = ""):
+    """Push one display stage to the sketch. Never raises: the sketch may not have
+    registered set_stage yet (it retries the binding at startup), and a boot
+    display that cannot draw must not take the sensor logging down with it.
+    """
+    try:
+        Bridge.call("set_stage", stage, ok, text, timeout=5)
+    except Exception as exc:  # noqa: BLE001 - the display is best-effort by design
+        print(f"set_stage({stage}, ok={ok}, text={text!r}) failed: {exc}")
+
+
+def _read_status() -> dict:
+    """Read the host's status file. Missing or half-written is normal early in
+    boot -- push_sensor_log.sh may not have run yet -- so treat it as 'nothing
+    known' rather than an error.
+    """
+    try:
+        with open(STATUS_PATH) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _await_stage(stage: int, key: str, text_key: str = "") -> bool:
+    """Hold `stage` on the matrix until the host reports `key` true.
+
+    Shows the failure face while waiting and the success face for MIN_DWELL_S
+    once it flips, so both outcomes are visible rather than flashing past. Gives
+    up after STAGE_TIMEOUT_S so one dead link (no NTP behind a captive portal,
+    laptop asleep) cannot strand the display short of the sensor readout.
+    """
+    deadline = time.monotonic() + STAGE_TIMEOUT_S
+    ok = False
+    while True:
+        status = _read_status()
+        ok = bool(status.get(key))
+        text = str(status.get(text_key, "")) if text_key else ""
+        _set_stage(stage, ok, text)
+        if ok:
+            break
+        if time.monotonic() > deadline:
+            print(f"boot stage {stage} ({key}) timed out after {STAGE_TIMEOUT_S}s; continuing")
+            break
+        time.sleep(1.0)
+
+    time.sleep(MIN_DWELL_S)
+    return ok
+
+
+def _boot_sequence():
+    """Walk the matrix through boot -> WiFi -> clock -> SSH -> live readout.
+
+    Runs on its own thread so it never blocks the Bridge callbacks: sensor ticks
+    and button events keep being logged throughout, whatever the display shows.
+    """
+    # The sketch already shows the boot icon from setup(); this re-asserts it in
+    # case the app restarted without the board power-cycling.
+    _set_stage(STAGE_BOOT)
+    time.sleep(MIN_DWELL_S)
+
+    _await_stage(STAGE_WIFI, "wifi_ok")
+    _await_stage(STAGE_TIME, "time_ok", text_key="clock")
+    _await_stage(STAGE_SSH, "ssh_ok")
+
+    _set_stage(STAGE_RUN)
+    print("Boot sequence complete; matrix showing live sensor data.")
+
+
+print("Registering 'button_event' callback.")
+Bridge.provide("button_event", button_event)
 
 print("Registering 'sensor_tick' callback.")
 Bridge.provide("sensor_tick", sensor_tick)
+
+print("Registering 'presence_event' callback.")
+Bridge.provide("presence_event", presence_event)
+
+print("Starting boot status display thread.")
+threading.Thread(target=_boot_sequence, name="boot-display", daemon=True).start()
 
 print("Starting App...")
 App.run()

@@ -86,9 +86,12 @@ answer. All arithmetic runs in TypeScript in microseconds; the model only relays
 degrades instead:
 
 1. **Pushed sensor log** (preferred) — reads the JSON-lines file the board streams to this machine.
-   Set `UNOQ_SENSOR_LOG`. No network round-trip at read time. Button A/B/C map to
-   `door_open`/`light_on`/`leak_detected`, and a leak event counts as live for
-   `UNOQ_LEAK_WINDOW_S` seconds (default 300) — so tripping button C on stage reads as a leak.
+   Set `UNOQ_SENSOR_LOG`. No network round-trip at read time. Buttons log **both edges** — A/B/C map
+   to `door_open`/`door_closed`, `light_on`/`light_off`, `leak_detected`/`leak_cleared` — and a leak
+   event counts as live for `UNOQ_LEAK_WINDOW_S` seconds (default 300) *unless* a later
+   `leak_cleared` cancels it, so holding button C on stage reads as a leak and releasing it
+   recovers. Note `leak_cleared` also contains the substring `leak`: the scan checks for it
+   explicitly **before** the substring test, or the clearing event would re-raise the alert.
    Implementation: [src/environmental/file-source.ts](src/environmental/file-source.ts).
 2. **SSH pull** — `UnoQClient.readSensors()` over SSH when `UNOQ_HOST` is set, bounded by
    `UNOQ_TIMEOUT_MS` (default 3000).
@@ -98,8 +101,15 @@ degrades instead:
 Configure with `UNOQ_SENSOR_LOG`, `UNOQ_HOST`, `UNOQ_USER`, `UNOQ_TIMEOUT_MS`,
 `UNOQ_LEAK_WINDOW_S`, `UNOQ_LOG_MAX_AGE_S` (staleness guard, 180 in production — an older log
 degrades to mock rather than reporting stale data as real) and `UNOQ_LEAK_DISTANCE_MM` (water-level
-leak threshold; unset = level detection off, event-based leak still works). Background on the push
-pipeline: [../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md).
+leak threshold; unset = level detection off, event-based leak still works).
+
+⚠️ `UNOQ_LEAK_DISTANCE_MM` is **currently inert even if set**: the board stopped putting
+`distance_mm` on `sensor_tick` lines on 2026-08-05, and this reader takes distance from the newest
+line — which is nearly always a tick. Distance now only arrives on presence/button lines. Restoring
+level detection means putting `distance_mm` back on the tick, board-side.
+
+Background on the push pipeline:
+[../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md).
 
 **Wired into Hermes and verified end to end** (2026-08-03) — all four servers are registered in
 `%LOCALAPPDATA%\hermes\config.yaml` and have been exercised over the NPU-served endpoint with real

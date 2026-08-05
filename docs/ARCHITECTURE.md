@@ -18,7 +18,7 @@ the never-run profiling step costs scoring points without costing any function.
 flowchart TD
     subgraph board["Arduino UNO Q  (sensing tier)"]
         TH["Modulino Thermo — temp + humidity"]
-        DI["Modulino Distance — mm (water level, surfaced as distanceMm)"]
+        DI["Modulino Distance — mm, presence gate at 1000mm"]
         BU["Modulino Buttons — A / B / C"]
         MCU["STM32 sketch.ino"]
         PY["main.py (App Lab container)"]
@@ -27,7 +27,7 @@ flowchart TD
         TH -->|"I2C on Wire1 (Qwiic)"| MCU
         DI -->|"I2C on Wire1 (Qwiic)"| MCU
         BU -->|"I2C on Wire1 (Qwiic)"| MCU
-        MCU -->|"Bridge.notify — periodic sensor_tick ~10s + one event per button press"| PY
+        MCU -->|"Bridge.notify — climate sensor_tick ~10s + button transitions (both edges) + presence crossings"| PY
         PY --> LOG
         LOG --> PUSH
     end
@@ -172,8 +172,8 @@ explicitly**, so the benchmark doesn't read as a bait-and-switch. Evidence:
 
 | Marker | What | Tracked as |
 |---|---|---|
-| ✅ periodic sensor sampling | **CR-1 closed** — the sketch emits a `sensor_tick` ~every 10 s *in addition to* button events, so the tool no longer degrades to mock between presses | [REVIEW_AND_SENSOR_PLAN_2026-08-03.md](REVIEW_AND_SENSOR_PLAN_2026-08-03.md) |
-| ✅ `distance_mm` surfaced | **CR-2 closed** — reaches the laptop and is reported as `distanceMm` / "water-level distance". Level-based leak detection is implemented but **off** until `UNOQ_LEAK_DISTANCE_MM` is calibrated | same doc |
+| ✅ periodic sensor sampling | **CR-1 closed** — the sketch emits a `sensor_tick` ~every 10 s *in addition to* event channels, so the tool no longer degrades to mock between presses. Since 2026-08-05 the tick carries **temperature + humidity only** | [REVIEW_AND_SENSOR_PLAN_2026-08-03.md](REVIEW_AND_SENSOR_PLAN_2026-08-03.md) |
+| ⚠️ `distance_mm` surfaced | **CR-2 closed**, then narrowed. Distance now reaches the laptop **only** on presence (`object_entered`/`object_left`) and button lines, gated to readings under 1000mm. Because the reader takes the newest line — almost always a tick, which has no distance — **level-based leak detection is no longer reachable**; button C is the live leak path. Restoring it means putting `distance_mm` back on the tick | [../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md) |
 | ⚠️ Telegram round-trip constraints | wired ✅, but requires the non-streaming local patch (`HERMES_FORCE_NONSTREAM=1`, reverted by `hermes update`) and replies take 2–4 min | [../PROGRESS.md](../PROGRESS.md) NEXT 4 |
 | ⚠️ NPU claim now measured, but not by `profile_workload` | The bundle **is** profiled per-op on Hexagon (prefill/decode latency + HTP cycle counts). `profile_workload` itself was unusable — the QUAD server is a remote x86 VM with no Hexagon and no access to local disk — so the numbers come from `qnn-net-run` + `qnn-profile-viewer`, driven by `profile_device_plan` | [BENCHMARKS.md](BENCHMARKS.md), [../PROGRESS.md](../PROGRESS.md) NEXT 7 |
 | ⚠️ cron alert job created, and its first design was broken | The proactive path runs as a `--no-agent` **Python** script every 5 min. The original `.sh` wrapper failed *every scheduled tick* (WSL had no `/bin/bash`); fixed 2026-08-04. Verify via a real tick, never a one-off run | [E2E_TEST.md](E2E_TEST.md) §7, [../PROGRESS.md](../PROGRESS.md) NEXT 6 |

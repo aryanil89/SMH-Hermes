@@ -42,11 +42,15 @@ Everything downstream reads one file, so check it first.
 ```powershell
 $last = Get-Content "$R\arduino_uno_q-sensor_log.json" -Tail 1 | ConvertFrom-Json
 $age = ([DateTime]::UtcNow - $last.timestamp.ToUniversalTime()).TotalSeconds
-"age = {0:N0}s   event = {1}   temp = {2:N1}C   dist = {3}mm" -f $age, $last.event, $last.temperature_c, $last.distance_mm
+"age = {0:N0}s   event = {1}   temp = {2:N1}C   humidity = {3:N1}%" -f $age, $last.event, $last.temperature_c, $last.humidity_pct
 ```
 
 **Expect** age **< 30 s**, `event = sensor_tick`. The board appends a periodic tick roughly every
 10 s and pushes every 10 s, so anything over ~30 s means the pipeline is down.
+
+Don't print `distance_mm` here — as of 2026-08-05 `sensor_tick` lines carry temperature and
+humidity only, so it would always come back blank. Distance appears on `object_entered` /
+`object_left` and button lines instead.
 
 **If it fails**
 - Age is minutes/hours → the board isn't pushing. Check the board's Tailscale login and the
@@ -194,7 +198,9 @@ state file back to `{"lastStatus": "ok"}`.
 
 ## Layer 8 — the physical demo beat
 
-**Test** Press **button C** on the UNO Q.
+**Test** Press and **hold** button C on the UNO Q. (Releasing it logs `leak_cleared`, which cancels
+the leak immediately instead of waiting for the window to expire — useful on stage, but it means a
+quick tap will recover far sooner than the 5 minutes described below.)
 
 **Expect**
 1. A `leak_detected` line appears in the log within ~10 s (re-run layer 1 to see it).

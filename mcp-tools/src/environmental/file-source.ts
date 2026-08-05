@@ -131,8 +131,14 @@ export async function readSensorLogReading(opts: ReadSensorLogOptions): Promise<
     };
   }
 
-  // Leak via event = any leak_detected button event recent enough to still be
-  // "now" for alerting purposes.
+  // Leak via event = a leak_detected recent enough to still be "now" for
+  // alerting purposes, and not since cancelled.
+  //
+  // Scanning newest-first, whichever of leak_detected / leak_cleared appears
+  // first decides. The leak_cleared check must come first because it also
+  // contains "leak": the board logs it when button C is released, and a
+  // substring test alone would let the very event that clears the leak re-raise
+  // it, latching the alert on until the window expired.
   const leakCutoffMs = now.getTime() - leakWindowSeconds * 1000;
   let eventLeak = false;
   for (let i = lines.length - 1; i >= 0 && !eventLeak; i--) {
@@ -142,7 +148,9 @@ export async function readSensorLogReading(opts: ReadSensorLogOptions): Promise<
     if (!line) continue;
     const ts = Date.parse(line.timestamp);
     if (!Number.isNaN(ts) && ts < leakCutoffMs) break; // lines are appended in order
-    if (line.event.toLowerCase().includes("leak")) eventLeak = true;
+    const event = line.event.toLowerCase();
+    if (event === "leak_cleared") break; // explicitly cancelled, and newer than any leak_detected
+    if (event.includes("leak")) eventLeak = true;
   }
 
   // Leak via level = the ToF float has risen: newest distance reading is below

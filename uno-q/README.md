@@ -14,21 +14,33 @@ reference table; see [../docs/AUDIT_2026-08-03.md](../docs/AUDIT_2026-08-03.md) 
 
 Backs the **environmental/physical-monitoring** MCP tool in [../mcp-tools](../mcp-tools) with real
 temperature/humidity/distance data. The Modulino modules on hand are **Buttons, Distance, and
-Thermo** — there is no dedicated leak-sensing hardware, so leak detection is done with the
-**Distance (ToF) module as a water-level sensor**: pointed down over a drip tray with an opaque
-float, water lifts the float and the distance reading drops below a calibrated threshold
-(`UNOQ_LEAK_DISTANCE_MM`). Button C remains a manual leak-event trigger as the demo fallback. The
-board emits a `sensor_tick` log line every 10s (plus one line per button press), so the MCP tool
-runs on continuously fresh real data — see
-[hermes-sensor-logger/README.md](hermes-sensor-logger/README.md#how-this-feeds-the-mcp-environmental-tool-gap-closed-2026-08-03).
+Thermo** — there is no dedicated leak-sensing hardware, so **button C is the working leak trigger**
+(`leak_detected` on press, `leak_cleared` on release).
+
+The board logs over **three channels**: a `sensor_tick` every 10s carrying **temperature and
+humidity only**, one line per **button transition** (both edges), and `object_entered` /
+`object_left` when the ToF distance crosses 1000mm. See
+[hermes-sensor-logger/README.md](hermes-sensor-logger/README.md) for the full data format.
+
+⚠️ The **water-level leak design** (Distance module over a drip tray with a float, tripping
+`UNOQ_LEAK_DISTANCE_MM`) is documented across `../docs/` but is **not currently reachable**: since
+`sensor_tick` no longer carries a distance, and the laptop reads the newest line, a distance only
+arrives on presence/button events. Button C is the live leak path. Restoring the level design means
+putting `distance_mm` back on the tick.
 
 ## What's implemented
 
-Board bring-up (WiFi, Tailscale VPN, passwordless SSH to the laptop) plus a `hermes-sensor-logger`
-App Lab app that continuously shows live temperature/distance on the board's LED matrix and, on
-each Modulino button press, flashes that letter on the matrix and streams one JSON log line to the
-laptop — event-driven, not a fixed poll interval. Full writeup:
-[../docs/UNOQ_SETUP.md](../docs/UNOQ_SETUP.md). App code: [hermes-sensor-logger/](hermes-sensor-logger/).
+Board bring-up (WiFi with [roaming across five networks](#board-bring-up-summary), Tailscale VPN,
+passwordless SSH to the laptop) plus a `hermes-sensor-logger` App Lab app that:
+
+- steps the LED matrix through a **boot/connection display** (booted → WiFi → clock → SSH → live
+  readout) so a failure at a new location is visible on the board itself;
+- shows live temperature/distance on the matrix once running;
+- streams JSON log lines to the laptop on every button transition and presence crossing, plus a
+  10s climate tick — event-driven, not a fixed poll interval.
+
+Full writeup: [../docs/UNOQ_SETUP.md](../docs/UNOQ_SETUP.md). App code:
+[hermes-sensor-logger/](hermes-sensor-logger/).
 
 ### Board bring-up summary
 
