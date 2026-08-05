@@ -10,7 +10,7 @@ measured live on the target laptop 2026-08-03. §1 (throughput of the *served* G
 
 | | Profiled here | Served to Hermes |
 |---|---|---|
-| Artifact | `qualcomm/Qwen3-4B-Instruct-2507:W4A16` (AI Hub Genie bundle, 3.0 GiB) | `unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_0` (4.5 GiB) |
+| Artifact | `qualcomm/Qwen3-4B-Instruct-2507:W4A16` (AI Hub Genie bundle, 3.0 GiB) | `unsloth/Qwen3-4B-Instruct-2507-GGUF:Q4_0` (2.21 GiB on disk) |
 | Runtime | QAIRT/Genie context binaries via `qnn-net-run` on Hexagon | GenieX `llama.cpp` Hexagon backend |
 | Context | **fixed** 512 / 1024 / 2048 / 3072 / 4096 | 65536 |
 | Tool calls | not parsed | yes |
@@ -209,13 +209,22 @@ but produces a valid plan for the same file when left to infer `kind` from the `
 
 This is §3 only. Do not read it as "the benchmarks are done".
 
-- **§1 — throughput of the *served* artifact.** pp/tg reported separately, ≥5 reps, `--compute npu`
-  vs `cpu` vs `hybrid` on the Q4_0 GGUF. **Not run.** This is the one that characterises the system
-  actually being demoed; everything above characterises the bundle that *isn't* served.
+- **§1 — throughput of the *served* artifact.** First pass measured 2026-08-05 — see
+  [`../llm-serving-bench/RESULTS.md`](../llm-serving-bench/RESULTS.md): Q4_0+npu wins
+  (375 prefill / 14.2 decode tok/s, tool-calls PASS, modeled agent-iter ~42 s at the measured
+  12,670/105 request shape); gpu is disqualified (HTTP 500 on any `tools` request); Q4_K_M-on-npu
+  demonstrates the silent CPU fallback (31/7.5 tok/s). Remaining top-up: `--modes cpu` and a ≥5-rep
+  run with mean ± std — the harness now supports both (`--reps`, nonce-prefixed prefill).
 - **§2 — Joules/query.** HWiNFO64 shared-memory sampling, numerical integration, per-compute-mode
-  delta. **Not run.**
+  delta. **Not run.** Requires HWiNFO **v8.32+** (Oct 2025 — first version with Snapdragon power
+  sensors); there is no discrete NPU rail, so report system-total minus idle baseline. Methodology
+  precedent on this exact SoC: arXiv 2606.11257 (315 J/query NPU vs 1,251 CPU).
 - **§4 — screenshots.** The output contract asks for the Task Manager NPU graph during NPU-mode
   generation, the HWiNFO sensor panel, and a QAIRT Visualizer op view. **None captured** — all three
-  need a human at the GUI.
+  need a human at the GUI. The Visualizer inputs (`qnn-profiling-data_0.log` per graph) are now
+  in-repo under [`../bench/artifacts/out/`](../bench/artifacts/) — no longer only in `%TEMP%`.
 - **A real 64K prefill has still never been timed.** The tables above stop at cl4096, which is the
-  bundle's ceiling. The open P0-adjacent risk in PROGRESS.md is untouched by this work.
+  bundle's ceiling; only the GGUF path can reach 64K. The Hermes-side blocker is fixed — the 180 s
+  non-stream stale kill (the `qwen3` reasoning-floor entry, which also bypasses the local-endpoint
+  exemption) is now overridden via `providers.custom.stale_timeout_seconds: 900` in Hermes
+  config.yaml — but the direct-server timing itself remains to be run.

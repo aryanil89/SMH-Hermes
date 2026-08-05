@@ -1,4 +1,5 @@
 import { hostname } from "node:os";
+import type { AccessSentry } from "../access/sentry.js";
 import { assessIncident } from "../assess/assess.js";
 import { statusForValue } from "../common/alerts.js";
 import { windowSeed } from "../common/rng.js";
@@ -60,9 +61,26 @@ const DEVICE_EVENT_LABELS: Record<string, { label: string; status: Status }> = {
   object_left: { label: "Presence cleared", status: "ok" },
 };
 
+/**
+ * Verdict wording for the pipeline stream. Spelled out rather than slugged: the
+ * middle column is read aloud during the demo, and "unauthorized-during-incident"
+ * is not a sentence.
+ */
+const ACCESS_LABELS: Record<string, string> = {
+  idle: "rack clear",
+  "pending-capture": "presence detected · awaiting capture",
+  clear: "authorised person at the rack",
+  expected: "on-call on site · escalation suppressed",
+  challenge: "UNKNOWN PERSON · approval required",
+  "unauthorized-during-incident": "UNKNOWN PERSON during an active incident",
+  "anti-passback": "at the rack with no door entry",
+  tailgating: "TAILGATING · more people than authorised entries",
+};
+
 export interface SnapshotBuilderOptions {
   sensorLogPath: string;
   telegram: TelegramFeed;
+  access: AccessSentry;
   tickMs: number;
 }
 
@@ -77,6 +95,7 @@ export class SnapshotBuilder {
   private lastInferenceKey: string | undefined;
   private lastFeedConnected: boolean | undefined;
   private lastTelegramId: string | undefined;
+  private lastAccessKey: string | undefined;
   private readonly lastFeederStatus = new Map<string, Status>();
 
   constructor(private readonly opts: SnapshotBuilderOptions) {}
@@ -117,8 +136,17 @@ export class SnapshotBuilder {
 
     const feeders = buildFeeders(network, storage, compute);
     const telegram = await this.opts.telegram.update(environmental, now);
+    // Fed the log view and the assessment the builder already has, rather than
+    // re-reading either: the wall and the sentry must be looking at one world.
+    //
+    // `feedConnected` is passed explicitly. It used to compute `stale` here and
+    // then hand the sentry the raw log anyway, so a dead board read as somebody
+    // standing at the rack forever, and a dead cable could file an audit entry
+    // saying a human walked away without deciding.
+    const access = await this.opts.access.update(log, assessment, now, feedConnected);
 
     this.recordDeviceEvents(log.events);
+    this.recordAccess(access, now);
     this.recordWorldEvents(seed, feeders, network.links.length, storage.volumes.length, compute.nodes.length);
     this.recordInference(assessment, seed);
     this.recordFeedHealth(feedConnected, feedReason, now);
@@ -205,7 +233,42 @@ export class SnapshotBuilder {
       telegram,
       events: [...this.events].reverse(),
       environmental,
+      access,
     };
+  }
+
+  /**
+   * Stream access verdicts as they change, not every tick.
+   *
+   * Keyed on the challenge id plus the verdict, so a stranger standing still for
+   * two minutes produces one line rather than sixty, but the moment identity or
+   * severity moves -- capture arrives, approval lands -- that is a new event.
+   */
+  private recordAccess(access: DashboardSnapshot["access"], now: Date): void {
+    const pendingId = access.pending?.id ?? "none";
+    const approval = access.pending?.approval.state ?? "none";
+    const key = `${pendingId}:${access.verdict}:${approval}`;
+    if (key === this.lastAccessKey) return;
+    const first = this.lastAccessKey === undefined;
+    this.lastAccessKey = key;
+    // Priming: an idle rack at startup is not an event worth a line.
+    if (first && access.verdict === "idle") return;
+
+    // The approval is its own moment, so it gets its own line rather than
+    // repeating the verdict text and looking like a duplicate frame.
+    const decided = access.pending?.approval.state;
+    const label =
+      decided === "approved" || decided === "denied"
+        ? `Access ${decided.toUpperCase()} · ${ACCESS_LABELS[access.verdict] ?? access.verdict}`
+        : `Access · ${ACCESS_LABELS[access.verdict] ?? access.verdict}`;
+
+    this.pushEvent({
+      at: now.toISOString(),
+      source: "physical",
+      label,
+      detail: access.reasons[0] ?? undefined,
+      status: access.severity,
+    });
   }
 
   /** Promote genuinely new, non-tick device events into the pipeline stream. */

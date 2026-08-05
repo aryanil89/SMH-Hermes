@@ -23,13 +23,17 @@
  *   TELEGRAM_BOT_LABEL   name shown on the phone panel (default "Hermes Ops")
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { AccessSentry } from "../access/sentry.js";
+import { THERMAL_ZONE } from "../common/thermal.js";
 import { SnapshotBuilder } from "./snapshot.js";
 import { TelegramFeed } from "./telegram-feed.js";
 import type { DashboardSnapshot, TelegramMessage } from "./types.js";
+import type { ApprovalDecision } from "../access/types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // dist/dashboard/server.js -> package root is two levels up.
@@ -53,6 +57,16 @@ const SENSOR_LOG = process.env.UNOQ_SENSOR_LOG ?? DEFAULT_SENSOR_LOG;
 const STATE_PATH = process.env.ALERT_STATE_PATH ?? DEFAULT_STATE_PATH;
 /** Ingest bodies are one chat message; anything larger is a mistake or an attack. */
 const MAX_BODY_BYTES = 16 * 1024;
+/**
+ * Capture bodies carry a base64 JPEG from the phone, so they need their own,
+ * much larger ceiling -- a 200MP sensor downscaled by the browser still lands in
+ * the low megabytes. Kept separate from MAX_BODY_BYTES rather than raising it:
+ * the Telegram ingest endpoint has no business accepting an 8MB body.
+ */
+const MAX_CAPTURE_BYTES = 8 * 1024 * 1024;
+const ACCESS_STATE_PATH =
+  process.env.ACCESS_STATE_PATH ?? join(PACKAGE_ROOT, ".state", "access.json");
+const ROSTER_PATH = process.env.ACCESS_ROSTER_PATH ?? join(PACKAGE_ROOT, ".state", "roster.json");
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -71,7 +85,19 @@ const telegram = new TelegramFeed({
   ingestUrl: `http://${HOST}:${PORT}/api/telegram`,
 });
 
-const builder = new SnapshotBuilder({ sensorLogPath: SENSOR_LOG, telegram, tickMs: TICK_MS });
+const access = new AccessSentry({
+  statePath: ACCESS_STATE_PATH,
+  rosterPath: ROSTER_PATH,
+  zone: THERMAL_ZONE,
+  captureUrl: `http://${HOST}:${PORT}/api/access/capture`,
+});
+
+const builder = new SnapshotBuilder({
+  sensorLogPath: SENSOR_LOG,
+  telegram,
+  access,
+  tickMs: TICK_MS,
+});
 
 const clients = new Set<ServerResponse>();
 let latest: DashboardSnapshot | undefined;
@@ -156,16 +182,124 @@ function streamSnapshots(req: IncomingMessage, res: ServerResponse): void {
   });
 }
 
-async function readBody(req: IncomingMessage): Promise<string> {
+async function readBody(req: IncomingMessage, limit = MAX_BODY_BYTES): Promise<string> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     const buf = chunk as Buffer;
     size += buf.length;
-    if (size > MAX_BODY_BYTES) throw new Error("request body too large");
+    if (size > limit) throw new Error("request body too large");
     chunks.push(buf);
   }
   return Buffer.concat(chunks).toString("utf8");
+}
+
+async function readJson(
+  req: IncomingMessage,
+  res: ServerResponse,
+  limit = MAX_BODY_BYTES,
+): Promise<Record<string, unknown> | undefined> {
+  try {
+    const parsed = JSON.parse(await readBody(req, limit)) as unknown;
+    if (typeof parsed !== "object" || parsed === null) {
+      sendJson(res, 400, { error: "body must be a JSON object" });
+      return undefined;
+    }
+    return parsed as Record<string, unknown>;
+  } catch (err) {
+    sendJson(res, 400, { error: err instanceof Error ? err.message : "invalid JSON body" });
+    return undefined;
+  }
+}
+
+/**
+ * A capture from the phone.
+ *
+ * The image is resolved to faces and then dropped -- nothing downstream of here
+ * writes image bytes to disk. A `data:` prefix is stripped because that is what
+ * `canvas.toDataURL()` produces and making the phone strip it would be one more
+ * thing to get wrong at the rack.
+ */
+async function accessCapture(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = await readJson(req, res, MAX_CAPTURE_BYTES);
+  if (!body) return;
+
+  const raw = typeof body.imageBase64 === "string" ? body.imageBase64 : undefined;
+  const imageBase64 = raw?.replace(/^data:image\/[a-z+]+;base64,/i, "");
+  const badges = Array.isArray(body.badges)
+    ? body.badges.filter((b): b is string => typeof b === "string")
+    : undefined;
+
+  if (!imageBase64 && (!badges || badges.length === 0)) {
+    sendJson(res, 400, { error: "imageBase64 or badges is required" });
+    return;
+  }
+
+  const result = await access.capture({
+    ...(imageBase64 ? { imageBase64 } : {}),
+    ...(badges ? { badges } : {}),
+    now: new Date(),
+  });
+  // Repaint now: a capture that waits up to 2s for the next tick reads as lag
+  // between the phone and the wall while a judge is watching both.
+  void tick();
+  sendJson(res, result.ok ? 202 : 409, result);
+}
+
+/**
+ * A human decision.
+ *
+ * Local plane only, by design. Telegram carries the notification and the photo;
+ * it does not carry the authorisation, because a third-party relay is not
+ * somewhere physical datacenter access should be granted from. Same layering
+ * argument as the swappable notifier in POSITIONING.md §3, applied to consent.
+ */
+async function accessApprove(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = await readJson(req, res);
+  if (!body) return;
+
+  const id = typeof body.id === "string" ? body.id : "";
+  const decision = body.decision;
+  if (decision !== "approved" && decision !== "denied") {
+    sendJson(res, 400, { error: 'decision must be "approved" or "denied"' });
+    return;
+  }
+  if (id === "") {
+    sendJson(res, 400, { error: "id is required -- decisions are per challenge, never implicit" });
+    return;
+  }
+  const decidedBy = typeof body.decidedBy === "string" && body.decidedBy.trim() !== ""
+    ? body.decidedBy.trim()
+    : "on-call";
+
+  const result = await access.approve({
+    id,
+    decision: decision as ApprovalDecision,
+    decidedBy,
+    now: new Date(),
+  });
+  void tick();
+  sendJson(res, result.ok ? 202 : 409, result);
+}
+
+/** Enrolment. Takes an embedding, never an image -- see access/roster.ts. */
+async function accessEnrol(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = await readJson(req, res, MAX_CAPTURE_BYTES);
+  if (!body) return;
+
+  const name = typeof body.name === "string" ? body.name : "";
+  const embedding = Array.isArray(body.embedding)
+    ? body.embedding.filter((n): n is number => typeof n === "number" && Number.isFinite(n))
+    : [];
+  const method = typeof body.method === "string" ? body.method : "qr-badge";
+
+  const result = await access.enrol({
+    name,
+    embedding,
+    method: method as Parameters<typeof access.enrol>[0]["method"],
+    now: new Date(),
+  });
+  sendJson(res, result.ok ? 202 : 400, result);
 }
 
 /**
@@ -210,12 +344,91 @@ async function ingestTelegram(req: IncomingMessage, res: ServerResponse): Promis
   sendJson(res, 202, { ok: true, message });
 }
 
+/**
+ * Optional shared secret for the write routes.
+ *
+ * The read paths are a display; the write paths are an access-control system.
+ * `/api/access/enroll` is the sharpest edge: the roster is what every later
+ * decision trusts, so anyone who can reach the port could add themselves and
+ * then badge in as `known`. That is fine on loopback and not fine on the
+ * tailnet -- which is exactly where the phone terminal needs it bound.
+ *
+ * Deliberately opt-in and absent by default: the README promises a judge can
+ * clone and run this, and a mandatory secret would turn "npm run start:dashboard"
+ * into a support ticket. Set ACCESS_SHARED_SECRET whenever the bind address is
+ * anything other than 127.0.0.1, and the startup banner says so if you have not.
+ *
+ * This is one lock on one door, not an auth system. Say that plainly rather than
+ * implying more.
+ */
+const SHARED_SECRET = process.env.ACCESS_SHARED_SECRET?.trim();
+
+function authorized(req: IncomingMessage): boolean {
+  if (!SHARED_SECRET) return true;
+  const header = req.headers["x-access-secret"];
+  const supplied = Array.isArray(header) ? header[0] : header;
+  return typeof supplied === "string" && timingSafeEqualStr(supplied, SHARED_SECRET);
+}
+
+/** Constant-time compare, so a wrong secret cannot be recovered a byte at a time. */
+function timingSafeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+
+/**
+ * Run a POST handler without letting a rejection kill the process.
+ *
+ * `void handler(req, res)` -- what these routes used to do -- turns any rejected
+ * promise into an unhandled rejection, which on modern Node terminates the
+ * process. Every one of these handlers writes to disk, and `writeFile` rejects
+ * for ordinary reasons on this machine: the repo lives under `Downloads` on
+ * Windows, where antivirus and backup software take transient file locks
+ * (EBUSY/EPERM). One locked state file would have taken down the wall, the phone
+ * terminal and every SSE client at once, mid-demo.
+ *
+ * The tick loop already had this guard. The POST paths did not.
+ */
+function guarded(
+  handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>,
+  label: string,
+): (req: IncomingMessage, res: ServerResponse) => void {
+  return (req, res) => {
+    if (!authorized(req)) {
+      sendJson(res, 401, { error: "x-access-secret required or incorrect" });
+      return;
+    }
+    handler(req, res).catch((err: unknown) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      console.error(`[dashboard] ${label} failed:`, err);
+      // Headers may already be out if the failure came after a partial write;
+      // the connection still has to be closed rather than left hanging.
+      if (!res.headersSent) sendJson(res, 500, { error: `${label} failed: ${detail}` });
+      else res.end();
+    });
+  };
+}
+
 const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
   const { pathname } = url;
 
   if (req.method === "POST" && pathname === "/api/telegram") {
-    void ingestTelegram(req, res);
+    guarded(ingestTelegram, "telegram ingest")(req, res);
+    return;
+  }
+  if (req.method === "POST" && pathname === "/api/access/capture") {
+    guarded(accessCapture, "access capture")(req, res);
+    return;
+  }
+  if (req.method === "POST" && pathname === "/api/access/approve") {
+    guarded(accessApprove, "access approve")(req, res);
+    return;
+  }
+  if (req.method === "POST" && pathname === "/api/access/enroll") {
+    guarded(accessEnrol, "access enrol")(req, res);
     return;
   }
   if (req.method !== "GET" && req.method !== "HEAD") {
@@ -233,6 +446,16 @@ const server = createServer((req, res) => {
       return;
     }
     sendJson(res, 200, latest);
+    return;
+  }
+  if (pathname === "/api/access/state") {
+    // The phone reconnects often (screen off, tab switch) and needs the open
+    // challenge without waiting for a full snapshot frame.
+    if (!latest) {
+      sendJson(res, 503, { error: "no snapshot yet" });
+      return;
+    }
+    sendJson(res, 200, latest.access);
     return;
   }
   if (pathname === "/api/health") {
@@ -255,6 +478,15 @@ async function main(): Promise<void> {
 
   server.listen(PORT, HOST, () => {
     console.log(`[dashboard] http://${HOST}:${PORT}`);
+    // Loud, because the failure is silent: bound to a network with the write
+    // routes open, anyone who can reach the port can enrol themselves onto the
+    // roster and then badge in as a known person.
+    if (HOST !== "127.0.0.1" && HOST !== "localhost" && !SHARED_SECRET) {
+      console.warn(
+        `[dashboard] WARNING: bound to ${HOST} with NO ACCESS_SHARED_SECRET set.\n` +
+          "[dashboard]          /api/access/enroll and /approve are open to anyone who can reach this port.",
+      );
+    }
     console.log(`[dashboard] sensor log : ${SENSOR_LOG}`);
     console.log(`[dashboard] alert state: ${STATE_PATH}`);
     console.log(`[dashboard] tick        : ${TICK_MS}ms`);

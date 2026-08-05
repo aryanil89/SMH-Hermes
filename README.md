@@ -6,7 +6,8 @@ data leaving the laptop. It correlates real physical sensor signals with infrast
 tell an on-call engineer what is wrong, why it matters, and what to do next.
 
 **What it is:** a local reasoning layer over signals an ops team already has — it correlates,
-prioritises, explains and recommends.
+prioritises, explains and recommends. It also reasons about **who is physically at the rack**, and
+**asks a human before anything proceeds**.
 **What it is not:** a replacement for monitoring, DCIM or sensors. Datacenters have those already.
 Hermes does not collect the signals; it judges them.
 
@@ -23,14 +24,35 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 > the same tools can be pointed at real DCIM/BMS/SNMP without touching the reasoning layer. We
 > measured the simulator's own false-positive rate and recalibrated it — see
 > [docs/REVIEW_3_2026-08-04.md](docs/REVIEW_3_2026-08-04.md) §2.
+>
+> **On identity:** the access sentry ships working in **badge mode** and **detection-only mode**.
+> The face-embedding rung is an out-of-process hook — contract, fallback and tests are built, the
+> model is not plugged in. Presence, door state, the decision matrix and the approval loop are all
+> real and live. See [phone/README.md](phone/README.md) § the identity ladder.
 
 ## Status
 **[PROGRESS.md](PROGRESS.md)** — the living done/next map. Read this first.
 **[docs/POSITIONING.md](docs/POSITIONING.md)** — the approved wording: pitch, offline claim, judge answers.
 
+## Today vs. planned
+
+Everything in the left column is built and verified on this rig; everything in the right
+column is **designed but NOT built** — the full design, with feasibility research and
+verified download paths, is [docs/PHONE_PLAN_2026-08-05.md](docs/PHONE_PLAN_2026-08-05.md).
+The two columns are kept side by side on purpose: unbacked claims score zero, so the line
+between them is part of the submission, not a footnote.
+
+| Area | Today (built, verified) | Planned (not built) |
+|---|---|---|
+| LLM inference | Qwen3-4B-Instruct-2507 Q4_0 on the **laptop's** X Elite NPU via GenieX — measured, serving the agent | Same model benchmarked on the **phone's** 8 Elite NPU via a pre-compiled bundle over `adb` — same GGUF, two Hexagon NPUs, one table |
+| Physical access | Presence → challenge → QR-badge / detection-only identity → human approve/deny on the phone's local page → append-only audit trail | Face-embedding rung on the X Elite NPU (CavaFace + Face-Det-Lite via the existing `ACCESS_VISION_SCRIPT` seam) — until then, "face recognition" is **not** claimed |
+| Phone's role | Approval terminal (`phone.html`) + Telegram client + **challenge notification pushed to Telegram** (text only, deliberately no photo; fire-and-forget, silent no-op when unconfigured) — no on-phone inference | On-phone LLM benchmark, "failover brain" demo beat |
+| Alert suppression | **Wired and verified end to end**: an enrolled responder on site withholds the page; walking away releases it *("held while the on-call was on site; sending now")*; escalation or a stale access state pages regardless | — |
+| Energy | No energy numbers exist yet | Measured joules-per-token on both NPUs, with error bars and methodology |
+
 ## Run it yourself — the whole flow, in start order
 
-The stack is six pieces. Start them in this order; each step says what it is, the exact command,
+The stack is seven pieces. Start them in this order; each step says what it is, the exact command,
 and how to know it worked. The flow being started:
 
 ```
@@ -41,8 +63,12 @@ and how to know it worked. The flow being started:
                                         ↑ log file
                                   [2] Arduino UNO Q sensors → USB or Tailscale
                                   [5] cron watchdog → proactive Telegram alerts
-                                  [6] wall display  → local browser (read-only view of all of it)
+                                  [6] wall display     → local browser (read-only)
+                                  [7] access terminal  → the phone (the only thing that writes)
 ```
+
+Steps 6 and 7 are the **same server** on port 7788 — one page for the demo table, one for the
+phone.
 
 ### 0. Setting this up on a fresh machine
 
@@ -252,6 +278,13 @@ threshold crossing or recovery — silence is the normal state. To exercise it e
 3. ~5–10 min later: a one-time "recovered to OK" push — that's edge-triggered recovery working,
    not a bug.
 
+⚠️ **The watchdog can now stay silent on purpose.** If an enrolled person is standing at the rack
+while an incident is live (step 7), the page is **withheld** — you are looking at the thing it
+would have told you about. It is a deferral, not a cancellation: walk away and the alert arrives
+marked *"held while the on-call was on site; sending now."* Escalation while you stand there pages
+anyway, and if the wall isn't running the state goes stale and it pages regardless. So "no alert"
+has two causes now — nothing wrong, or someone is on site. The wall says which.
+
 ### 6. The wall display — one page showing all of the above
 
 A local web page for the demo table: the UNO Q and its door / lighting / leak / temperature /
@@ -276,7 +309,47 @@ writes anything; and it is loopback-only, so it works with the WiFi off. Set
 agent falls back to mock while the wall still shows a live feed. Full reference, including how to
 put real phone traffic on the Telegram panel: **[docs/DASHBOARD.md](docs/DASHBOARD.md)**.
 
-### Quick health check, all six
+### 7. The access terminal — the phone
+
+Same server as step 6, different page. This is the **only part of the system a human writes to**:
+it is where an access challenge is answered.
+
+```powershell
+# Bind somewhere the phone can reach — the Tailscale address, never 0.0.0.0 on venue WiFi.
+$env:DASHBOARD_HOST      = "100.x.y.z"     # the laptop's tailnet address
+$env:ACCESS_SHARED_SECRET = "pick-something"
+$env:ACCESS_IDENTITY_METHOD = "qr-badge"   # working today; "stub" = detection-only
+cd mcp-tools; npm run start:dashboard; cd ..
+```
+
+Then open `http://100.x.y.z:7788/phone.html?secret=pick-something` on the phone.
+
+What it does: someone approaches the rack, the ToF presence sensor opens a **challenge**, you
+photograph them with one tap, identity resolves down a [swappable
+ladder](phone/README.md#the-identity-ladder), and an 8-row decision matrix produces a verdict in
+context — including **tailgating** (more faces than authorised door entries) and **anti-passback**
+(at the rack with no door edge). You approve or deny **on this page**, not over Telegram.
+
+**Worked when:** trip the ToF sensor → the wall's Access card reads *"Presence detected — awaiting
+capture"* → tap the camera button on the phone → the verdict and reasons appear on **both** screens
+within a second → Approve → the wall shows who allowed it, and the audit trail gains one row when
+the person leaves.
+
+Three things it deliberately refuses to do:
+
+- **An unobserved door is not a closed door** — `doorConsistent` is true, false, or absent.
+- **A decision does not rewrite the finding.** Approving a `tailgating` event relaxes the severity
+  and records who allowed it; the verdict still reads `tailgating`. A *denial does not quiet the
+  alarm*.
+- **A dead sensor feed freezes the loop rather than guessing.** No challenge is opened and none is
+  filed as abandoned, because the board dying is not the same event as a person leaving.
+
+**Privacy — the point of doing this on-device:** captures are resolved to a numeric embedding and
+the image is discarded. `mcp-tools/.state/roster.json` holds floats only; you cannot reconstruct a
+face from it, and it is safe to open on stage. `.gitignore` blocked `*.jpg`, `roster.json` and
+`.state/` **before the first capture existed**. Full reference: **[phone/README.md](phone/README.md)**.
+
+### Quick health check, all seven
 
 ```powershell
 curl.exe -s http://127.0.0.1:18181/v1/models                      # [1] model server up
@@ -286,6 +359,7 @@ hermes -z "what's the temperature in rack B1?"                    # [3] agent + 
 hermes gateway status                                             # [4] telegram connected
 hermes cron list                                                  # [5] Environmental watch active
 curl.exe -s http://127.0.0.1:7788/api/health                      # [6] wall display up, feed state
+curl.exe -s http://127.0.0.1:7788/api/access/state                # [7] access verdict + roster
 ```
 
 ## Troubleshooting — symptom → cause
@@ -305,14 +379,31 @@ Every row here cost us real time; none are hypothetical.
 | Priming the alert state changes nothing | PowerShell 5.1 `Set-Content -Encoding utf8` writes a **BOM**; `JSON.parse` fails and `readState` silently defaults to `ok` | `[System.IO.File]::WriteAllText($p, $json, (New-Object System.Text.UTF8Encoding($false)))` |
 | `geniex` / `hermes` "not recognized" | Neither is on every shell's PATH | Use the full path, or `Set-Alias` (step 3) |
 | `adb` not found | It ships inside the scrcpy package | `winget install Genymobile.scrcpy` |
+| **No alert arrived and nothing is wrong on the wall either** | An enrolled person is at the rack, so the page is being **held** on purpose (step 5 ⚠️) | Check the Access card — verdict `expected` means held, not broken. Walk away from the sensor and it fires |
+| The wall shows `expected` but the phone still paged | Correct: either the status **escalated** after they arrived, or the access state is older than `ACCESS_SUPPRESS_MAX_AGE_S` | Both are fail-open by design. If it is staleness, the dashboard (step 6) is not running — suppression needs it alive |
+| Phone gets **401** on Approve / Enrol | `ACCESS_SHARED_SECRET` is set on the server but missing from the phone's URL | Open `…/phone.html?secret=<the secret>` |
+| Everyone reads as `unknown` no matter what | `ACCESS_IDENTITY_METHOD` is `stub` (the default) — detection-only, which never matches | Set `qr-badge` and enrol the name, or leave it: the loop is identical either way |
+| Access card says *"presence unobservable"* | The sensor feed is stale, so the sentry froze rather than guess | Same fix as the `source: mock` row above. It is **not** filing false audit entries while in this state |
 
 Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TEST.md)**.
 
 ## Docs
+- **[Phone compute plan (2026-08-05)](docs/PHONE_PLAN_2026-08-05.md)** — **planned, not
+  built**: the designed next step for the Galaxy S25 Ultra — on-phone Qwen3 NPU benchmark
+  over `adb` (no app), the face-embedding identity rung, and measured joules-per-token on
+  both NPUs — with the feasibility research and verified download paths behind each piece.
+  (Its challenge-notification item has since **landed** in its basic form: text to Telegram,
+  no photo.) The built-vs-designed line lives in [Today vs. planned](#today-vs-planned)
+- **[The access terminal — the phone](phone/README.md)** — what the phone actually does: the
+  authorisation surface, why the *notification* may be cloud but the *decision* may not, the
+  four-rung identity ladder and which rungs work today, why capture uses `<input capture>`
+  rather than `getUserMedia`, and exactly what is and is not stored (embeddings, never images)
 - **[The live operations wall](docs/DASHBOARD.md)** — the demo-table display: what each panel reads
   and whether it is real or simulated, the rules that stop the phone panel from claiming a delivery
-  that has not happened, the `/api/telegram` seam for showing genuine phone traffic, and why the
-  trend line can legitimately disagree with the number above it
+  that has not happened, the `/api/telegram` seam for showing genuine phone traffic, why the
+  trend line can legitimately disagree with the number above it, and **§Access** — the decision
+  matrix, exactly how `expected` withholds a page (held, not cancelled), and what happens when the
+  sensor feed goes stale
 - **[Glossary — who does what](docs/GLOSSARY.md)** — new to GenieX / QAIRT / QUAD / MCP? **Start
   here.** Every term with its one job, the five-layer stack, build-time vs demo-time, a request
   traced end to end, and the pairs that get confused for each other
@@ -328,7 +419,7 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 - [Requirements](docs/REQUIREMENTS.md) — the original pitch (see the note at the top — architecture has since changed)
 - [Feasibility analysis](docs/FEASIBILITY.md) — reality check against the pitch's technical claims
 - [Hardware utilization plan](docs/HARDWARE_UTILIZATION.md) — **the finalized architecture**: where
-  the LLM runs, which model, and how the Snapdragon X Elite laptop, Samsung Galaxy S25+, Arduino
+  the LLM runs, which model, and how the Snapdragon X Elite laptop, Samsung Galaxy S25 Ultra, Arduino
   UNO Q, and the QUAD SDK are each actually used
 - [Technical claims audit (2026-08-03)](docs/AUDIT_2026-08-03.md) — independent review of every
   technical claim in the docs above against primary sources; **read the P0/P1 risks before Day 1**
@@ -349,9 +440,12 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
   CR-1..CR-8 and sensor upgrades S-1..S-6 with status markers (CR-1/2/3/5 + S-1 done, live-verified)
 
 ## Layout
-- `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive cron watchdog, plus the local wall display (`src/dashboard/` + the dependency-free page in `public/`, see [docs/DASHBOARD.md](docs/DASHBOARD.md))
+- `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive cron watchdog, plus the local wall display (`src/dashboard/` + the dependency-free pages in `public/`, see [docs/DASHBOARD.md](docs/DASHBOARD.md)), plus the physical-access sentry (`src/access/` — decision matrix, identity ladder, roster of embeddings, append-only audit trail) and the bridge that lets a responder on site withhold a page (`src/alert-skill/suppress.ts`)
 - `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic climate `sensor_tick`, both-edge button events, and ToF presence crossings over three Bridge channels, plus the LED-matrix boot/connection display), the USB `pull_sensor_log.ps1` transport fallback, and deployment/bring-up docs
 - `bench/` — NPU profiling harness (qnn-net-run against the W4A16 bundle); results in [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 - `hermes.env.example` — template for Hermes's own `.env` (copy to `%LOCALAPPDATA%\hermes\.env`); the
   only five settings that matter, everything else in Hermes's stock file can stay untouched
-- `phone/` — Samsung Galaxy S25+ stretch goal: second on-device GenieX/Qwen3-4B instance for a two-device demo beat (not implemented)
+- `phone/` — Samsung Galaxy S25 Ultra (Snapdragon 8 Elite). **No app to build**: the phone runs
+  Telegram plus the access terminal served from the laptop at `/phone.html` — the authorisation
+  surface, the rack camera, and roster enrolment. Its NPU is **not** in use yet; the on-phone
+  Qwen3-4B benchmark remains the stretch goal ([docs/PHONE_PLAN_2026-08-05.md](docs/PHONE_PLAN_2026-08-05.md))

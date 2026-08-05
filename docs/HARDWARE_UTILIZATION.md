@@ -1,6 +1,6 @@
 # Hardware Utilization Plan
 
-Available hardware: a Snapdragon X Elite Copilot+ PC, a Samsung Galaxy S25+ (Snapdragon 8 Elite
+Available hardware: a Snapdragon X Elite Copilot+ PC, a Samsung Galaxy S25 Ultra (Snapdragon 8 Elite
 for Galaxy), an Arduino UNO Q (Qualcomm QRB2210), and the QUAD-Client SDK already set up locally
 at `QUAD-Client-main/`. Finalized architecture below, superseding earlier drafts.
 
@@ -9,7 +9,7 @@ at `QUAD-Client-main/`. Finalized architecture below, superseding earlier drafts
 > full per-URL knowledge base lives in the `hackathon-resources` skill (at the QUAD workspace root,
 > outside this repo — the deck contains event credentials that must not be committed here).
 > Headline results: GenieX + Qwen3-4B is confirmed correct and the exact endpoint is known; the
-> S25+ stretch goal is de-risked by an official Android AAR; QAIRT Visualizer is added as a
+> S25 Ultra stretch goal is de-risked by an official Android AAR; QAIRT Visualizer is added as a
 > profiling artifact; and the one official resource covering the UNO Q sensor path is a dead link.
 
 ## QUAD's role in this project
@@ -99,11 +99,11 @@ profiled."
   `127.0.0.1:18181` is **not** reachable from inside WSL2 without mirrored networking, so GenieX
   serving on the Windows side would be invisible to a WSL2-hosted agent.
 
-## Samsung Galaxy S25+ — mobile terminal + stretch inference target
+## Samsung Galaxy S25 Ultra — mobile terminal + stretch inference target
 
 - **Baseline**: runs Telegram, talks to the PC-hosted Hermes Agent. This is what the pitch needs
   and should be working before anything else on the phone is attempted.
-- **Stretch goal (in scope per decision)**: the S25+ is Snapdragon 8 Elite — same `android-8elite`
+- **Stretch goal (in scope per decision)**: the S25 Ultra is Snapdragon 8 Elite (SM8750-AC, 12 GB RAM) — same `android-8elite`
   QUAD target, same GenieX/Qwen3-4B path as the laptop. Attempt a second on-device inference
   instance on the phone for a "same agent, two devices" demo beat and a phone-vs-laptop NPU
   benchmark data point. Build this *after* the laptop path and the Telegram baseline are both
@@ -240,7 +240,7 @@ claims, or they won't land with judges:
   chunks, developed on X Elite hardware, with a standalone ONNX variant as fallback. With it, the
   disconnected beat becomes *voice in → NPU reasoning → answer out, WiFi visibly off*, which lands
   harder than typing at a terminal. Consequence for the phone: voice is no longer something only the
-  phone can offer, so the S25+'s justification has to rest on **mobility**, not audio.
+  phone can offer, so the S25 Ultra's justification has to rest on **mobility**, not audio.
 - **Two-device cooperation**, if the phone-inference stretch goal lands — the phone contributing
   something the laptop can't (mobility — see the voice note above), not just acting as a remote
   control.
@@ -300,7 +300,7 @@ URLs are in the `hackathon-resources` skill.
   full catalog name matters)
 - No shim needed (GenieX is natively OpenAI-compatible)
 - UNO Q: bonus, backs one real tool, not a dependency
-- S25+: Telegram baseline + on-phone inference as an explicit stretch goal
+- S25 Ultra: Telegram baseline + on-phone inference as an explicit stretch goal
 - Data: hybrid — one real source, rest mocked
 - Tool categories generalized: network/storage/server/environmental, not CI/CD-specific
 - Arduino UNO Q reassigned from storage-capacity (not a real sensor use case) to
@@ -314,7 +314,7 @@ URLs are in the `hackathon-resources` skill.
 - Model name corrected to the real catalog entry `Qwen3-4B-Instruct-2507`, confirmed present under
   AI Hub's GenieX runtime filters (prebuilt bundle likely ⇒ conversion possibly unnecessary)
 - QAIRT Visualizer added as the per-op profiling + CPU-fallback diagnostic artifact
-- S25+ stretch goal de-risked by the official `com.qualcomm.qti:geniex-android:0.3.1` library
+- S25 Ultra stretch goal de-risked by the official `com.qualcomm.qti:geniex-android:0.3.1` library
 - Local Whisper voice path identified, strengthening the WiFi-off demo beat and shifting the phone's
   rationale to mobility alone
 - AnythingLLM (`localhost:3001/api/v1`) recorded as the explicit Day-1 runtime fallback

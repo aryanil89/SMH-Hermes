@@ -1,0 +1,116 @@
+---
+timestamp: 43194199897
+command: C:\Qualcomm\AIStack\QAIRT\2.32.6.250402\bin\aarch64-windows-msvc\qnn-net-run.exe --retrieve_context C:\Users\qc_de\.cache\geniex\models\qualcomm\Qwen3-4B-Instruct-2507\part1_of_4.bin --backend C:\Users\qc_de\AppData\Local\GenieX CLI\qairt\htp-files\QnnHtp.dll --input_list __,__,__,__,__,__,C:\Users\qc_de\AppData\Local\Temp\quad-bench\gen\part1_of_4_prompt_ar128_cl3072_1_of_4\input_list.txt,__,__,__ --use_native_input_files --profiling_level basic --num_inferences 50 --keep_num_outputs 1 --output_dir C:\Users\qc_de\AppData\Local\Temp\quad-bench\out\part1_of_4_prompt_ar128_cl3072_1_of_4 --perf_profile burst
+execution_mode: synchronous
+inferences_completed: 50
+graphs:
+  - graph_name: token_ar1_cl512_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 2
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,1]
+    output_tensors:
+    - tensor_name: embedding
+      id: 3
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,1,2560]
+  - graph_name: token_ar1_cl2048_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 5
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,1]
+    output_tensors:
+    - tensor_name: embedding
+      id: 6
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,1,2560]
+  - graph_name: prompt_ar128_cl4096_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 8
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,128]
+    output_tensors:
+    - tensor_name: embedding
+      id: 9
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,128,2560]
+  - graph_name: prompt_ar128_cl512_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 11
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,128]
+    output_tensors:
+    - tensor_name: embedding
+      id: 12
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,128,2560]
+  - graph_name: prompt_ar128_cl1024_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 14
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,128]
+    output_tensors:
+    - tensor_name: embedding
+      id: 15
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,128,2560]
+  - graph_name: prompt_ar128_cl2048_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 17
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,128]
+    output_tensors:
+    - tensor_name: embedding
+      id: 18
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,128,2560]
+  - graph_name: prompt_ar128_cl3072_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 20
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,128]
+    output_tensors:
+    - tensor_name: embedding
+      id: 21
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,128,2560]
+  - graph_name: token_ar1_cl1024_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 23
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,1]
+    output_tensors:
+    - tensor_name: embedding
+      id: 24
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,1,2560]
+  - graph_name: token_ar1_cl3072_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 26
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,1]
+    output_tensors:
+    - tensor_name: embedding
+      id: 27
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,1,2560]
+  - graph_name: token_ar1_cl4096_1_of_4
+    input_tensors:
+    - tensor_name: input_ids
+      id: 29
+      datatype: QNN_DATATYPE_INT_32
+      dimensions: [1,1]
+    output_tensors:
+    - tensor_name: embedding
+      id: 30
+      datatype: QNN_DATATYPE_UFIXED_POINT_16
+      dimensions: [1,1,2560]

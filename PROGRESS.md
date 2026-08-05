@@ -19,8 +19,15 @@ and what's next. Detail lives in the linked docs; this is the map.
 | 10 | **Architecture diagrams** — 4 Mermaid diagrams (runtime demo path with gap markers; reactive + proactive sequence flows; QUAD build-time graph with per-tool usage status; one-model-two-artifacts table). All 4 validated with mermaid-cli. Encodes the disjoint-graphs fact: QUAD and the runtime share only the laptop | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | 11 | **Live operations wall** (2026-08-05) — a local read-only page showing the whole demo at once: the UNO Q's door/lighting/leak/temperature/humidity state, that feed arriving at the server beside the network/storage/compute telemetry, the assessment drawn from all of it, and the phone's Telegram thread. Calls the same functions the MCP tools call (one world seed per tick), so it cannot disagree with the agent. No dependencies, no build step, loopback only — it survives the WiFi cut. Verified end to end on a live log: leak → CRITICAL → queued alert → real watchdog tick → delivered bubble carrying the identical text → recovery. **15 new tests, suite 107/107** | [docs/DASHBOARD.md](docs/DASHBOARD.md) |
 
+| 12 | **Access sentry — the phone becomes the authorization plane** (2026-08-05). POSITIONING §7 promised *"observe → explain → recommend → **human approves** → act"* and **no approval mechanism existed**; meanwhile the board's `door_*` and `object_*` channels had been reported for days and were only ever *drawn*. Now: presence opens a challenge → the phone captures → identity resolves down a 4-rung ladder → an 8-row decision matrix (incl. **tailgating** = faces vs authorised entries, and **anti-passback** = at the rack with no door edge) → a human approves on the **local** page. Telegram carries the notification; it does not carry the authorisation. Roster holds **embeddings only, never images**, git-ignored before the first capture existed. **50 new tests, suite 189/189**; verified live end to end incl. tailgating → approve → audit | [phone/README.md](phone/README.md), [docs/DASHBOARD.md](docs/DASHBOARD.md) |
+
+| 13 | **Access sentry — claims made true** (2026-08-05), after an independent review. **The centerpiece was dead code**: `shouldSuppressPage` had zero call sites outside its own test and nothing in the paging chain imported `access/`, so "a known responder on site stops it paging you" changed a caption on the wall and pages went out regardless — refutable live by a judge saying *"show me it not paging."* Now wired via `alert-skill/suppress.ts` and verified end to end: on site → silent; walk away → the held page fires; escalate → pages anyway; stale state → pages anyway. Also fixed from the same review: a POST rejection could **kill the whole server** (unguarded `void` dispatch + a routine Windows file lock), a stale board **falsified the audit trail** (filed "presence ended with no decision" when the feed died), and stored **XSS** on the approval terminal. **58 access tests, suite 242/242** | [docs/DASHBOARD.md](docs/DASHBOARD.md) §Access |
+
 ## Locked architecture decisions (from the audit + spike)
 
+- **Suppression is a deferral, never a cancellation.** While a page is held, `lastStatus` is not advanced, so the crossing fires the moment the responder leaves. The escalation baseline is the status **when the hold began** (`heldPage.heldStatus`), not the last status paged at — using the latter made every cold-start alert an "escalation" and the feature never engaged. And it **fails open**: suppression depends on the dashboard writing `access.json`, so a stale file pages regardless.
+- **Physical access**: identity is a **swappable adapter** (face-npu / face-cpu / detect-only / qr-badge), exactly like the messaging gateway. The loop, matrix and audit trail are identical at every rung, so a failed rung costs a capability, not the demo. Default is the *least* capable rung that works. **Biometric templates never leave the laptop and source images are never persisted** — GDPR treats face templates as special-category data, so this is what makes the feature deployable, not merely fast.
+- **Approval**: notification may go over the cloud relay; **the decision may not**. Physical access is authorised on the local page over the tailnet only.
 - **Hermes brain**: GGUF **Q4_0** via `geniex serve --nctx 65536 --compute npu` — the only config satisfying Hermes's hard 64K minimum *and* tool calling *and* NPU offload. Q4_K_M silently falls back to CPU — precision is load-bearing.
 - **qairt W4A16 bundle**: benchmark/demo beat only (`geniex chat`, tok/s harness, QUAD profiling after session restart).
 - **Hermes install**: native Windows-ARM64 (`install.ps1`, Tier 1) — the docs' WSL2 path is obsolete. Node 26 requirement landed 2026-08-02; expect installer churn.
@@ -175,13 +182,37 @@ and what's next. Detail lives in the linked docs; this is the map.
       trigger.
     - Skill-self-writing: **record as backup video Thursday**; live only if stable in 3 straight
       rehearsals. Voice, phone-side inference, live dashboard: dropped for this week.
+      *(The live dashboard decision was since reversed — it shipped, NEXT-table row 11.)*
     - Suggested order Tue→Fri: QUAD profile attempt (timebox 2h) + bench harness + S-1 bench test →
       cron skill + CR-1/CR-2 + BENCHMARKS.md → rehearse ×3 + freeze → README pass + submit early.
+
+11. **NEW Beat 3 — "watch it not page me"** (2026-08-05, from the access sentry). The most
+    memorable thing this system can do in front of a judge, and it needs no new hardware:
+    1. Rack is at WARNING. On-call is elsewhere. The phone pages.
+    2. Enrol the judge (one field, one tap — consent as a **visible, deliberate act**), then have
+       them stand at the sensor. Verdict flips to `expected`; the wall says the page is held.
+    3. Run the watchdog again: **silent.** "It knows you're standing in front of it."
+    4. They walk away → the alert arrives, marked *"held while the on-call was on site; sending
+       now."* It was deferred, never dropped.
+    5. Optional kicker: escalate while they stand there — **it pages anyway.**
+    Rehearse the enrol step; it is the only part touching a stranger's data.
+    **Blocked on the consent decision below.**
+
+12. **Consent policy for the roster — OPEN, blocking any face capture.** Nobody is enrolled and no
+    consent has been obtained. Badge mode needs no biometrics and is the working default, so
+    nothing else is blocked. Decide before Friday: enrol judges live (better beat, consent is
+    visible), pre-enrol consenting team members, or badge-only.
 
 ## Open risks still live
 
 - **Long-context prefill latency untested** — a real 64K prompt has never been timed; test before
-  demoing long sessions (P0-adjacent).
+  demoing long sessions (P0-adjacent). **Partially defused 2026-08-05:** the reason no long session
+  could survive was Hermes's 180 s non-stream stale kill — the `("qwen3", 180)` reasoning-floor
+  entry in the vendored `agent/reasoning_timeouts.py` matches our Instruct slug and deliberately
+  bypasses the local-endpoint exemption. Fixed with `providers.custom.stale_timeout_seconds: 900`
+  in `%LOCALAPPDATA%\hermes\config.yaml` (picked up without restart; mtime invalidates the config
+  cache). The direct-server 64K timing itself is still to be run — and even fixed, a ~60K session
+  costs ~3 min of prefill per iteration at measured rates, so keep demo sessions short regardless.
 - **~15–16 tok/s decode** — keep agent replies terse via system prompt or demos drag.
 - **Hermes Node 26 migration churn** (landed 2026-08-02) — pin whatever the installer gives; don't
   `hermes upgrade` mid-week.
@@ -191,3 +222,14 @@ and what's next. Detail lives in the linked docs; this is the map.
   depends on **borrowing GenieX's QAIRT 2.45 backend libs** (the installed 2.32.6 refuses the v3.3.4
   blob), so it breaks if GenieX is updated or uninstalled — another reason to pin v0.3.18.
 - **GenieX is a Developer Preview** — pin v0.3.18, don't auto-update during hack week.
+- **Suppression needs the dashboard alive.** The cron watchdog reads `.state/access.json`, which
+  only the dashboard writes. If the wall is not running, that file goes stale and the watchdog
+  pages normally — correct (fail open), but it means **step 6 is now a dependency of the step 5
+  demo beat**, not an optional display. Start it before rehearsing.
+- **The phone's 8 Elite NPU is idle.** The phone is the authorisation surface, the rack camera and
+  the identity store — but no inference runs on it. This is a real gap against the 40-point
+  resource-utilisation bucket and the honest answer if a judge asks. The measurement (not the
+  feature) is a ~4h `adb` timebox where both outcomes are publishable; deferred to Thursday
+  behind rehearsal. See [docs/PHONE_PLAN_2026-08-05.md](docs/PHONE_PLAN_2026-08-05.md).
+- **Nothing is committed.** Two sessions have been building all week and the working tree is the
+  only copy. A checkpoint commit + push, with a secret sweep, is overdue.

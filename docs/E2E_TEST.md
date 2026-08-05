@@ -259,6 +259,52 @@ delivery — check `cron\jobs.json` `last_status`, not the wall.
 
 ---
 
+## Layer 10 — physical access and the held page
+
+The one layer where a human writes to the system. It has two halves: the challenge loop, and the
+suppression rule that lets a responder on site silence the pager.
+
+**Test 10a — the loop.** With the dashboard running (layer 9) and the phone on
+`…/phone.html?secret=<secret>`:
+
+1. Break the ToF beam (hand in front of the Distance module) → the wall's Access card reads
+   **"Presence detected — awaiting capture"**.
+2. Tap the camera button on the phone, photograph anything.
+3. Both screens show the verdict and its reasons within ~1 s.
+4. Tap **Approve** → the wall shows who allowed it, and severity relaxes to `ok` **while the verdict
+   text stays what it was**.
+5. Remove your hand → one row appears in the audit trail. **One visit, one record.**
+
+**Expect** exactly one entry. Two entries for one visit means the challenge is being reopened —
+that bug existed and is regression-tested, but check anyway.
+
+**Test 10b — the held page. This is the demo beat, so rehearse it.**
+
+```powershell
+# Requires: dashboard running (it is the only writer of access.json),
+# an enrolled name, and an incident live (button C, or a hot rack).
+node $R\mcp-tools\dist\alert-skill\check-environmental.js
+```
+
+| Situation | Expect |
+|---|---|
+| Enrolled person at the sensor, incident live | `NO_ALERT`, and `heldPage` appears in `.state\environmental-watch.json` |
+| Same, run again | `NO_ALERT`, and `heldPage.since` is **unchanged** |
+| They step away, run again | `ALERT …` ending **"(held while the on-call was on site; sending now)"** |
+| Status escalates while they stand there | `ALERT …` — escalation always wins |
+| Dashboard stopped, so `access.json` goes stale | `ALERT …` — it fails open |
+
+**If it pages when it should hold**, check in this order: is the verdict actually `expected` on the
+wall (an unknown face never suppresses); is the dashboard running; is `access.json` newer than
+`ACCESS_SUPPRESS_MAX_AGE_S`; and did the status escalate above `heldPage.heldStatus`. All four are
+deliberate reasons to page.
+
+**If it holds when it should page** — that is the serious direction. Confirm `lastStatus` in the
+alert state has **not** advanced while held; if it has, the crossing has been swallowed rather than
+deferred and the alert will never fire.
+
+---
+
 ## Traps that produce a false pass
 
 | Trap | Why it fools you |
@@ -271,6 +317,9 @@ delivery — check `cron\jobs.json` `last_status`, not the wall.
 | `--compute gpu` | Faster prefill, but reproducibly fails every tool-enabled request. |
 | `hermes update` | Reverts the non-stream patch; every reply then retries forever. |
 | Empty watchdog output read as "healthy" | Correct when nothing is wrong — confirm with 7c that delivery *can* fire. |
+| **`NO_ALERT` read as "nothing is wrong"** | It now has a second cause: an enrolled person is on site and the page is being **held** (10b). Check the Access card before concluding the rig is quiet. |
+| Testing suppression without the dashboard running | `access.json` goes stale and it pages — which looks like "suppression is broken" but is the fail-open working. The wall is a **dependency** of this beat, not decoration. |
+| Editing `access.json` by hand while the dashboard is up | The sentry rewrites it every tick and silently discards your edit. Stop the dashboard first — this wasted real time during the build. |
 
 ## 60-second smoke check before going on stage
 
@@ -297,7 +346,16 @@ $l = Get-Content "$R\arduino_uno_q-sensor_log.json" -Tail 1 | ConvertFrom-Json
 
 # 6. wall display up and receiving?
 curl.exe -s http://127.0.0.1:7788/api/health
+
+# 7. access sentry sane, and is anyone enrolled?
+(curl.exe -s http://127.0.0.1:7788/api/access/state | ConvertFrom-Json) |
+  Select-Object verdict, severity, identityMethod, @{n='enrolled';e={$_.enrolled -join ','}}
 ```
 
 All green = log age < 30 s, source not `mock`, models endpoint answers, cron status `ok` with the
-gateway running, a message on the phone, and the wall reporting `"feedConnected":true`.
+gateway running, a message on the phone, the wall reporting `"feedConnected":true`, and the access
+state reading `idle` with the roster populated.
+
+⚠️ **An empty `enrolled` list means everyone will read as `unknown`** — the challenge loop still
+works, but the "known responder holds the page" beat cannot fire. Enrol before going on stage, and
+if you are enrolling a judge live, that *is* the beat — do it deliberately and say what it does.

@@ -59,7 +59,7 @@ flowchart TD
         WALL --> BROW
     end
 
-    subgraph phone["Galaxy S25+  (mobility tier)"]
+    subgraph phone["Galaxy S25 Ultra  (mobility tier)"]
         TG["Telegram app"]
     end
 
@@ -114,6 +114,7 @@ sequenceDiagram
     participant S as environmental-watch.py
     participant K as check-environmental.js
     participant D as decideAlert
+    participant A as suppress.ts + access.json
     participant P as Phone (Telegram)
 
     C->>S: tick
@@ -121,14 +122,23 @@ sequenceDiagram
     K->>D: current status + persisted state
     alt threshold crossed or recovered
         D-->>K: ALERT status + message
-        K-->>S: "ALERT critical ..."
-        S->>P: push message via gateway  ☁️
+        K->>A: is a known responder on site?
+        alt verdict = expected, state fresh, no escalation
+            A-->>K: HOLD
+            K-->>S: "NO_ALERT" + record heldPage
+            Note over K,A: lastStatus is NOT advanced — the crossing stays<br/>un-notified, so it fires the moment they leave
+        else nobody there / escalated / access state stale
+            A-->>K: PAGE
+            K-->>S: "ALERT critical ..."
+            S->>P: push message via gateway  ☁️
+        end
     else nothing changed
         D-->>K: NO_ALERT
         K-->>S: "NO_ALERT"
         Note over S: stays silent — the normal outcome on most ticks
     end
     Note over C,D: Edge-triggered with cooldown + recovery — not "alert every tick".<br/>Deliberately NOT cron --deliver, which would message on every tick.
+    Note over A: Fails OPEN. Suppression needs the dashboard alive to write<br/>access.json — a stale file pages rather than staying quiet.
 ```
 
 ## §3 Build-time — QUAD, a separate graph entirely

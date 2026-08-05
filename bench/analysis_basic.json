@@ -1,0 +1,258 @@
+[
+ {
+  "graph": "prompt_ar128_cl4096_1_of_4",
+  "part": "part1_of_4.bin",
+  "slot": 2,
+  "iterations": 50,
+  "latency": {
+   "n": 50,
+   "cold_us": 2991.0,
+   "mean_us": 609.7755102040817,
+   "std_us": 58.49760689545166,
+   "p50_us": 598.0,
+   "min_us": 567.0,
+   "max_us": 937.0
+  },
+  "cycles": null,
+  "accel_us": {
+   "n": 50,
+   "cold_us": 1173.0,
+   "mean_us": 106.3265306122449,
+   "std_us": 4.278030040167214,
+   "p50_us": 104.0,
+   "min_us": 103.0,
+   "max_us": 118.0
+  },
+  "init_us": 507797.0,
+  "n_ops": 0,
+  "top_ops": [],
+  "op_total_cycles": 0,
+  "hvx_threads": 4.0,
+  "vtcm_us": null,
+  "backend": null
+ },
+ {
+  "graph": "token_ar1_cl4096_1_of_4",
+  "part": "part1_of_4.bin",
+  "slot": 9,
+  "iterations": 50,
+  "latency": {
+   "n": 50,
+   "cold_us": 3044.0,
+   "mean_us": 547.3469387755102,
+   "std_us": 22.014421080892948,
+   "p50_us": 549.0,
+   "min_us": 502.0,
+   "max_us": 598.0
+  },
+  "cycles": null,
+  "accel_us": {
+   "n": 50,
+   "cold_us": 1138.0,
+   "mean_us": 41.87755102040816,
+   "std_us": 1.6858674635153783,
+   "p50_us": 41.0,
+   "min_us": 40.0,
+   "max_us": 48.0
+  },
+  "init_us": 464738.0,
+  "n_ops": 0,
+  "top_ops": [],
+  "op_total_cycles": 0,
+  "hvx_threads": 4.0,
+  "vtcm_us": null,
+  "backend": null
+ },
+ {
+  "graph": "prompt_ar128_cl4096_2_of_4",
+  "part": "part2_of_4.bin",
+  "slot": 5,
+  "iterations": 50,
+  "latency": {
+   "n": 50,
+   "cold_us": 156223.0,
+   "mean_us": 154394.24489795917,
+   "std_us": 885.1579250449536,
+   "p50_us": 154348.0,
+   "min_us": 152991.0,
+   "max_us": 158005.0
+  },
+  "cycles": null,
+  "accel_us": {
+   "n": 50,
+   "cold_us": 149578.0,
+   "mean_us": 149014.5306122449,
+   "std_us": 389.6139429911288,
+   "p50_us": 149079.0,
+   "min_us": 148118.0,
+   "max_us": 149786.0
+  },
+  "init_us": 1400657.0,
+  "n_ops": 0,
+  "top_ops": [],
+  "op_total_cycles": 0,
+  "hvx_threads": 4.0,
+  "vtcm_us": null,
+  "backend": null
+ },
+ {
+  "graph": "token_ar1_cl4096_2_of_4",
+  "part": "part2_of_4.bin",
+  "slot": 4,
+  "iterations": 50,
+  "latency": {
+   "n": 50,
+   "cold_us": 70033.0,
+   "mean_us": 68785.0,
+   "std_us": 1280.8194761996106,
+   "p50_us": 68495.0,
+   "min_us": 67495.0,
+   "max_us": 74345.0
+  },
+  "cycles": null,
+  "accel_us": {
+   "n": 50,
+   "cold_us": 64171.0,
+   "mean_us": 63658.22448979592,
+   "std_us": 511.6538715755106,
+   "p50_us": 63639.0,
+   "min_us": 62885.0,
+   "max_us": 65537.0
+  },
+  "init_us": 1392362.0,
+  "n_ops": 0,
+  "top_ops": [],
+  "op_total_cycles": 0,
+  "hvx_threads": 4.0,
+  "vtcm_us": null,
+  "backend": null
+ },
+ {
+  "graph": "prompt_ar128_cl4096_3_of_4",
+  "part": "part3_of_4.bin",
+  "slot": 9,
+  "iterations": 50,
+  "latency": {
+   "n": 50,
+   "cold_us": 153905.0,
+   "mean_us": 150839.89795918367,
+   "std_us": 1418.6834834882536,
+   "p50_us": 150382.0,
+   "min_us": 149607.0,
+   "max_us": 157661.0
+  },
+  "cycles": null,
+  "accel_us": {
+   "n": 50,
+   "cold_us": 145840.0,
+   "mean_us": 145471.2857142857,
+   "std_us": 613.6356693461337,
+   "p50_us": 145301.0,
+   "min_us": 144546.0,
+   "max_us": 147570.0
+  },
+  "init_us": 1365328.0,
+  "n_ops": 0,
+  "top_ops": [],
+  "op_total_cycles": 0,
+  "hvx_threads": 4.0,
+  "vtcm_us": null,
+  "backend": null
+ },
+ {
+  "graph": "token_ar1_cl4096_3_of_4",
+  "part": "part3_of_4.bin",
+  "slot": 6,
+  "iterations": 50,
+  "latency": {
+   "n": 50,
+   "cold_us": 70281.0,
+   "mean_us": 67741.08163265306,
+   "std_us": 364.23332041900954,
+   "p50_us": 67675.0,
+   "min_us": 67074.0,
+   "max_us": 69042.0
+  },
+  "cycles": null,
+  "accel_us": {
+   "n": 50,
+   "cold_us": 63680.0,
+   "mean_us": 62661.04081632653,
+   "std_us": 228.44514003912815,
+   "p50_us": 62672.0,
+   "min_us": 62228.0,
+   "max_us": 63281.0
+  },
+  "init_us": 1374074.0,
+  "n_ops": 0,
+  "top_ops": [],
+  "op_total_cycles": 0,
+  "hvx_threads": 4.0,
+  "vtcm_us": null,
+  "backend": null
+ },
+ {
+  "graph": "prompt_ar128_cl4096_4_of_4",
+  "part": "part4_of_4.bin",
+  "slot": 8,
+  "iterations": 50,
+  "latency": {
+   "n": 50,
+   "cold_us": 205040.0,
+   "mean_us": 197735.61224489796,
+   "std_us": 1883.4077107063201,
+   "p50_us": 196908.0,
+   "min_us": 195774.0,
+   "max_us": 203595.0
+  },
+  "cycles": null,
+  "accel_us": {
+   "n": 50,
+   "cold_us": 190748.0,
+   "mean_us": 190486.48979591837,
+   "std_us": 1240.847819484874,
+   "p50_us": 190089.0,
+   "min_us": 189210.0,
+   "max_us": 194711.0
+  },
+  "init_us": 1773440.0,
+  "n_ops": 0,
+  "top_ops": [],
+  "op_total_cycles": 0,
+  "hvx_threads": 4.0,
+  "vtcm_us": null,
+  "backend": null
+ },
+ {
+  "graph": "token_ar1_cl4096_4_of_4",
+  "part": "part4_of_4.bin",
+  "slot": 4,
+  "iterations": 50,
+  "latency": {
+   "n": 50,
+   "cold_us": 80834.0,
+   "mean_us": 78295.16326530612,
+   "std_us": 940.8275850404319,
+   "p50_us": 78002.0,
+   "min_us": 77413.0,
+   "max_us": 82688.0
+  },
+  "cycles": null,
+  "accel_us": {
+   "n": 50,
+   "cold_us": 73930.0,
+   "mean_us": 73007.9387755102,
+   "std_us": 354.2569347851903,
+   "p50_us": 72929.0,
+   "min_us": 72755.0,
+   "max_us": 75280.0
+  },
+  "init_us": 1802247.0,
+  "n_ops": 0,
+  "top_ops": [],
+  "op_total_cycles": 0,
+  "hvx_threads": 4.0,
+  "vtcm_us": null,
+  "backend": null
+ }
+]

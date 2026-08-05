@@ -122,6 +122,24 @@
           </article>
         </div>
 
+        <!--
+          Placed directly under the door/presence tiles on purpose: this card is
+          derived from them. The adjacency is the argument -- two channels that
+          were previously only drawn now produce a verdict.
+        -->
+        <article class="card" id="access-card" data-status="unknown">
+          <header class="card-head">
+            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access</h3>
+            <span class="chip" id="access-chip" data-status="unknown">–</span>
+          </header>
+          <p class="access-verdict" id="access-verdict">–</p>
+          <p class="tile-sub" id="access-identity">identity –</p>
+          <ul class="access-faces" id="access-faces"></ul>
+          <ul class="access-reasons" id="access-reasons"></ul>
+          <p class="note note--warn" id="access-approval" hidden></p>
+          <ol class="access-log" id="access-log"></ol>
+        </article>
+
         <article class="card">
           <header class="card-head">
             <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>

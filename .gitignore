@@ -15,6 +15,20 @@ telegram_info
 docs/*.pdf
 *Internal*.pdf
 
+# Biometrics and captured images — never commit, not even once.
+# The access sentry captures faces of real people. Enrolment keeps only float
+# embeddings (mcp-tools/.state/roster.json) and deletes the source image, but a
+# capture is briefly on disk and a stray `git add -A` must not publish it.
+# This block exists BEFORE the first photo does, on purpose.
+mcp-tools/.state/
+captures/
+roster.json
+*.jpg
+*.jpeg
+*.png
+*.webp
+!docs/**/*.png
+
 # Node
 node_modules/
 dist/
@@ -45,3 +59,12 @@ Thumbs.db
 
 # Claude Code local settings (machine-specific, not shared)
 .claude/settings.local.json
+
+# Benchmark evidence — keep these LAST so they override earlier ignores.
+# bench/artifacts/ holds the §3 per-op profiling outputs (QAIRT Visualizer
+# inputs); its token_ar1 dir names collide with *token* above, and its
+# qnn-profiling-data_0.log files with *.log. llm-serving-bench serve logs
+# are the §1 crash evidence RESULTS.md cites.
+!bench/artifacts/
+!bench/artifacts/**
+!llm-serving-bench/**/*.log

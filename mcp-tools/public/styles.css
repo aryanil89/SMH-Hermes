@@ -1533,3 +1533,65 @@ svg {
     display: none;
   }
 }
+
+/* ── access card ─────────────────────────────────────────────────────────────
+ *
+ * Sits under the door/presence tiles, because it is derived from them. Status
+ * here is carried by the chip word, the border and the verdict text together --
+ * never by hue alone, same rule as everywhere else on this page.
+ */
+
+#access-card[data-status="warning"] { border-color: color-mix(in srgb, var(--warning) 55%, var(--rule)); }
+#access-card[data-status="critical"] { border-color: color-mix(in srgb, var(--critical) 65%, var(--rule)); }
+
+.access-verdict {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+#access-card[data-status="critical"] .access-verdict { color: var(--critical); }
+#access-card[data-status="warning"] .access-verdict { color: var(--warning); }
+
+.access-faces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.access-face {
+  font: 11px/1.6 var(--mono);
+  padding: 1px 8px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  color: var(--ink-2);
+  background: var(--surface-2);
+}
+.access-face[data-match="known"] { border-color: color-mix(in srgb, var(--good) 60%, var(--rule)); }
+.access-face[data-match="unknown"] { border-color: color-mix(in srgb, var(--warning) 60%, var(--rule)); }
+
+.access-reasons {
+  margin: 8px 0 0;
+  padding-left: 16px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.access-reasons li { margin: 2px 0; }
+
+.access-log {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--hairline);
+}
+.access-log li {
+  padding: 5px 0;
+  font: 11px/1.5 var(--mono);
+  color: var(--ink-3);
+  border-bottom: 1px solid var(--hairline);
+}
+.access-log li:last-child { border-bottom: 0; }
+.access-log li[data-state="undecided"] { color: var(--warning); }

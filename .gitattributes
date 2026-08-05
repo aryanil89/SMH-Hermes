@@ -1,0 +1,18 @@
+# Anything that runs on the Uno Q's Linux side must keep LF endings, whatever
+# core.autocrlf says on the machine doing the checkout.
+#
+# This is not tidiness. A shell script checked out with CRLF on Windows and
+# adb-pushed to the board arrives with `#!/bin/bash\r`, so the kernel looks for
+# an interpreter literally named "/bin/bash\r" and systemd reports
+# `status=203/EXEC ... No such file or directory` while pointing at a file that
+# plainly exists. It cost a downed sensor-push service to learn once.
+*.sh            text eol=lf
+*.py            text eol=lf
+*.service       text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+
+# JSON-lines sensor data: written by the board, read byte-for-byte by the MCP
+# tools. Never let a checkout rewrite its line endings.
+*.jsonl         text eol=lf
+arduino_uno_q-sensor_log.json  text eol=lf
