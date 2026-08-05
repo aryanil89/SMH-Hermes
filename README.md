@@ -19,6 +19,22 @@ WhatsApp and Signal are all supported by the same gateway; we demo on Telegram).
 Built on [Hermes Agent](https://github.com/nousresearch/hermes-agent) + Qwen3-4B-Instruct-2507,
 NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP tool servers.
 
+> **Naming note:** *SMH-Hermes* (this project) is a hackathon configuration-and-tooling layer that
+> **runs on** Nous Research's Hermes Agent runtime (MIT). It is not affiliated with, endorsed by, or
+> a product of Nous Research; their Hermes *model* family is not used here (the model is Qwen3).
+
+## Team
+
+| Name | Email |
+|---|---|
+| Indranil Acharya | `<qualcomm-email — fill before submission>` |
+| Christopher Gould | `<qualcomm-email — fill before submission>` |
+
+<!-- Hackathon rules require names AND emails of every team member in the README.
+     Fill the addresses (and add any member missing from this table) before the
+     Friday 12:00 PST submission — missing entries are a disqualification risk. -->
+
+
 > **Disclosure:** network, storage and compute telemetry are **simulated** with realistic data
 > patterns; the environmental path is **live** from an Arduino UNO Q. The MCP adapters are the seam —
 > the same tools can be pointed at real DCIM/BMS/SNMP without touching the reasoning layer. We
