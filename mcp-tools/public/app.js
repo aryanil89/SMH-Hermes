@@ -564,7 +564,7 @@ function renderClimateTable(points) {
 /* ── render: server column ───────────────────────────────────────────────── */
 
 /**
- * Physical access: who is at the rack, and whether a human allowed it.
+ * Physical access: who is in the room, and whether a human allowed it.
  *
  * Reads `snapshot.access`, which is produced by the same AccessSentry the phone
  * talks to -- so the wall and the phone cannot disagree about an open challenge.
@@ -572,13 +572,13 @@ function renderClimateTable(points) {
  * answers to "has this been authorised?" is worse than one screen showing none.
  */
 const ACCESS_TEXT = {
-  "idle": "Rack clear",
+  "idle": "Room clear",
   "pending-capture": "Presence detected — awaiting capture",
-  "clear": "Authorised person at the rack",
+  "clear": "Authorised person in the room",
   "expected": "On-call on site — escalation suppressed",
   "challenge": "Unknown person — approval required",
   "unauthorized-during-incident": "Unknown person during an active incident",
-  "anti-passback": "At the rack with no door entry",
+  "anti-passback": "In the room with no door entry",
   "tailgating": "Tailgating — more people than authorised entries",
 };
 
