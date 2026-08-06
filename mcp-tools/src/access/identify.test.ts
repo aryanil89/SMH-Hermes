@@ -138,6 +138,25 @@ describe("identifyFaces via the python backend", () => {
     expect(result.faces[0]?.match).toBe("unknown");
   });
 
+  it("resolves an empty-but-successful response to zero faces on face-cpu, not a degrade", async () => {
+    // A quality rejection (no_face / face_too_small) is expected to exit 0
+    // with empty embeddings, not a non-zero exit -- that is what lets
+    // decide.ts:104-106 say "capture contained no detectable face -- retake
+    // needed" instead of either a phantom unknown face or a false "pipeline
+    // unavailable" degrade. This pins the TypeScript half of that contract.
+    process.env.IDENTIFY_TEST_STDOUT = JSON.stringify({
+      embeddings: [],
+      boxes: [],
+      device: "cpu",
+    });
+
+    const result = await identifyFaces({ imageBase64: "aGVsbG8=", roster: [] });
+
+    expect(result.faces).toHaveLength(0);
+    expect(result.method).toBe("face-cpu");
+    expect(result.degradedFrom).toBeUndefined();
+  });
+
   it("degrades to face-detect-only and records degradedFrom when the script exits non-zero", async () => {
     process.env.IDENTIFY_TEST_EXIT_CODE = "1";
     process.env.IDENTIFY_TEST_STDERR = "camera not found";
