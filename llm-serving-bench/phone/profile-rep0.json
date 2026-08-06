@@ -1,0 +1,72 @@
+{
+  "header": {
+    "header_version": {
+      "major": 0,
+      "minor": 1,
+      "patch": 0
+    },
+    "version": {
+      "major": 0,
+      "minor": 1,
+      "patch": 0
+    },
+    "artifact_type": "GENIE_PROFILE"
+  },
+  "metadata": {
+    "timestamp": 4535574501
+  },
+  "components": [
+    {
+      "name": "dialog0",
+      "type": "dialog",
+      "events": [
+        {
+          "type": "GenieDialog_create",
+          "duration": 4270468,
+          "start": 4535574885,
+          "stop": 4539845353,
+          "init-time": {
+            "value": 4269364,
+            "unit": "us"
+          }
+        },
+        {
+          "type": "GenieDialog_query",
+          "duration": 6123694,
+          "start": 4539846158,
+          "stop": 4545969852,
+          "num-prompt-tokens": {
+            "value": 1248,
+            "unit": ""
+          },
+          "prompt-processing-rate": {
+            "value": 1949.3177490234375,
+            "unit": "toks/sec"
+          },
+          "time-to-first-token": {
+            "value": 640489,
+            "unit": "us"
+          },
+          "num-generated-tokens": {
+            "value": 119,
+            "unit": ""
+          },
+          "token-generation-rate": {
+            "value": 21.7537899017334,
+            "unit": "toks/sec"
+          },
+          "token-generation-time": {
+            "value": 5470375,
+            "unit": "us"
+          }
+        },
+        {
+          "type": "GenieDialog_free",
+          "duration": 146588,
+          "start": 4545969854,
+          "stop": 4546116442
+        }
+      ]
+    }
+  ]
+}

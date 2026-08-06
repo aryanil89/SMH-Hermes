@@ -1,0 +1,43 @@
+{
+  "date": "2026-08-06",
+  "device": {
+    "model": "Samsung Galaxy S25 Ultra (SM-S938U1)",
+    "soc": "Snapdragon 8 Elite (SM8750), Hexagon NPU dsp_arch v79",
+    "ram_kb_memtotal": 11385444,
+    "memavailable_kb_at_start": 5419260,
+    "os": "Android 15 / One UI 8",
+    "power": "USB charging throughout, battery 98% at start"
+  },
+  "config": {
+    "model": "qualcomm/Qwen3-4B-Instruct-2507 pre-compiled AI Hub Genie bundle",
+    "bundle_zip": "qwen3_4b_instruct_2507-genie-w4a16-qualcomm_snapdragon_8_elite.zip",
+    "bundle_sha256": "87D9DC00FE6FA9D5AD9CF06379B508580EFAC16641869C36F99872D046BFFF74",
+    "bundle_source": "https://qaihub-public-assets.s3.us-west-2.amazonaws.com/qai-hub-models/models/qwen3_4b_instruct_2507/releases/v0.59.0/qwen3_4b_instruct_2507-genie-w4a16-qualcomm_snapdragon_8_elite.zip",
+    "quantization": "w4a16 (QNN context binaries, HTP-only)",
+    "context_size": 4096,
+    "runner": "genie-t2t-run from QAIRT 2.45.0.260326 Community SDK (aarch64-android), libGenie.so 1.17.0",
+    "adsp_library_path": "hexagon-v79/unsigned",
+    "sampler": { "seed": 42, "temp": 0.8, "top_k": 40, "top_p": 0.95 },
+    "prompt_tokens": 1248,
+    "prompt_note": "fixed ops-summary prompt, nonce-prefixed per rep ([rep-N]), Qwen chat template, built phone-side by run.sh",
+    "invocation": "one-shot CLI over adb; not a serving endpoint"
+  },
+  "protocol": "rep 0 = warmup/cold-load (excluded from stats); reps 1-5 measured back-to-back deliberately (rep-over-rep decay is the thermal check); KPIs from genie-t2t-run --profile JSON",
+  "reps": [
+    { "rep": 0, "role": "warmup", "init_s": 4.27, "prompt_tokens": 1248, "prefill_toks_per_s": 1949.3, "ttft_s": 0.640, "generated_tokens": 119, "decode_toks_per_s": 21.75, "battery_temp_dC_before": 295, "battery_temp_dC_after": 296 },
+    { "rep": 1, "role": "measured", "init_s": 4.02, "prompt_tokens": 1248, "prefill_toks_per_s": 1908.4, "ttft_s": 0.655, "generated_tokens": 135, "decode_toks_per_s": 24.12, "battery_temp_dC_before": 296, "battery_temp_dC_after": 298 },
+    { "rep": 2, "role": "measured", "init_s": 4.07, "prompt_tokens": 1248, "prefill_toks_per_s": 1945.5, "ttft_s": 0.642, "generated_tokens": 133, "decode_toks_per_s": 24.05, "battery_temp_dC_before": 298, "battery_temp_dC_after": 302 },
+    { "rep": 3, "role": "measured", "init_s": 4.02, "prompt_tokens": 1248, "prefill_toks_per_s": 1919.4, "ttft_s": 0.651, "generated_tokens": 128, "decode_toks_per_s": 24.08, "battery_temp_dC_before": 302, "battery_temp_dC_after": 308 },
+    { "rep": 4, "role": "measured", "init_s": 3.97, "prompt_tokens": 1248, "prefill_toks_per_s": 1901.1, "ttft_s": 0.658, "generated_tokens": 136, "decode_toks_per_s": 21.64, "battery_temp_dC_before": 308, "battery_temp_dC_after": 313 },
+    { "rep": 5, "role": "measured", "init_s": 4.47, "prompt_tokens": 1248, "prefill_toks_per_s": 1915.7, "ttft_s": 0.652, "generated_tokens": 121, "decode_toks_per_s": 21.80, "battery_temp_dC_before": 313, "battery_temp_dC_after": 318 }
+  ],
+  "stats_reps_1_to_5": {
+    "prefill_toks_per_s": "1918.0 ± 16.9",
+    "decode_toks_per_s": "23.1 ± 1.3",
+    "ttft_s": "0.65 ± 0.01",
+    "init_s": "4.1 ± 0.2",
+    "cold_init_s_rep0": 4.27
+  },
+  "thermal_note": "battery 29.5 -> 31.8 C over 6 back-to-back reps; decode reps 1-3 ~24.1 tok/s, reps 4-5 ~21.7 tok/s (~10% dip); prefill showed no decay",
+  "not_tested": ["tool-calling", "serving endpoint", "sustained load", "energy per query", "long context beyond 4096", "on-phone CPU comparison (bundle is HTP-only context binaries)"]
+}

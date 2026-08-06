@@ -1,0 +1,54 @@
+﻿Unknown option: You
+Usage:
+/data/local/tmp/hermes-npu-bench/qairt/bin/genie-t2t-run [options]
+
+Options:
+  -h, --help                                                                            Show this help message and exit.
+
+  -c CONFIG_FILE or --config CONFIG_FILE                                                Dialog JSON configuration file.
+
+  -p PROMPT or --prompt PROMPT                                                          Prompt to query. Mutually exclusive with --prompt_file.
+
+  --prompt_file PATH                                                                    Prompt to query provided as a file. Mutually exclusive with --prompt.
+
+  -l ADAPTER_NAME,ALPHA_NAME_1,ALPHA_VAL_1,ALPHA_NAME_2,ALPHA_VAL_2,...  or --lora ADAPTER_NAME,ALPHA_NAME_1,ALPHA_VAL_1,ALPHA_NAME_2,ALPHA_VAL_2,...Apply a LoRA adapter to a dialog.
+                                                                                        ALPHA_NAME_n and ALPHA_VALUE_n are optional parameters, only for setting alpha strength.
+
+  -e PATH or --embedding_file PATH[,TYPE,SCALE,OFFSET]                                  Input embeddings provided as a file. Mutually exclusive with --prompt, --prompt_file and --tokens_file.
+                                                                                        TYPE, SCALE, and OFFSET are optional parameters representing the model's input quantization encodings. Required for lookup table requantization.
+                                                                                        Valid values of TYPE are int8, int16, uint8, uint16. The signedness must be consistent with the lookup table encodings.
+
+  -t PATH or --embedding_table PATH[,TYPE,SCALE,OFFSET]                                 Token-to-Embedding lookup table provided as a file. Mutually exclusive with --prompt and --prompt_file.
+                                                                                        TYPE, SCALE, and OFFSET are optional parameters representing the lookup table's quantization encodings. Required for lookup table requantization.
+                                                                                        Valid values of TYPE are int8, int16, uint8, uint16. The signedness must be consistent with the input layer encodings.
+
+  -tok PATH or --tokens_file PATH                                                       Input tokens provided as a file. Mutually exclusive with --prompt, --prompt_file and --embedding_file.
+
+  --embedding_query_output_type TYPE                                                    Sets the output type for embedding query. Must be one of text or token. Defaults to text.
+
+  -s PATH or --save PATH                                                                Saves the dialog state after the dialog is queried. PATH must be an existing path.
+
+  -r PATH or --restore PATH                                                             Restores the dialog state before the dialog is queried. PATH must contain a previous save state.
+
+  -w query for rewind or --rewind query for rewind                                      Pass the query for prefix Match and KV rewind 
+
+  --log logLevel                                                                        Enables logging. LogLevel must be one of error, warn, info, or verbose.
+
+  --profile FILE_NAME                                                                   Enables profiling. FILE_NAME is mandatory parameter and provides name of output file with profiling data.
+
+
+  --action NAME                                                                         Pass the name of action that needs to be signaled to inprogress query for current active dialog.
+                                                                                        Supported action is ABORT.
+
+  --sleep TIME                                                                          Pass the time(in ms) for signal thread to sleep.
+                                                                                        Default sleep is 2025 ms.
+
+  --priority set the priority for the engine                                            Pass the  Priority to which Model should be running
+
+  --key set the Oem key                                                                 Pass the  OEM key to be applied
+
+ --allow_engine_switch ENGINE_ROLE, STANDALONE_ENGINE_CONFIG.JSON                       Allows switching the draft engine over the same dialog.
+
+ --engine_role                                                                          Option to select engine in case of multi-engine dialog.
+
+ --pid                                                                                  Displays genie-t2t-run process id.
