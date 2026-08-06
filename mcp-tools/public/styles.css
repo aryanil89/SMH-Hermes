@@ -19,8 +19,8 @@
   --surface-3: #2a2a27;
 
   --ink-1: #ffffff;
-  --ink-2: #c3c2b7;
-  --ink-3: #898781;
+  --ink-2: #cecdc3;
+  --ink-3: #a3a199;
 
   --grid: #2c2c2a;
   --rule: #383835;
@@ -35,6 +35,16 @@
   /* Categorical slots 1 and 3, dark steps. */
   --series-temp: #3987e5;
   --series-hum: #199e70;
+
+  /* Card-accent palette -- purely decorative hues for prose cards (the
+     Executive overview brief-cards row), deliberately kept out of the
+     red/amber/green range above so an accented card is never mistaken for a
+     status reading. Evenly spaced around the wheel so no two sit close
+     enough to read as "the same colour, different card". */
+  --accent-cyan: #22b8cf;
+  --accent-blue: #3987e5;
+  --accent-violet: #8b5cf6;
+  --accent-pink: #e0629f;
 
   --radius: 10px;
   --radius-sm: 7px;
@@ -214,6 +224,59 @@ svg {
   background: color-mix(in srgb, var(--critical) 14%, var(--surface-2));
 }
 
+/* Global, not scoped to the Live system tab: demo mode overrides the same
+   summary elements Live Details would otherwise share, so anyone who
+   switches tabs mid-demo needs this visible regardless of which tab they
+   land on -- the entire point of a dedicated badge instead of folding the
+   state into the tab's own header. */
+.demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 20%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--warning) 60%, transparent);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--warning);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  animation: demo-badge-pulse 2s ease-in-out infinite;
+}
+
+/* The class's own `display: inline-flex` above has higher specificity than
+   the browser's default `[hidden] { display: none }`, so without this the
+   badge stayed visible on every tab, all the time, regardless of demo
+   mode -- the [hidden] attribute selector here restores it. */
+.demo-badge[hidden] {
+  display: none;
+}
+
+.demo-badge svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--warning);
+}
+
+@keyframes demo-badge-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--warning) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--warning) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-badge {
+    animation: none;
+  }
+}
+
 .conn {
   display: inline-flex;
   align-items: center;
@@ -238,6 +301,11 @@ svg {
 
 .conn[data-state="lost"] .conn-dot {
   background: var(--critical);
+}
+
+.conn[data-state="demo"] .conn-dot {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 22%, transparent);
 }
 
 /* ── Wall layout ─────────────────────────────────────────────────────────── */
@@ -468,18 +536,23 @@ svg {
   min-width: 0;
 }
 
+/* border-color, not border-left-color: the whole outline tracks the status
+   now, not just the accent bar -- a tile crossing risk levels should read
+   as a change to the box, visible even at a glance from across a room. The
+   left edge stays thicker (border-left-width, set above) so the accent bar
+   is still the strongest signal; it's just no longer the only one. */
 .state-tile[data-status="ok"] {
-  border-left-color: var(--good);
+  border-color: var(--good);
 }
 .state-tile[data-status="warning"] {
-  border-left-color: var(--warning);
+  border-color: var(--warning);
 }
 .state-tile[data-status="critical"] {
-  border-left-color: var(--critical);
+  border-color: var(--critical);
   background: color-mix(in srgb, var(--critical) 10%, var(--surface-1));
 }
 .state-tile[data-status="unknown"] {
-  border-left-color: var(--rule);
+  border-color: var(--rule);
 }
 
 .tile-icon {
@@ -976,11 +1049,21 @@ svg {
   flex: 0 0 auto;
 }
 
+.family[data-status="ok"] {
+  border-color: color-mix(in srgb, var(--good) 45%, var(--hairline));
+}
 .family[data-status="ok"] .dot {
   background: var(--good);
 }
+.family[data-status="warning"] {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--hairline));
+}
 .family[data-status="warning"] .dot {
   background: var(--warning);
+}
+.family[data-status="critical"] {
+  border-color: color-mix(in srgb, var(--critical) 65%, var(--hairline));
+  background: color-mix(in srgb, var(--critical) 12%, var(--surface-2));
 }
 .family[data-status="critical"] .dot {
   background: var(--critical);
@@ -1337,13 +1420,21 @@ svg {
    server off the right, the way every chat client on the demo phone already
    behaves. The tag under each bubble spells it out too, because a screenshot of
    one bubble has no other side to compare against. */
+/* Three colours, one meaning each, everywhere a bubble renders (the real
+   thread on Live details and the demo/summary mirror on Live system share
+   this CSS, so a fix here is a fix in both places): grey for inbound (phone
+   → server), red for an outbound critical alert, blue for everything else
+   outbound. Nothing here reads direction from colour alone -- the tag text
+   and bubble alignment already say "phone → server" / "server → phone". */
 .bubble {
   max-width: 88%;
   padding: 7px 10px 6px;
   border-radius: 12px;
   font-size: 12px;
   line-height: 1.4;
-  background: var(--surface-3);
+  /* Outbound default: informational, blue. */
+  background: color-mix(in srgb, var(--series-temp) 18%, var(--surface-3));
+  border-left: 3px solid var(--series-temp);
   color: var(--ink-1);
   align-self: flex-start;
   text-align: left;
@@ -1353,7 +1444,8 @@ svg {
 
 .bubble--inbound {
   align-self: flex-end;
-  background: #1d4f3c;
+  background: var(--surface-3);
+  border-left: none;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 4px;
 }
@@ -1369,10 +1461,9 @@ svg {
   border-left: 3px solid var(--critical);
 }
 
-.bubble--recovery {
-  background: color-mix(in srgb, var(--good) 22%, var(--surface-3));
-  border-left: 3px solid var(--good);
-}
+/* No override: a "recovery" outbound message (storage remediation, etc.) is
+   still informational, not critical, so it stays the same blue as the base
+   .bubble rather than carrying its own colour. */
 
 .bubble--system {
   align-self: center;
@@ -1591,6 +1682,23 @@ svg {
 #access-card[data-status="warning"] { border-color: color-mix(in srgb, var(--warning) 55%, var(--rule)); }
 #access-card[data-status="critical"] { border-color: color-mix(in srgb, var(--critical) 65%, var(--rule)); }
 
+/* Same rules as #access-card above, class-keyed: the Live system summary tab
+   has its own access card (a different element, so it can't share the id)
+   but needs the same status-driven colour. */
+.access-summary[data-status="warning"] { border-color: color-mix(in srgb, var(--warning) 55%, var(--rule)); }
+.access-summary[data-status="critical"] { border-color: color-mix(in srgb, var(--critical) 65%, var(--rule)); }
+
+/* Temperature / humidity, both tabs: same pattern again -- the card's own
+   data-status (set alongside its chip in app.js, see writeSummaryTemp and
+   renderDevice) recolours the outline the moment the reading crosses a
+   threshold, not just the small chip dot in the corner. */
+.sensor-card[data-status="ok"] { border-color: color-mix(in srgb, var(--good) 45%, var(--hairline)); }
+.sensor-card[data-status="warning"] { border-color: color-mix(in srgb, var(--warning) 55%, var(--rule)); }
+.sensor-card[data-status="critical"] {
+  border-color: color-mix(in srgb, var(--critical) 65%, var(--rule));
+  background: color-mix(in srgb, var(--critical) 10%, var(--surface-1));
+}
+
 .access-verdict {
   margin: 0 0 4px;
   font-size: 17px;
@@ -1598,8 +1706,10 @@ svg {
   line-height: 1.25;
   letter-spacing: -0.01em;
 }
-#access-card[data-status="critical"] .access-verdict { color: var(--critical); }
-#access-card[data-status="warning"] .access-verdict { color: var(--warning); }
+#access-card[data-status="critical"] .access-verdict,
+.access-summary[data-status="critical"] .access-verdict { color: var(--critical); }
+#access-card[data-status="warning"] .access-verdict,
+.access-summary[data-status="warning"] .access-verdict { color: var(--warning); }
 
 .access-faces {
   display: flex;
@@ -1774,6 +1884,13 @@ svg {
   border-color: var(--hairline);
 }
 
+/* Detailed architecture is a reference/appendix tab, not part of the demo
+   flow -- pinning it to the right of the bar sets it apart from the four
+   tabs a judge actually steps through in order. */
+.tab-btn--right {
+  margin-left: auto;
+}
+
 /* Panels are siblings of the header/tabnav in the body flex column; exactly
    one is display:flex (or, for the live wall, display:grid) at a time. */
 .tab-panel {
@@ -1788,9 +1905,10 @@ svg {
   overflow-y: auto;
 }
 
-/* Higher specificity than `.tab-panel.active` on purpose: the live wall keeps
-   its own grid layout instead of the generic flex column the other tabs use. */
-#panel-live.active {
+/* Higher specificity than `.tab-panel.active` on purpose: the Live details
+   dashboard keeps its own 3-column grid layout instead of the generic flex
+   column the other tabs (including the Live system summary) use. */
+#panel-live-details.active {
   display: grid;
 }
 
@@ -1806,12 +1924,31 @@ svg {
  */
 .brief {
   width: 100%;
-  max-width: 1760px;
+  max-width: 1880px;
   margin: 0 auto;
-  padding: 18px 24px 22px;
+  padding: 24px 32px 28px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
+  /* Projector baseline: these four tabs are the ones presented to a room, read
+     from the back row, not scrolled through on a laptop. Every size in this
+     block is set for that distance first and legibility up close second. */
+  font-size: 19px;
+}
+
+/* Bolder icon strokes to match the heavier card borders and connector lines
+   below -- the wall's own icons (door, temp, ...) keep the lighter default. */
+.brief svg {
+  stroke-width: 2.4;
+}
+
+/* Detailed architecture tab stacks the conceptual and logical briefs in one
+   scrolling panel -- this seam is the only thing that marks where one ends
+   and the other begins. */
+.brief--detailed-second {
+  border-top: 1px solid var(--hairline);
+  margin-top: 8px;
+  padding-top: 30px;
 }
 
 /* Sized for the wall, not for a laptop lap: everything on these tabs is a step
@@ -1819,15 +1956,26 @@ svg {
    arm's length and these are read from across the table. Scoped to `.brief` so
    the wall's own cards keep their tighter measurements. */
 .brief .card {
-  padding: 15px 17px;
+  padding: 19px 21px;
+  border-width: 2px;
 }
 
 .brief .card-head {
-  margin-bottom: 8px;
+  margin-bottom: 11px;
 }
 
 .brief .card-head h3 {
-  font-size: 12.5px;
+  font-size: 17px;
+  letter-spacing: 0.03em;
+}
+
+.brief .head-icon {
+  width: 21px;
+  height: 21px;
+}
+
+.brief .kicker {
+  font-size: 14.5px;
 }
 
 /* The wall's kv rows are label-left/value-right because those columns are narrow
@@ -1835,11 +1983,11 @@ svg {
    rule strands the value half a screen from its label, so pair them instead. */
 .brief .kv {
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 3px 10px;
-  font-size: 12px;
-  margin-top: 10px;
-  padding-top: 9px;
-  border-top: 1px solid var(--hairline);
+  gap: 4px 12px;
+  font-size: 16px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 2px solid var(--hairline);
 }
 
 .brief .kv dd {
@@ -1852,26 +2000,26 @@ svg {
 .brief-head {
   display: grid;
   grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
-  gap: 6px 32px;
+  gap: 8px 32px;
   align-items: end;
 }
 
 .brief-title {
-  font-size: 27px;
+  font-size: 46px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  line-height: 1.2;
+  line-height: 1.12;
 }
 
 .brief-lede {
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 21.5px;
+  line-height: 1.5;
   color: var(--ink-2);
   max-width: 92ch;
 }
 
 .brief-h2 {
-  font-size: 12px;
+  font-size: 16.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1890,19 +2038,477 @@ svg {
 .brief-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
-  gap: 12px;
+  gap: 14px;
   align-items: start;
 }
 
 .brief p {
-  font-size: 13.5px;
-  line-height: 1.55;
+  font-size: 18.5px;
+  line-height: 1.48;
   color: var(--ink-2);
 }
 
-.card--accent {
-  border-color: color-mix(in srgb, var(--series-temp) 30%, var(--hairline));
-  background: color-mix(in srgb, var(--series-temp) 6%, var(--surface-1));
+/* Team sits to the left of What we built (see .overview-split) rather than
+   as its own full-width row -- on a page that has to fit one screen, a
+   three-across row of name cards was pure height with nothing in it. */
+.overview-split {
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.overview-team,
+.overview-built {
+  min-width: 0;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.team-grid--stacked {
+  grid-template-columns: 1fr;
+}
+
+.team-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.team-icon {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  padding: 6px;
+  border-radius: 50%;
+  color: var(--series-temp);
+  background: color-mix(in srgb, var(--series-temp) 14%, var(--surface-2));
+}
+
+.team-name {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--ink-1);
+}
+
+.team-org {
+  font-size: 15px;
+  color: var(--ink-3);
+  margin-top: 1px;
+}
+
+/* ── Live system summary tab ─────────────────────────────────────────────── */
+
+/* The wall's hero/verdict/stat-value components, scaled up for a card that's
+   the single marquee number on an otherwise sparse, projector-scale tab. */
+.brief .hero-value {
+  font-size: 84px;
+}
+
+.brief .hero-label {
+  font-size: 13px;
+}
+
+.brief .hero-level {
+  font-size: 20px;
+}
+
+.brief .meter {
+  height: 10px;
+  margin: 10px 0 8px;
+}
+
+.brief .verdict {
+  margin-top: 16px;
+}
+
+.brief .verdict dt {
+  font-size: 12.5px;
+  margin-top: 10px;
+}
+
+.brief .verdict dd {
+  font-size: 17px;
+}
+
+.brief .stat-value {
+  font-size: 44px;
+}
+
+.brief .stat-value .unit {
+  font-size: 18px;
+}
+
+.summary-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.state-tile--lg {
+  padding: 20px 22px 22px;
+  border-width: 2px;
+  border-left-width: 6px;
+}
+
+.state-tile--lg .tile-icon {
+  width: 30px;
+  height: 30px;
+  top: 18px;
+  right: 18px;
+}
+
+.state-tile--lg .tile-label {
+  font-size: 13px;
+}
+
+.state-tile--lg .tile-value {
+  font-size: 32px;
+  margin-top: 4px;
+}
+
+.state-tile--lg .tile-sub {
+  font-size: 14px;
+  white-space: normal;
+  margin-top: 4px;
+}
+
+.summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+
+.summary-row .access-summary {
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-row .access-summary .access-verdict {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+/* Live system: sensor picture on the left (60%), the phone thread on the
+   right (40%) -- the two things a room actually watches during a demo. */
+.live-split {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 22px;
+  /* start, not the grid default (stretch): JS measures the left column and
+     sets the phone-frame's height directly (see syncPhoneHeight in app.js)
+     to make the phone's bottom edge land on the left column's bottom.
+     Stretch would fight that -- forcing the right column to fill an
+     auto-sized row it also has a hand in sizing is exactly the feedback
+     loop this tab used to have when the phone's own content pushed it
+     taller than the left column. */
+  align-items: start;
+}
+
+.live-split-left {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.live-split-right {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Lede + the live/demo switch share a row: the switch is the single most
+   important control on this tab, so it sits at reading-eye-level next to
+   the sentence that explains what it's switching. */
+.live-lede-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.live-lede-row .brief-lede {
+  flex: 1 1 auto;
+}
+
+.mode-toggle {
+  appearance: none;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px 9px 9px;
+  background: var(--surface-1);
+  border: 2px solid var(--hairline);
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink-1);
+}
+
+.mode-toggle:hover {
+  border-color: var(--rule);
+}
+
+.mode-toggle:focus-visible {
+  outline: 2px solid var(--series-temp);
+  outline-offset: 2px;
+}
+
+.mode-toggle-track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1.5px solid var(--rule);
+  flex: 0 0 auto;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.mode-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--good);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.mode-toggle[data-mode="demo"] .mode-toggle-track {
+  background: color-mix(in srgb, var(--accent-violet) 30%, var(--surface-3));
+  border-color: var(--accent-violet);
+}
+
+.mode-toggle[data-mode="demo"] .mode-toggle-thumb {
+  transform: translateX(20px);
+  background: var(--accent-violet);
+}
+
+.mode-toggle-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+
+.mode-toggle-label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mode-toggle[data-mode="demo"] .mode-toggle-label {
+  color: var(--accent-violet);
+}
+
+.mode-toggle-sub {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* One row, not three -- the kicker/title/sub stack ate three lines above the
+   phone for no reason, height the phone frame below can use instead. */
+.live-split-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.live-split-head h2 {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.live-split-sub {
+  font-size: 14.5px;
+  color: var(--ink-3);
+}
+
+.live-split-sub::before {
+  content: "·";
+  margin-right: 10px;
+  color: var(--ink-3);
+}
+
+/* Sized for this column rather than inheriting the wall's tight sidebar
+   dimensions -- this is the one place on the tab a fixed height is correct,
+   since the phone thread needs a bounded box to scroll inside. Width is
+   raised well past the wall's 320px cap so the phone actually reads as the
+   40% column's content, not a small mockup floating in empty space. */
+.live-split-right .phone-frame {
+  max-width: 460px;
+  /* Height is set inline by JS (see syncPhoneHeight in app.js), not by CSS
+     stretch: a grid row's auto height is computed from every item's natural
+     content size, phone included, so once the message thread grows past
+     what the left column needs, a stretch-only phone-frame grows the whole
+     row to match instead of clipping and scrolling internally. Measuring
+     the left column directly and setting this element's height explicitly
+     sidesteps that circularity -- .tg-thread's own overflow-y:auto then
+     does the actual clipping. */
+  min-height: 0;
+}
+
+.live-split-right .phone-notch {
+  width: 118px;
+  height: 18px;
+}
+
+.live-split-right .tg-avatar {
+  width: 42px;
+  height: 42px;
+  font-size: 19px;
+}
+
+.live-split-right .tg-title {
+  font-size: 18px;
+}
+
+.live-split-right .tg-sub {
+  font-size: 15px;
+}
+
+.live-split-right .tg-thread {
+  padding: 14px 14px 18px;
+  gap: 10px;
+}
+
+.live-split-right .bubble {
+  font-size: 19px;
+  padding: 11px 15px 10px;
+  border-radius: 15px;
+}
+
+.live-split-right .bubble--system {
+  font-size: 16px;
+}
+
+.live-split-right .bubble-meta {
+  font-size: 14.5px;
+  gap: 9px;
+  margin-top: 6px;
+}
+
+.live-split-right .tg-placeholder {
+  font-size: 17px;
+  padding: 15px 17px;
+}
+
+.infra-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.infra-card {
+  background: var(--surface-2);
+  border: 2px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.infra-card .fam-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.infra-card .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: 0 0 auto;
+}
+
+.infra-card[data-status="ok"] {
+  border-color: color-mix(in srgb, var(--good) 45%, var(--hairline));
+}
+.infra-card[data-status="ok"] .dot {
+  background: var(--good);
+}
+.infra-card[data-status="warning"] {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--rule));
+}
+.infra-card[data-status="warning"] .dot {
+  background: var(--warning);
+}
+.infra-card[data-status="critical"] {
+  border-color: color-mix(in srgb, var(--critical) 65%, var(--rule));
+  background: color-mix(in srgb, var(--critical) 12%, var(--surface-2));
+}
+.infra-card[data-status="critical"] .dot {
+  background: var(--critical);
+}
+
+.infra-card .fam-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.infra-card .fam-sub {
+  font-size: 13.5px;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+
+/* One accent per card in the Executive overview row -- border, tinted
+   background and a matching icon colour, so all four stand out equally
+   instead of just the one that used to carry `.card--accent`. */
+/* `.card` repeated in each selector to match `.brief .card`'s specificity --
+   otherwise that rule's own border-width would win the cascade and flatten
+   every accent card back to the plain-card thickness. */
+.card.card--accent-cyan,
+.card.card--accent-blue,
+.card.card--accent-violet,
+.card.card--accent-pink {
+  border-width: 2.5px;
+}
+
+.card--accent-cyan {
+  border-color: color-mix(in srgb, var(--accent-cyan) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-cyan) 7%, var(--surface-1));
+}
+.card--accent-cyan .head-icon {
+  color: var(--accent-cyan);
+}
+
+.card--accent-blue {
+  border-color: color-mix(in srgb, var(--accent-blue) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-blue) 7%, var(--surface-1));
+}
+.card--accent-blue .head-icon {
+  color: var(--accent-blue);
+}
+
+.card--accent-violet {
+  border-color: color-mix(in srgb, var(--accent-violet) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-violet) 7%, var(--surface-1));
+}
+.card--accent-violet .head-icon {
+  color: var(--accent-violet);
+}
+
+.card--accent-pink {
+  border-color: color-mix(in srgb, var(--accent-pink) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-pink) 7%, var(--surface-1));
+}
+.card--accent-pink .head-icon {
+  color: var(--accent-pink);
 }
 
 .note-card p {
@@ -1911,14 +2517,14 @@ svg {
 
 .table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--hairline);
+  border: 2px solid var(--hairline);
   border-radius: var(--radius);
 }
 
 .brief-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13.5px;
+  font-size: 18px;
   /* Fixed, with the widths declared below: left to itself at 1700px the middle
      column eats the row and the "planned" column ends up pinned to the far edge,
      which reads as two tables rather than a comparison. */
@@ -1928,9 +2534,9 @@ svg {
 .brief-table th,
 .brief-table td {
   text-align: left;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--hairline);
-  line-height: 1.5;
+  padding: 14px 18px;
+  border-bottom: 2px solid var(--hairline);
+  line-height: 1.4;
   vertical-align: top;
 }
 
@@ -1947,7 +2553,7 @@ svg {
 .brief-table th {
   background: var(--surface-1);
   color: var(--ink-3);
-  font-size: 10.5px;
+  font-size: 13.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 600;
@@ -1980,22 +2586,35 @@ svg {
   flex: 1 1 0;
   min-width: 0;
   background: var(--surface-1);
-  border: 1px solid var(--hairline);
+  border: 2px solid var(--hairline);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
   justify-content: center;
 }
 
+.arch-node-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.arch-node-icon {
+  width: 27px;
+  height: 27px;
+  flex: 0 0 auto;
+  color: var(--ink-2);
+}
+
 .arch-node h3 {
-  font-size: 15px;
+  font-size: 23px;
   font-weight: 600;
 }
 
 .arch-node-sub {
-  font-size: 11.5px;
+  font-size: 15.5px;
   color: var(--ink-3);
   line-height: 1.4;
 }
@@ -2012,7 +2631,7 @@ svg {
 
 .arch-link {
   flex: 0 0 auto;
-  width: 148px;
+  width: 160px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2022,7 +2641,7 @@ svg {
 }
 
 .arch-link-label {
-  font-size: 9.5px;
+  font-size: 12.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-3);
@@ -2036,7 +2655,7 @@ svg {
 .arch-arrow {
   position: relative;
   width: 100%;
-  height: 2px;
+  height: 4px;
   background: linear-gradient(
     to right,
     color-mix(in srgb, var(--series-temp) 55%, transparent),
@@ -2049,11 +2668,11 @@ svg {
   position: absolute;
   right: -1px;
   top: 50%;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   transform: translateY(-50%) rotate(45deg);
-  border-right: 2px solid var(--good);
-  border-top: 2px solid var(--good);
+  border-right: 4px solid var(--good);
+  border-top: 4px solid var(--good);
 }
 
 .arch-link--stacked {
@@ -2073,38 +2692,38 @@ svg {
   position: absolute;
   left: -1px;
   top: 50%;
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   transform: translateY(-50%) rotate(-135deg);
-  border-right: 2px solid var(--series-temp);
-  border-top: 2px solid var(--series-temp);
+  border-right: 4px solid var(--series-temp);
+  border-top: 4px solid var(--series-temp);
 }
 
 .arch-link--stacked .arch-link-label--dashed {
   padding-top: 8px;
-  border-top: 1px dashed var(--rule);
+  border-top: 2px dashed var(--rule);
   margin-top: 4px;
 }
 
 .arch-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-  gap: 12px;
+  gap: 14px;
   align-items: start;
 }
 
 .arch-does {
-  font-size: 12.5px;
-  line-height: 1.55;
+  font-size: 17.5px;
+  line-height: 1.48;
   color: var(--ink-2);
 }
 
 .arch-components {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  margin: 8px 0;
-  font-size: 12px;
+  gap: 6px;
+  margin: 10px 0;
+  font-size: 16px;
   line-height: 1.4;
   color: var(--ink-2);
 }
@@ -2131,7 +2750,7 @@ svg {
 }
 
 .arch-components code {
-  font: 11px var(--mono);
+  font: 14px var(--mono);
   color: var(--ink-2);
 }
 
@@ -2145,21 +2764,21 @@ svg {
  */
 .flow-rail {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
-  gap: 12px 22px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px 18px;
   counter-reset: flow;
 }
 
 .flow-stage {
   position: relative;
   background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  border-top: 2px solid var(--rule);
+  border: 2px solid var(--hairline);
+  border-top: 5px solid var(--rule);
   border-radius: var(--radius);
-  padding: 10px 12px 11px;
+  padding: 17px 19px 18px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 8px;
 }
 
 /* The connector sits in the 22px column gap. Hidden on the last stage of each
@@ -2169,11 +2788,11 @@ svg {
   position: absolute;
   top: 22px;
   right: -16px;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   transform: rotate(45deg);
-  border-right: 2px solid var(--rule);
-  border-top: 2px solid var(--rule);
+  border-right: 3px solid var(--rule);
+  border-top: 3px solid var(--rule);
 }
 
 .flow-stage:last-child::after {
@@ -2198,7 +2817,7 @@ svg {
 }
 
 .flow-step {
-  font-size: 9.5px;
+  font-size: 13.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2206,32 +2825,32 @@ svg {
 }
 
 .flow-stage h3 {
-  font-size: 13.5px;
+  font-size: 20.5px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.22;
 }
 
 .flow-items {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  font-size: 11.5px;
+  gap: 5px;
+  font-size: 16px;
   line-height: 1.4;
   color: var(--ink-2);
 }
 
 .flow-items li {
   position: relative;
-  padding-left: 11px;
+  padding-left: 13px;
 }
 
 .flow-items li::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 6px;
-  width: 4px;
-  height: 4px;
+  top: 8px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: var(--ink-3);
 }
@@ -2240,9 +2859,9 @@ svg {
    next box down the rail is only allowed to use this. */
 .flow-out {
   margin-top: auto;
-  padding-top: 7px;
-  border-top: 1px dashed var(--rule);
-  font-size: 11px;
+  padding-top: 9px;
+  border-top: 2px dashed var(--rule);
+  font-size: 15px;
   line-height: 1.4;
   color: var(--ink-2);
 }
@@ -2250,7 +2869,7 @@ svg {
 .flow-out span {
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--ink-3);
   margin-right: 5px;
 }
@@ -2258,7 +2877,7 @@ svg {
 .flow-branches {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 12px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -2277,17 +2896,17 @@ svg {
 .flow-chain {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin: 8px 0 0;
+  gap: 7px;
+  margin: 11px 0 0;
   counter-reset: step;
-  font-size: 11.5px;
+  font-size: 16px;
   line-height: 1.4;
   color: var(--ink-2);
 }
 
 .flow-chain li {
   position: relative;
-  padding-left: 22px;
+  padding-left: 29px;
   counter-increment: step;
 }
 
@@ -2296,22 +2915,22 @@ svg {
   position: absolute;
   left: 0;
   top: 0;
-  width: 15px;
-  height: 15px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1px solid var(--rule);
-  font-size: 9px;
+  border: 2px solid var(--rule);
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 
 .flow-note {
-  margin-top: 9px;
-  padding-top: 8px;
-  border-top: 1px solid var(--hairline);
-  font-size: 11.5px;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 2px solid var(--hairline);
+  font-size: 16px;
   line-height: 1.45;
   color: var(--ink-3);
 }
@@ -2319,7 +2938,7 @@ svg {
 .flow-facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 12px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -2327,7 +2946,7 @@ svg {
 .flow-chain code,
 .flow-items code,
 .flow-out code {
-  font-size: 11.5px;
+  font-size: 16px;
 }
 
 .flow-chain code,
@@ -2335,14 +2954,20 @@ svg {
 .flow-out code,
 .flow-note code {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 14px;
   color: var(--ink-1);
 }
 
 @media (max-width: 980px) {
   .brief-grid,
-  .arch-cards {
+  .arch-cards,
+  .overview-split,
+  .live-split {
     grid-template-columns: 1fr;
+  }
+
+  .live-split-right .phone-frame {
+    height: 460px;
   }
 
   .brief-head {

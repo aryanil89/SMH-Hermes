@@ -45,10 +45,12 @@ const els = {
   accessApprovalResult: $("access-approval-result"),
   accessLog: $("access-log"),
   deviceLogCount: $("device-log-count"),
+  tempCard: $("temp-card"),
   tempValue: $("temp-value"),
   tempChip: $("temp-chip"),
   tempSpark: $("temp-spark"),
   tempNote: $("temp-note"),
+  humCard: $("hum-card"),
   humValue: $("hum-value"),
   humChip: $("hum-chip"),
   humSpark: $("hum-spark"),
@@ -89,6 +91,36 @@ const els = {
   watchdogNote: $("watchdog-note"),
 
   tooltip: $("tooltip"),
+
+  // Live system summary tab -- a sparser, projector-scale mirror of a subset
+  // of the fields above. Kept as distinct elements (not shared ids) because
+  // getElementById only ever resolves to the first match in the document;
+  // see setTile(), renderServer() and renderAccess() for how each pair stays
+  // in sync.
+  sumRiskScore: $("sum-risk-score"),
+  sumRiskLevel: $("sum-risk-level"),
+  sumRiskMeter: $("sum-risk-meter"),
+  sumRiskMeterWrap: $("sum-risk-meter-wrap"),
+  sumLikelyCause: $("sum-likely-cause"),
+  sumRecommended: $("sum-recommended"),
+  sumTempCard: $("sum-temp-card"),
+  sumTempValue: $("sum-temp-value"),
+  sumTempChip: $("sum-temp-chip"),
+  sumHumCard: $("sum-hum-card"),
+  sumHumValue: $("sum-hum-value"),
+  sumHumChip: $("sum-hum-chip"),
+  sumAccessCard: $("sum-access-card"),
+  sumAccessChip: $("sum-access-chip"),
+  sumAccessVerdict: $("sum-access-verdict"),
+  sumFamilies: $("sum-families"),
+  sumInfraCount: $("sum-infra-count"),
+  sumTgBot: $("sum-tg-bot"),
+  sumTgSub: $("sum-tg-sub"),
+  sumTgThread: $("sum-tg-thread"),
+
+  demoToggle: $("demo-toggle"),
+  demoToggleLabel: $("demo-toggle-label"),
+  demoBadge: $("demo-badge"),
 };
 
 /** The board's raw event vocabulary, in words a judge can read off the wall. */
@@ -114,6 +146,14 @@ const STATUS_ICON = { ok: "#i-check", warning: "#i-warn", critical: "#i-crit", u
 
 let latest = null;
 let lastInboundAt = 0;
+/**
+ * True while the Live system summary is showing the scripted demo loop
+ * instead of the real feed. Every "sum" write site (setTile, renderServer,
+ * renderAccess, renderPhone) checks this and skips its own write when it's
+ * true, so the demo engine has sole ownership of those elements and Live
+ * details -- which never checks this flag -- always shows the real feed.
+ */
+let demoMode = false;
 
 /**
  * Whether the newest phone message is actually on screen right now.
@@ -134,7 +174,7 @@ let lastInboundAt = 0;
 let phoneAtBottom = true;
 /**
  * Breaks a real deadlock, not a hypothetical one (reproduced live): the phone
- * panel lives on the "Live system" tab, and a `display:none` tab's contents
+ * panel lives on the "Live details" tab, and a `display:none` tab's contents
  * report scrollHeight/clientHeight/scrollTop as 0 no matter how much text is
  * in them. A tick that lands while the tab is still hidden can render the
  * entire backlog into a 0-sized box, so the scroll-to-bottom it attempts is a
@@ -452,9 +492,13 @@ function renderDevice(snap) {
   setText(els.tempValue, d.temperatureC.toFixed(1));
   setAttr(els.tempChip, "data-status", d.temperatureStatus);
   setText(els.tempChip, d.temperatureStatus);
+  setAttr(els.tempCard, "data-status", d.temperatureStatus);
   setText(els.humValue, d.humidityPct.toFixed(1));
   setAttr(els.humChip, "data-status", d.humidityStatus);
   setText(els.humChip, d.humidityStatus);
+  setAttr(els.humCard, "data-status", d.humidityStatus);
+
+  if (!demoMode) writeSummaryTemp(d.temperatureC, d.temperatureStatus, d.humidityPct, d.humidityStatus);
 
   drawSpark(
     els.tempSpark,
@@ -510,11 +554,37 @@ function renderDevice(snap) {
   );
 }
 
-function setTile(channel, value, sub, status) {
-  const tile = document.querySelector(`.state-tile[data-channel="${channel}"]`);
-  setAttr(tile, "data-status", status);
+/** Live details' copy of a channel tile -- always the real feed, demo mode or not. */
+function writeDetailTile(channel, value, sub, status) {
+  const tile = document.querySelector(`#panel-live-details .state-tile[data-channel="${channel}"]`);
+  if (tile) setAttr(tile, "data-status", status);
   setText($(`${channel}-value`), value);
   setText($(`${channel}-sub`), sub);
+}
+
+/** Live system's copy of a channel tile -- real feed normally, demo engine
+ * exclusively while demo mode is active (see setTile). */
+function writeSummaryTile(channel, value, sub, status) {
+  const tile = document.querySelector(`#panel-live .state-tile[data-channel="${channel}"]`);
+  if (tile) setAttr(tile, "data-status", status);
+  setText($(`sum-${channel}-value`), value);
+  setText($(`sum-${channel}-sub`), sub);
+}
+
+function setTile(channel, value, sub, status) {
+  writeDetailTile(channel, value, sub, status);
+  if (!demoMode) writeSummaryTile(channel, value, sub, status);
+}
+
+function writeSummaryTemp(tempC, tempStatus, humPct, humStatus) {
+  setText(els.sumTempValue, tempC.toFixed(1));
+  setAttr(els.sumTempChip, "data-status", tempStatus);
+  setText(els.sumTempChip, tempStatus);
+  setAttr(els.sumTempCard, "data-status", tempStatus);
+  setText(els.sumHumValue, humPct.toFixed(1));
+  setAttr(els.sumHumChip, "data-status", humStatus);
+  setText(els.sumHumChip, humStatus);
+  setAttr(els.sumHumCard, "data-status", humStatus);
 }
 
 function renderClimateTable(points) {
@@ -535,7 +605,7 @@ function renderClimateTable(points) {
 /* ── render: server column ───────────────────────────────────────────────── */
 
 /**
- * Physical access: who is at the rack, and whether a human allowed it.
+ * Physical access: who is in the room, and whether a human allowed it.
  *
  * Reads `snapshot.access`, which is produced by the same AccessSentry the phone
  * talks to -- so the wall and the phone cannot disagree about an open challenge.
@@ -543,15 +613,22 @@ function renderClimateTable(points) {
  * answers to "has this been authorised?" is worse than one screen showing none.
  */
 const ACCESS_TEXT = {
-  "idle": "Rack clear",
+  "idle": "Room clear",
   "pending-capture": "Presence detected — awaiting capture",
-  "clear": "Authorised person at the rack",
+  "clear": "Authorised person in the room",
   "expected": "On-call on site — escalation suppressed",
   "challenge": "NOT AUTHORISED — unknown person, approval required",
   "unauthorized-during-incident": "NOT AUTHORISED — unknown person during an active incident",
-  "anti-passback": "NOT AUTHORISED — at the rack with no door entry",
+  "anti-passback": "NOT AUTHORISED — in the room with no door entry",
   "tailgating": "NOT AUTHORISED — tailgating, more people than authorised entries",
 };
+
+function writeSummaryAccess(severity, chipText, verdictText) {
+  setAttr(els.sumAccessCard, "data-status", severity);
+  setAttr(els.sumAccessChip, "data-status", severity);
+  setText(els.sumAccessChip, chipText);
+  setText(els.sumAccessVerdict, verdictText);
+}
 
 /**
  * The approval panel's headline, reusing ACCESS_TEXT -- the one verdict →
@@ -668,8 +745,8 @@ function renderAccess(snap) {
 
   // The known-arrival banner. Tied to the live verdict rather than a
   // one-shot flag on purpose: it renders fresh from a.verdict/a.faces every
-  // tick, so it is showing exactly as long as the person is clear at the
-  // rack and disappears the instant the verdict is no longer "clear" --
+  // tick, so it is showing exactly as long as the person is clear in the
+  // room and disappears the instant the verdict is no longer "clear" --
   // nothing to age out separately.
   const knownArrivals = (a.faces || [])
     .filter((f) => f.match === "known" && f.name)
@@ -677,6 +754,14 @@ function renderAccess(snap) {
   const showWelcome = a.verdict === "clear" && knownArrivals.length > 0;
   els.accessWelcome.hidden = !showWelcome;
   if (showWelcome) setText(els.accessWelcome, `${knownArrivals.join(", ")} just got in`);
+
+  if (!demoMode) {
+    writeSummaryAccess(
+      a.severity,
+      a.verdict === "idle" ? "clear" : a.verdict.replace(/-/g, " "),
+      ACCESS_TEXT[a.verdict] || a.verdict,
+    );
+  }
 
   const bits = [`identity: ${a.identityMethod}`];
   if (a.doorConsistent === false) bits.push("no door entry");
@@ -731,6 +816,47 @@ function renderAccess(snap) {
   );
 }
 
+function writeSummaryRisk(score, level, likelyCause, recommendedAction) {
+  const riskStatus = RISK_STATUS[level] ?? "unknown";
+  setText(els.sumRiskScore, String(score));
+  setText(els.sumRiskLevel, level);
+  setAttr(els.sumRiskLevel, "data-status", riskStatus);
+  els.sumRiskMeter.style.width = `${Math.max(2, Math.min(100, score))}%`;
+  setAttr(els.sumRiskMeter, "data-status", riskStatus);
+  setAttr(els.sumRiskMeterWrap, "aria-label", `risk index ${score} of 100, ${level}`);
+  setText(els.sumLikelyCause, likelyCause);
+  setText(els.sumRecommended, recommendedAction);
+}
+
+/** Shared by the small Live details family list and the big Live system
+ * infra-card list -- and, in demo mode, by the demo engine's own synthetic
+ * family array. `family.note`, if present, overrides the default
+ * "N sources · simulated" sub-line (the demo engine uses this to show a
+ * live-updating percentage instead). */
+function renderFamilyList(container, className, families) {
+  renderList(
+    container,
+    families,
+    (family) => family.family,
+    () => {
+      const div = document.createElement("div");
+      div.className = className;
+      div.innerHTML =
+        '<div class="fam-top"><span class="dot"></span><span class="fam-name"></span></div><p class="fam-sub"></p>';
+      return div;
+    },
+    (div, family) => {
+      div.dataset.status = family.status;
+      setText(div.querySelector(".fam-name"), family.label);
+      setText(
+        div.querySelector(".fam-sub"),
+        family.note ??
+          `${family.deviceCount} ${family.deviceCount === 1 ? "source" : "sources"} · ${family.simulated ? "simulated" : "real"}`,
+      );
+    },
+  );
+}
+
 function renderServer(snap) {
   const s = snap.server;
   setText(els.serverTitle, s.host);
@@ -765,6 +891,10 @@ function renderServer(snap) {
       ? `${risk.familiesInvolved.join(", ")} · correlation bonus +${risk.correlationBonus}`
       : "no family outside thresholds",
   );
+
+  if (!demoMode) {
+    writeSummaryRisk(risk.score, risk.level, s.assessment.likelyCause, s.assessment.recommendedAction);
+  }
 
   setText(els.confidenceChip, `confidence ${s.assessment.confidence.level}`);
   setText(els.likelyCause, s.assessment.likelyCause);
@@ -805,26 +935,19 @@ function renderServer(snap) {
   setText(els.provenance, provenanceText);
   els.provenance.classList.toggle("note--warn", p.environmental === "mock");
 
-  renderList(
-    els.families,
-    s.families,
-    (family) => family.family,
-    () => {
-      const div = document.createElement("div");
-      div.className = "family";
-      div.innerHTML =
-        '<div class="fam-top"><span class="dot"></span><span class="fam-name"></span></div><p class="fam-sub"></p>';
-      return div;
-    },
-    (div, family) => {
-      div.dataset.status = family.status;
-      setText(div.querySelector(".fam-name"), family.label);
-      setText(
-        div.querySelector(".fam-sub"),
-        `${family.deviceCount} ${family.deviceCount === 1 ? "source" : "sources"} · ${family.simulated ? "simulated" : "real"}`,
-      );
-    },
-  );
+  renderFamilyList(els.families, "family", s.families);
+
+  // Live system summary: network / storage / compute only -- environmental
+  // is already the door/temp/humidity tiles above, so repeating it here
+  // would just be the same fact twice under a different heading.
+  if (!demoMode) {
+    const infraFamilies = s.families.filter((family) => family.family !== "physical");
+    renderFamilyList(els.sumFamilies, "infra-card", infraFamilies);
+    setText(
+      els.sumInfraCount,
+      `${infraFamilies.reduce((sum, family) => sum + family.deviceCount, 0)} devices reporting`,
+    );
+  }
 
   setText(els.sourcesCount, `${s.feeders.length} devices reporting`);
   renderList(
@@ -924,9 +1047,9 @@ function bubbleTag(message) {
  * which. This was the actual complaint: the panel looked dead because no traffic
  * source was wired to it, and nothing on screen admitted that.
  */
-function renderThreadPlaceholder(t) {
+function renderThreadPlaceholder(t, container) {
   const real = t.messages.filter((m) => m.kind !== "system").length;
-  let node = els.tgThread.querySelector(".tg-placeholder");
+  let node = container.querySelector(".tg-placeholder");
   if (real > 0) {
     if (node) node.remove();
     return;
@@ -934,9 +1057,9 @@ function renderThreadPlaceholder(t) {
   if (!node) {
     node = document.createElement("li");
     node.className = "tg-placeholder";
-    els.tgThread.append(node);
+    container.append(node);
   } else {
-    els.tgThread.append(node);
+    container.append(node);
   }
   const inboundOff = t.inbound?.mode !== "live";
   setText(
@@ -947,22 +1070,11 @@ function renderThreadPlaceholder(t) {
   );
 }
 
-function renderPhone(snap) {
-  const t = snap.telegram;
-  // Before the thread renders: bubbleTag reads this for the queued-bubble tag.
-  watchRunner = t.watchdog.runner ?? { mode: "unknown" };
-  const inbound = t.inbound ?? { mode: "off", detail: "", bot: "none" };
-  const label = INBOUND_LABEL[inbound.mode] ?? INBOUND_LABEL.off;
-  setText(els.tgBot, t.botLabel);
-  setText(els.tgSub, `${t.chatTitle} · ${label.text}`);
-  setAttr(els.tgSub, "data-status", label.status);
-  els.tgSub.title = inbound.detail || t.chatTitle;
-
-  const messages = [...t.messages];
-  if (t.pending) messages.push(t.pending);
-
+/** Shared by the detailed dashboard's thread and the Live system summary's
+ * mirror of it -- same bubbles, same tags, two containers. */
+function renderBubbles(container, messages) {
   renderList(
-    els.tgThread,
+    container,
     messages,
     (message) => message.id,
     (message) => {
@@ -988,8 +1100,24 @@ function renderPhone(snap) {
       setText(li.querySelector(".bubble-tag"), bubbleTag(message));
     },
   );
+}
 
-  renderThreadPlaceholder(t);
+function renderPhone(snap) {
+  const t = snap.telegram;
+  // Before the thread renders: bubbleTag reads this for the queued-bubble tag.
+  watchRunner = t.watchdog.runner ?? { mode: "unknown" };
+  const inbound = t.inbound ?? { mode: "off", detail: "", bot: "none" };
+  const label = INBOUND_LABEL[inbound.mode] ?? INBOUND_LABEL.off;
+  setText(els.tgBot, t.botLabel);
+  setText(els.tgSub, `${t.chatTitle} · ${label.text}`);
+  setAttr(els.tgSub, "data-status", label.status);
+  els.tgSub.title = inbound.detail || t.chatTitle;
+
+  const messages = [...t.messages];
+  if (t.pending) messages.push(t.pending);
+
+  renderBubbles(els.tgThread, messages);
+  renderThreadPlaceholder(t, els.tgThread);
 
   // Keep the anchor the last child through the diff above, same trick
   // renderThreadPlaceholder uses -- append() moves an already-attached node
@@ -1007,6 +1135,21 @@ function renderPhone(snap) {
   // exactly caught up by the next tick.
   if (phoneAtBottom || justBecameVisible) {
     tgAnchor.scrollIntoView({ behavior: "auto", block: "end" });
+  }
+
+  // Live system's phone mirror -- same messages, same bot header, no anchor
+  // tracking: it's a secondary view, so a plain scrollTop-to-bottom on every
+  // tick is enough, without the visibility bookkeeping the primary thread
+  // above needs to survive being hidden mid-tick. Skipped entirely in demo
+  // mode, which owns this thread instead (see demoTick).
+  if (!demoMode) {
+    setText(els.sumTgBot, t.botLabel);
+    setText(els.sumTgSub, `${t.chatTitle} · ${label.text}`);
+    setAttr(els.sumTgSub, "data-status", label.status);
+    els.sumTgSub.title = inbound.detail || t.chatTitle;
+    renderBubbles(els.sumTgThread, messages);
+    renderThreadPlaceholder(t, els.sumTgThread);
+    els.sumTgThread.scrollTop = els.sumTgThread.scrollHeight;
   }
 
   const newestInbound = [...t.messages].reverse().find((m) => m.direction === "inbound");
@@ -1093,7 +1236,14 @@ function render(snap) {
   renderConduits(snap);
 }
 
+// The real SSE state, tracked even while demo mode is drawing over it, so
+// turning demo mode off can restore the actual connection state instantly
+// instead of guessing at it.
+let realConnState = { state: "connecting", label: "connecting" };
+
 function setConnection(state, label) {
+  realConnState = { state, label };
+  if (demoMode) return; // demo mode owns the indicator while it's running
   setAttr(els.conn, "data-state", state);
   setText(els.connLabel, label);
 }
@@ -1127,6 +1277,416 @@ window.addEventListener("resize", () => {
   }, 150);
 });
 
+/* ── Demo mode ────────────────────────────────────────────────────────────
+ *
+ * A scripted loop for presenting Hermes without betting the demo on real
+ * sensor conditions cooperating. It only ever writes to the Live system
+ * summary elements (via writeSummaryTile / writeSummaryTemp /
+ * writeSummaryAccess / writeSummaryRisk / renderFamilyList / renderBubbles)
+ * -- the same functions the real feed uses, guarded everywhere above by
+ * `if (!demoMode)`. Live details never checks this flag, so it always shows
+ * the real feed no matter what the summary is doing.
+ *
+ * Three self-contained scenarios, each a full inbound-instruction ->
+ * simulated-deviation -> outbound-alert story, run back to back (10s each),
+ * then a 30s pause holding the last resting state before the loop repeats.
+ * Only the active scenario's channel deviates; everything else shows a calm
+ * baseline, so a room watching never has more than one thing going on.
+ */
+const DEMO_SCENARIO_MS = 10_000;
+const DEMO_GAP_MS = 10_000;
+const DEMO_PAUSE_MS = 30_000;
+const DEMO_STARTUP_MS = 10_000;
+const DEMO_TICK_MS = 400;
+
+// One-time 10s quiet beat before scenario 1 (so the tab doesn't launch
+// straight into an alert the instant someone opens it), then the three
+// scenarios with a 10s gap between each, then the 30s pause, then repeat.
+const DEMO_TIMELINE = [
+  { type: "scenario", index: 0, duration: DEMO_SCENARIO_MS },
+  { type: "gap", duration: DEMO_GAP_MS },
+  { type: "scenario", index: 1, duration: DEMO_SCENARIO_MS },
+  { type: "gap", duration: DEMO_GAP_MS },
+  { type: "scenario", index: 2, duration: DEMO_SCENARIO_MS },
+  { type: "pause", duration: DEMO_PAUSE_MS },
+];
+const DEMO_CYCLE_MS = DEMO_TIMELINE.reduce((sum, phase) => sum + phase.duration, 0);
+
+const DEMO_SCENARIOS = [
+  {
+    inbound: "Notify me when the Temperature or Humidity deviates from the normal baseline by ±20%.",
+    outboundKind: "alert",
+    outboundText: ({ temp, hum, devPct }) =>
+      `Environmental alert: temperature ${temp.toFixed(1)}°C (+${devPct}% vs baseline), humidity ${hum.toFixed(1)}% (−${devPct}% vs baseline) — exceeds your ±20% threshold.`,
+  },
+  {
+    inbound: "Notify me when the door is opened and an object is detected.",
+    outboundKind: "alert",
+    outboundText: () => "Door opened and an object was detected passing through.",
+  },
+  {
+    inbound:
+      "If available storage decreases below 5% then clear the log files from the server and restart services, then notify me of the issue and actions taken.",
+    outboundKind: "recovery",
+    outboundText: ({ pct }) =>
+      `Storage alert: available capacity dropped to 3% (below your 5% threshold). Cleared log files and restarted services — capacity restored to ${pct.toFixed(0)}%.`,
+  },
+];
+
+let demoTimerId = null;
+let demoCycleStart = 0;
+let demoRun = { cycle: -1, pos: -1, inboundFired: false, outboundFired: false, envBaseline: null };
+let demoMessages = [];
+let demoMsgSeq = 0;
+
+/** Which timeline phase `elapsedInCycle` falls in, plus `pos` (its index in
+ * DEMO_TIMELINE, used to detect "we moved to a new phase") and `progress`
+ * (0..1 through that phase's own duration). */
+function demoPhaseAt(elapsedInCycle) {
+  let start = 0;
+  for (let pos = 0; pos < DEMO_TIMELINE.length; pos++) {
+    const phase = DEMO_TIMELINE[pos];
+    if (elapsedInCycle < start + phase.duration) {
+      return { ...phase, pos, progress: (elapsedInCycle - start) / phase.duration };
+    }
+    start += phase.duration;
+  }
+  const pos = DEMO_TIMELINE.length - 1;
+  return { ...DEMO_TIMELINE[pos], pos, progress: 1 };
+}
+
+function pushDemoMessage(direction, kind, text) {
+  demoMsgSeq += 1;
+  demoMessages.push({
+    id: `demo-${demoMsgSeq}`,
+    direction,
+    kind,
+    delivered: true,
+    origin: "demo",
+    text,
+    at: new Date().toISOString(),
+  });
+  if (demoMessages.length > 12) demoMessages = demoMessages.slice(-12);
+}
+
+// Fixed, never read from `latest`: the whole point of demo mode is a script
+// that doesn't depend on the real feed's current (possibly already
+// elevated, possibly stale-mock) reading. Device counts below are the one
+// exception -- those are structural, not volatile, so borrowing the real
+// ones just makes the demo look more like this specific rig.
+const DEMO_BASELINE_TEMP_C = 21.5;
+const DEMO_BASELINE_HUM_PCT = 45;
+
+/** Real device counts where we have them (so the numbers look authentic),
+ * demo-controlled status/note where it matters. */
+function demoFamilies({ storageStatus, storageNote }) {
+  const real = latest?.server?.families ?? [];
+  const countFor = (key, fallback) => real.find((f) => f.family === key)?.deviceCount ?? fallback;
+  return [
+    { family: "network", label: "Network", status: "ok", deviceCount: countFor("network", 5), simulated: true },
+    {
+      family: "storage",
+      label: "Storage",
+      status: storageStatus,
+      deviceCount: countFor("storage", 4),
+      simulated: true,
+      note: storageNote,
+    },
+    { family: "compute", label: "Compute", status: "ok", deviceCount: countFor("compute", 6), simulated: true },
+  ];
+}
+
+function demoDeviceTotal() {
+  return demoFamilies({ storageStatus: "ok", storageNote: null }).reduce((sum, f) => sum + f.deviceCount, 0);
+}
+
+/** Calm baseline for every field the active scenario isn't currently telling
+ * a story about. Re-applied once per (cycle, scenario) transition, before
+ * that scenario's own tick starts layering its deviation on top. */
+function demoResting() {
+  writeSummaryTile("door", "Closed", "steady", "ok");
+  writeSummaryTile("light", "Off", "steady", "ok");
+  writeSummaryTile("leak", "Dry", "no leak", "ok");
+  writeSummaryTile("presence", "Clear", "steady", "ok");
+  writeSummaryTemp(DEMO_BASELINE_TEMP_C, "ok", DEMO_BASELINE_HUM_PCT, "ok");
+  writeSummaryAccess("ok", "clear", "Room clear");
+  writeSummaryRisk(0, "low", "No incident detected. All evaluated families are within thresholds.", "No action required.");
+  renderFamilyList(els.sumFamilies, "infra-card", demoFamilies({ storageStatus: "ok", storageNote: null }));
+  setText(els.sumInfraCount, `${demoDeviceTotal()} devices reporting`);
+}
+
+/** Pure -- no DOM writes -- so the guaranteed-fire fallback in demoTick can
+ * compute "what the numbers were at the end" without re-touching a tile
+ * that now belongs to a later phase. */
+function demoEnvCompute(progress, baseline) {
+  const dev = 0.22 * progress;
+  const temp = baseline.t * (1 + dev);
+  const hum = Math.max(5, baseline.h * (1 - dev));
+  const status = dev >= 0.2 ? "critical" : dev >= 0.12 ? "warning" : "ok";
+  const score = Math.round((dev / 0.22) * 66);
+  const level = dev >= 0.2 ? "high" : dev >= 0.1 ? "medium" : "low";
+  return { temp, hum, status, score, level, devPct: Math.round(dev * 100) };
+}
+
+function demoEnvTick(progress) {
+  if (!demoRun.envBaseline) {
+    demoRun.envBaseline = { t: DEMO_BASELINE_TEMP_C, h: DEMO_BASELINE_HUM_PCT };
+  }
+  const r = demoEnvCompute(progress, demoRun.envBaseline);
+  writeSummaryTemp(r.temp, r.status, r.hum, r.status);
+  writeSummaryRisk(
+    r.score,
+    r.level,
+    "Environmental drift: temperature trending high, humidity trending low.",
+    r.level === "high" ? "Investigate HVAC — deviation exceeds the ±20% threshold." : "Monitoring — no action required yet.",
+  );
+  return r;
+}
+
+function demoDoorTick(progress) {
+  const doorOpen = progress >= 0.2;
+  const objectDetected = progress >= 0.55;
+  writeSummaryTile(
+    "door",
+    doorOpen ? "Open" : "Closed",
+    doorOpen ? `open ${Math.max(0, Math.round((progress - 0.2) * 10))}s` : "steady",
+    doorOpen ? "warning" : "ok",
+  );
+  writeSummaryTile(
+    "presence",
+    objectDetected ? "Present" : "Clear",
+    objectDetected ? "object detected" : "steady",
+    objectDetected ? "warning" : "ok",
+  );
+  if (objectDetected) {
+    writeSummaryRisk(
+      52,
+      "medium",
+      "Door opened and an object was detected passing through.",
+      "Confirm expected personnel or dispatch the on-call.",
+    );
+  } else if (doorOpen) {
+    writeSummaryRisk(18, "low", "Door opened — awaiting presence confirmation.", "Monitoring the opening.");
+  } else {
+    writeSummaryRisk(0, "low", "No incident detected. All evaluated families are within thresholds.", "No action required.");
+  }
+  return {};
+}
+
+/** Pure -- see demoEnvCompute. */
+// The drop (100% -> 3%) takes the first 62.5% of the window; the recovery
+// (3% -> 92%) takes the remaining 37.5% -- 25% longer than the original
+// 30%/70% split (0.3 * 1.25 = 0.375), so the climb back up reads less like
+// a snap and more like a system actually doing the work.
+const DEMO_STORAGE_SPLIT = 0.625;
+
+function demoStorageCompute(progress) {
+  const pct =
+    progress <= DEMO_STORAGE_SPLIT
+      ? 100 - (progress / DEMO_STORAGE_SPLIT) * 97
+      : 3 + ((progress - DEMO_STORAGE_SPLIT) / (1 - DEMO_STORAGE_SPLIT)) * 89;
+  const status = pct <= 5 ? "critical" : pct <= 20 ? "warning" : "ok";
+  const remediating = progress > DEMO_STORAGE_SPLIT;
+  const score = status === "critical" ? 74 : status === "warning" ? 38 : remediating ? 12 : 0;
+  const level = status === "critical" ? "critical" : status === "warning" ? "medium" : "low";
+  const cause =
+    pct <= 5
+      ? "Storage capacity critical — automated remediation in progress."
+      : remediating
+        ? "Storage capacity recovering after automated remediation."
+        : "Storage capacity trending down.";
+  const action = pct <= 5 || remediating ? "Log files cleared; services restarted." : "Monitoring storage trend.";
+  return { pct, status, remediating, score, level, cause, action };
+}
+
+function demoStorageTick(progress) {
+  const r = demoStorageCompute(progress);
+  const note = `${r.pct.toFixed(0)}% available · ${r.remediating ? "restoring" : r.status}`;
+  renderFamilyList(els.sumFamilies, "infra-card", demoFamilies({ storageStatus: r.status, storageNote: note }));
+  writeSummaryRisk(r.score, r.level, r.cause, r.action);
+  return r;
+}
+
+function renderDemoPlaceholder() {
+  const container = els.sumTgThread;
+  let node = container.querySelector(".tg-placeholder");
+  if (demoMessages.length > 0) {
+    if (node) node.remove();
+    return;
+  }
+  if (!node) {
+    node = document.createElement("li");
+    node.className = "tg-placeholder";
+    container.append(node);
+  }
+  setText(node, "Demo starting — the first scripted message will appear here shortly.");
+}
+
+/** What a scenario's outbound message should say if we have to fire it from
+ * the transition catch-all below, i.e. computed at progress 1 without going
+ * through the writer functions (we're no longer in that scenario's phase,
+ * so nothing should be re-touching its tiles). */
+function demoFinalResult(scenarioIndex) {
+  if (scenarioIndex === 0) {
+    return demoEnvCompute(1, demoRun.envBaseline ?? { t: DEMO_BASELINE_TEMP_C, h: DEMO_BASELINE_HUM_PCT });
+  }
+  if (scenarioIndex === 2) return demoStorageCompute(1);
+  return {};
+}
+
+function demoTick() {
+  if (!demoMode) return;
+  const elapsedTotal = Date.now() - demoCycleStart;
+
+  // One-time quiet beat before the very first scenario of this demo
+  // session: the tab shouldn't launch straight into an alert the instant
+  // someone opens it.
+  if (elapsedTotal < 0) {
+    demoResting();
+    renderBubbles(els.sumTgThread, demoMessages);
+    renderDemoPlaceholder();
+    setText(els.sumTgBot, "Hermes Ops");
+    setText(els.sumTgSub, "Demo mode · scripted scenario");
+    return;
+  }
+
+  const cycle = Math.floor(elapsedTotal / DEMO_CYCLE_MS);
+  const elapsedInCycle = elapsedTotal - cycle * DEMO_CYCLE_MS;
+  const phase = demoPhaseAt(elapsedInCycle);
+
+  const transitioned = cycle !== demoRun.cycle || phase.pos !== demoRun.pos;
+  if (transitioned) {
+    // Guaranteed catch-all: whichever scenario we're leaving must have paged
+    // by now no matter what -- a backgrounded tab throttles setInterval and
+    // can skip straight over the in-window fire below without this.
+    if (demoRun.pos >= 0) {
+      const leaving = DEMO_TIMELINE[demoRun.pos];
+      if (leaving.type === "scenario" && demoRun.inboundFired && !demoRun.outboundFired) {
+        const leavingScenario = DEMO_SCENARIOS[leaving.index];
+        pushDemoMessage(
+          "outbound",
+          leavingScenario.outboundKind,
+          leavingScenario.outboundText(demoFinalResult(leaving.index)),
+        );
+      }
+    }
+    demoRun.cycle = cycle;
+    demoRun.pos = phase.pos;
+    demoRun.inboundFired = false;
+    demoRun.outboundFired = false;
+    if (phase.type === "scenario" && phase.index === 0) demoRun.envBaseline = null;
+  }
+
+  // Gaps and the pause hold a clean calm state -- resting() runs every tick
+  // while in one of those, not just once on the way in.
+  if (phase.type !== "scenario" || transitioned) demoResting();
+
+  if (phase.type === "scenario") {
+    const scenario = DEMO_SCENARIOS[phase.index];
+    if (!demoRun.inboundFired) {
+      pushDemoMessage("inbound", null, scenario.inbound);
+      demoRun.inboundFired = true;
+    }
+
+    const result =
+      phase.index === 0
+        ? demoEnvTick(phase.progress)
+        : phase.index === 1
+          ? demoDoorTick(phase.progress)
+          : demoStorageTick(phase.progress);
+
+    // 0.9, not 1.0: the common-case early fire, so the room has a moment to
+    // read the alert before the scenario visibly ends. The transition
+    // catch-all above is what actually guarantees it fires at all.
+    if (phase.progress >= 0.9 && !demoRun.outboundFired) {
+      pushDemoMessage("outbound", scenario.outboundKind, scenario.outboundText(result));
+      demoRun.outboundFired = true;
+    }
+  }
+
+  renderBubbles(els.sumTgThread, demoMessages);
+  renderDemoPlaceholder();
+  els.sumTgThread.scrollTop = els.sumTgThread.scrollHeight;
+  setText(els.sumTgBot, "Hermes Ops");
+  setText(els.sumTgSub, "Demo mode · scripted scenario");
+}
+
+function updateDemoUI() {
+  setAttr(els.demoToggle, "aria-pressed", String(demoMode));
+  els.demoToggle.dataset.mode = demoMode ? "demo" : "live";
+  setText(els.demoToggleLabel, demoMode ? "Demo" : "Live");
+  els.demoBadge.hidden = !demoMode;
+  // The header's connection dot is global, same as the badge: demo mode
+  // overrides it to an amber "Demo" so it can't be misread as the real feed
+  // being live, and stopping demo mode restores whatever the real SSE
+  // connection is actually doing right now, not just "live" by default.
+  if (demoMode) {
+    setAttr(els.conn, "data-state", "demo");
+    setText(els.connLabel, "Demo");
+  } else {
+    setAttr(els.conn, "data-state", realConnState.state);
+    setText(els.connLabel, realConnState.label);
+  }
+}
+
+function startDemoMode() {
+  if (demoMode) return;
+  demoMode = true;
+  // Pushed DEMO_STARTUP_MS into the future, not "now": demoTick() reads a
+  // negative elapsedTotal for that first stretch and holds a calm resting
+  // state instead of launching straight into scenario 1.
+  demoCycleStart = Date.now() + DEMO_STARTUP_MS;
+  demoRun = { cycle: -1, pos: -1, inboundFired: false, outboundFired: false, envBaseline: null };
+  demoMessages = [];
+  demoMsgSeq = 0;
+  updateDemoUI();
+  demoTick();
+  demoTimerId = setInterval(demoTick, DEMO_TICK_MS);
+}
+
+function stopDemoMode() {
+  if (!demoMode) return;
+  demoMode = false;
+  if (demoTimerId) {
+    clearInterval(demoTimerId);
+    demoTimerId = null;
+  }
+  updateDemoUI();
+  // demoMode is already false, so this repopulates the summary from
+  // whatever the real feed most recently reported -- no separate reset path.
+  if (latest) render(latest);
+}
+
+els.demoToggle.addEventListener("click", () => {
+  if (demoMode) stopDemoMode();
+  else startDemoMode();
+});
+
+/* ── Live system phone height ─────────────────────────────────────────────
+ *
+ * The phone's bottom edge tracks the left column's bottom edge by measured
+ * geometry, not CSS stretch (see .live-split in styles.css for why stretch
+ * alone lets an overflowing message thread inflate the whole row). Recomputed
+ * whenever the left column resizes, and once when the tab becomes visible --
+ * getBoundingClientRect reads 0 for a display:none ancestor, so a resize
+ * that happens while the tab is hidden has nothing to measure yet.
+ */
+const liveSplitLeft = document.querySelector(".live-split-left");
+const liveSplitPhoneFrame = document.querySelector(".live-split-right .phone-frame");
+
+function syncPhoneHeight() {
+  if (!liveSplitLeft || !liveSplitPhoneFrame) return;
+  const leftRect = liveSplitLeft.getBoundingClientRect();
+  const frameRect = liveSplitPhoneFrame.getBoundingClientRect();
+  if (leftRect.height === 0 || frameRect.height === 0) return;
+  const height = leftRect.bottom - frameRect.top;
+  if (height > 100) liveSplitPhoneFrame.style.height = `${height}px`;
+}
+
+if (liveSplitLeft && "ResizeObserver" in window) {
+  new ResizeObserver(syncPhoneHeight).observe(liveSplitLeft);
+}
+
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 
 const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
@@ -1135,6 +1695,8 @@ const tabPanels = {
   architecture: $("panel-architecture"),
   logical: $("panel-logical"),
   live: $("panel-live"),
+  "live-details": $("panel-live-details"),
+  detailed: $("panel-detailed"),
 };
 
 function activateTab(name) {
@@ -1149,11 +1711,19 @@ function activateTab(name) {
     panel.classList.toggle("active", key === name);
   }
   // Sparklines size themselves from their container, which is 0px wide while
-  // the live tab is hidden -- force a redraw now that it has real width.
-  if (name === "live" && latest) {
+  // Live details is hidden -- force a redraw now that it has real width. The
+  // Live system summary tab has no sparklines, so it doesn't need this.
+  if (name === "live-details" && latest) {
     els.tempSpark.dataset.sig = "";
     els.humSpark.dataset.sig = "";
     render(latest);
+  }
+  // Live system defaults to the scripted demo rather than whatever the real
+  // room happens to be doing -- a no-op if it's already running, so this
+  // never restarts an in-progress loop, only starts one that isn't.
+  if (name === "live") {
+    startDemoMode();
+    syncPhoneHeight();
   }
 }
 
