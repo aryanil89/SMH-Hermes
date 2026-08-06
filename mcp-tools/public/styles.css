@@ -2024,16 +2024,29 @@ svg {
   gap: 14px;
 }
 
+/* One row, not three -- the kicker/title/sub stack ate three lines above the
+   phone for no reason, height the phone frame below can use instead. */
+.live-split-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
 .live-split-head h2 {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 600;
-  margin-top: 2px;
 }
 
 .live-split-sub {
-  font-size: 15px;
+  font-size: 14.5px;
   color: var(--ink-3);
-  margin-top: 2px;
+}
+
+.live-split-sub::before {
+  content: "·";
+  margin-right: 10px;
+  color: var(--ink-3);
 }
 
 /* Sized for this column rather than inheriting the wall's tight sidebar
@@ -2043,7 +2056,7 @@ svg {
    40% column's content, not a small mockup floating in empty space. */
 .live-split-right .phone-frame {
   max-width: 460px;
-  height: 700px;
+  height: 760px;
 }
 
 .live-split-right .phone-notch {
@@ -2071,23 +2084,23 @@ svg {
 }
 
 .live-split-right .bubble {
-  font-size: 15px;
-  padding: 9px 13px 8px;
+  font-size: 17px;
+  padding: 10px 14px 9px;
   border-radius: 14px;
 }
 
 .live-split-right .bubble--system {
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 .live-split-right .bubble-meta {
-  font-size: 12px;
+  font-size: 13px;
   gap: 8px;
   margin-top: 5px;
 }
 
 .live-split-right .tg-placeholder {
-  font-size: 14px;
+  font-size: 15.5px;
   padding: 14px 16px;
 }
 
