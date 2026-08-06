@@ -35,6 +35,7 @@
  *   TELEGRAM_ALLOWED_USERS   comma-separated numeric ids allowed on the wall
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { envPositive } from "../common/env.js";
 import { exec } from "node:child_process";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -64,14 +65,18 @@ if (!process.env.UNOQ_SENSOR_LOG && existsSync(DEFAULT_SENSOR_LOG)) {
   process.env.UNOQ_SENSOR_LOG = DEFAULT_SENSOR_LOG;
 }
 
-const PORT = Number(process.env.DASHBOARD_PORT ?? 7788);
+const PORT = envPositive("DASHBOARD_PORT", 7788);
 const HOST = process.env.DASHBOARD_HOST ?? "127.0.0.1";
 /** This is a demo-table display meant to be looked at, so open it by default. Opt out for a
  *  headless run (e.g. before a projector is connected) with DASHBOARD_OPEN_BROWSER=0. */
 const OPEN_BROWSER = process.env.DASHBOARD_OPEN_BROWSER !== "0";
 // Floored: a sub-250ms cadence buys nothing visually and turns the log tail into
 // a busy loop on a machine that is also running NPU inference.
-const TICK_MS = Math.max(250, Number(process.env.DASHBOARD_TICK_MS ?? 2000));
+//
+// envPositive, not Number(): `Math.max(250, NaN)` is NaN and `setInterval(NaN)`
+// is treated as 1ms, so a typo in DASHBOARD_TICK_MS produced exactly the busy
+// loop the floor above exists to prevent. See common/env.ts.
+const TICK_MS = Math.max(250, envPositive("DASHBOARD_TICK_MS", 2000));
 const SENSOR_LOG = process.env.UNOQ_SENSOR_LOG ?? DEFAULT_SENSOR_LOG;
 const STATE_PATH = process.env.ALERT_STATE_PATH ?? DEFAULT_STATE_PATH;
 /** Ingest bodies are one chat message; anything larger is a mistake or an attack. */

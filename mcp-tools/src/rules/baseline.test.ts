@@ -87,4 +87,28 @@ describe("parseLogLines", () => {
     ].join("\n");
     expect(parseLogLines(raw)).toHaveLength(1);
   });
+
+  it("rounds on the way in, so a rule quotes the number it compared", () => {
+    // Verbatim from the board: raw Modulino floats. A live soak put
+    // "temperature reached 35.62625503540039C" on the on-call phone.
+    const raw = JSON.stringify({
+      timestamp: "2026-08-04T00:00:00.000Z",
+      event: "sensor_tick",
+      temperature_c: 35.62625503540039,
+      humidity_pct: 86.13333129882812,
+      distance_mm: 149.96,
+    });
+
+    const [parsed] = parseLogLines(raw);
+
+    expect(parsed?.temperature_c).toBe(35.6);
+    expect(parsed?.humidity_pct).toBe(86.1);
+    expect(parsed?.distance_mm).toBe(150);
+  });
+
+  it("leaves a line with no distance without one", () => {
+    const [parsed] = parseLogLines(JSON.stringify(line(0)));
+    expect(parsed).toBeDefined();
+    expect("distance_mm" in (parsed as object)).toBe(false);
+  });
 });

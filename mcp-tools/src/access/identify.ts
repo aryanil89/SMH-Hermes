@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { matchEmbedding, matchThreshold, readRoster } from "./roster.js";
 import type { FaceMatch, IdentityMethod, RosterEntry } from "./types.js";
+import { envPositive } from "../common/env.js";
 
 /**
  * Run a child process, write `payload` to its stdin, and resolve its stdout.
@@ -179,7 +180,7 @@ async function fromPython(input: IdentifyInput, roster: RosterEntry[]): Promise<
   if (!script) throw new Error("ACCESS_VISION_SCRIPT is not set");
   if (!input.imageBase64) throw new Error("no image supplied");
 
-  const timeoutMs = Number(process.env.ACCESS_VISION_TIMEOUT_MS ?? 8000);
+  const timeoutMs = envPositive("ACCESS_VISION_TIMEOUT_MS", 8000);
   const stdout = await runWithStdin(
     python,
     [script],

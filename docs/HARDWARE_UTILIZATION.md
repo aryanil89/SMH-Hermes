@@ -188,9 +188,17 @@ as a persistent background daemon with built-in scheduled/cron tasks and can mes
 Telegram gateway on its own initiative, not just reply to incoming messages — so proactive
 alerting is a configuration task, not new engineering.
 
-Shape: a cron-triggered Hermes skill periodically checks a watched MCP tool (most naturally the
-environmental sensor, but any of them) and pushes a Telegram message to the phone when a
-threshold is crossed, instead of waiting to be asked.
+Shape: a scheduled check of a watched signal (most naturally the environmental sensor, but any of
+them) that pushes a Telegram message to the phone when a threshold is crossed, instead of waiting
+to be asked.
+
+**As built** this turned out *not* to be a configuration task. It began as a Hermes cron job and
+had to move to a dedicated process ([`watch-loop.ts`](../mcp-tools/src/alert-skill/watch-loop.ts),
+15 s tick), because Hermes cron cannot tick faster than about two minutes for three structural
+reasons and the wait for the next tick was measured at **~86% of the worst-case sensor-edge-to-phone
+latency**. The measurement, the causes and the cutover are in [WATCHDOG.md](WATCHDOG.md). Either way
+the point below stands: **no LLM runs on a tick**, so the watchdog costs nothing on the NPU and does
+not compete with interactive queries.
 
 This doubles as a self-improvement demo: rather than hand-configuring the watch skill up front,
 frame it as something the agent creates itself after being asked about the same signal a couple of

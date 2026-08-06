@@ -31,7 +31,10 @@ Get-Item .\arduino_uno_q-sensor_log.json | Select-Object Length, LastWriteTime
 # Board services
 adb shell "systemctl is-active hermes-sensor-logger hermes-sensor-logger-push"
 
-# Cron + rule engine
+# Watchdog loop: ticks climbing, lastSource "real", canDeliver true
+curl.exe -s http://127.0.0.1:7789/health
+
+# Rule engine + the legacy cron path (only one watchdog should be running)
 & "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\hermes.exe" cron list
 Get-Content .\mcp-tools\.state\rule-state.json -Raw | ConvertFrom-Json |
   Select-Object -ExpandProperty levelsEvaluatedAt
@@ -41,8 +44,12 @@ Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.l
 ```
 
 Healthy looks like: GenieX listening; log `LastWriteTime` within ~20s of now; both board
-units `active`; cron `Last run … ok` within the last minute; one `Loaded hook 'ack'` line
-per gateway start.
+units `active`; the health endpoint answering with `lastSource: "real"` and `failures: 0`;
+**no** enabled `Environmental watch` cron job (that is the old watchdog — running both
+double-pages the on-call); one `Loaded hook 'ack'` line per gateway start.
+
+The watchdog has its own page: **[WATCHDOG.md](WATCHDOG.md)** — cadence, health endpoint,
+cutover, and the measured latency budget.
 
 ### ⚠️ Never health-check GenieX over HTTP
 
@@ -294,7 +301,7 @@ Two files, one writer each, under `mcp-tools\.state\`:
 | File | Written by | Contains |
 |---|---|---|
 | `rules.json` | the **agent** (MCP `rules` server) | rule definitions |
-| `rule-state.json` | the **evaluator** (cron tick) | watermarks, fire counts, baselines, `levelsEvaluatedAt` |
+| `rule-state.json` | the **evaluator** (the watchdog tick) | watermarks, fire counts, baselines, `levelsEvaluatedAt` |
 
 Never let one process write both — that is the lost-watermark race the split exists to
 prevent.
@@ -306,13 +313,18 @@ Get-Content .\mcp-tools\.state\rules.json -Raw
 # Is the evaluator ticking? (should be within the last ~5 min)
 (Get-Content .\mcp-tools\.state\rule-state.json -Raw | ConvertFrom-Json).levelsEvaluatedAt
 
-# Evaluate once by hand, without persisting
+# Evaluate once by hand, without persisting (--json implies a dry run)
 cd mcp-tools; node dist\alert-skill\check-environmental.js --json
 ```
 
-**Cadence:** the cron runs every 1m. Event rules (door, leak) evaluate **every tick**; level
-rules (temperature, humidity) are gated to 5 min behind `levelsEvaluatedAt`. Override with
+**Cadence:** the watchdog loop ticks every **15s** ([WATCHDOG.md](WATCHDOG.md)). Event rules
+(door, leak) evaluate **every tick**; level rules (temperature, humidity) stay gated to 5 min
+behind `levelsEvaluatedAt`, independent of how fast the loop runs. Override with
 `UNOQ_LEVEL_INTERVAL_S`.
+
+> On the legacy `hermes cron` path the tick was never faster than ~2 minutes regardless of the
+> configured schedule — measured 120s at `every 1m` over 415 executions. See
+> [WATCHDOG.md §2](WATCHDOG.md#2-why-the-loop-exists-the-cron-path-cannot-go-fast).
 
 **A `level` rule latches.** Once fired, `fired: true` and it will not fire again until the
 value crosses back and re-crosses. A rule that "stopped working" has usually just already
@@ -367,7 +379,12 @@ The real prefill drivers, in order:
 
 | Symptom | Likely cause |
 |---|---|
-| Telegram silent, rules still firing | GenieX down. The cron is `--no-agent`, so alerts survive the model dying. |
+| Telegram silent, rules still firing | GenieX down. The watchdog never calls the model, so alerts survive it dying. |
+| Every page arrives twice | Both watchdogs are running. `hermes cron list` **and** `Get-ScheduledTask SMH-Hermes-Watchdog` — delete one. |
+| Nothing pages at all, wall looks fine | No watchdog is running. `curl.exe http://127.0.0.1:7789/health` — connection refused means the loop is down. |
+| Health endpoint says `canDeliver: false` | The loop has no `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`. It is ticking and persisting; it just cannot page. |
+| Watchdog exits immediately with exit 1 | Port 7789 is already bound — the single-instance mutex working. Another loop is running. |
+| Feed died, no page for ~7 min | By design: 180s makes a reading unusable, 600s wakes someone. [WATCHDOG.md §8](WATCHDOG.md#8-the-two-staleness-thresholds-this-is-deliberate). |
 | No receipt, then no answer either | Gateway not running, or the message never reached it. The receipt fires before any model call, so its absence points upstream of GenieX. |
 | Receipt arrives, answer never does | The gateway heard you and the turn failed — check GenieX. This is the case that used to be indistinguishable from the one above. |
 | Receipts are canned every time | The model call behind them is failing or timing out. `handler.py --try` prints the real error. |

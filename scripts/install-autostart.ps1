@@ -13,14 +13,21 @@
   So the geniex safety net had a single point of failure, and a reboot or a
   stray window close took the whole demo down with no recovery.
 
-  This registers three Windows Scheduled Tasks:
+  This registers four Windows Scheduled Tasks:
 
     Hermes_Gateway                  -- via Hermes' own `gateway install`
     SMH-Hermes-GenieX-Supervisor    -- registered here
     SMH-Hermes-WallDisplay          -- registered here
+    SMH-Hermes-Watchdog             -- registered here
 
   All run at logon with restart-on-failure (1 min interval, 999 attempts) and
   no execution time limit.
+
+  THE WATCHDOG TASK REPLACES THE `hermes cron` ENVIRONMENTAL WATCH. Hermes cron
+  cannot fire faster than ~2 minutes on this rig, so sensor-edge-to-Telegram was
+  measured at 14-102s with ~86% of it spent waiting for the next tick. The loop
+  ticks every 15s. Running both at once pages the on-call twice for every event,
+  so section 4 refuses to install while the cron job is still enabled.
 
   MCP servers need no task: the gateway spawns them over stdio. The Arduino
   UNO Q is a separate device with its own systemd units -- nothing here
@@ -40,9 +47,9 @@
   flight unless -Force is given.
 
 .PARAMETER Only
-  Limit the run to one component: gateway, supervisor, or wall. Default 'all'.
-  Use this to add a component without bouncing an already-installed gateway --
-  only the gateway section restarts anything.
+  Limit the run to one component: gateway, supervisor, wall, or watch. Default
+  'all'. Use this to add a component without bouncing an already-installed
+  gateway -- only the gateway section restarts anything.
 
 .PARAMETER DryRun
   Print what would happen and change nothing.
@@ -67,10 +74,14 @@
     hermes gateway uninstall
     Unregister-ScheduledTask -TaskName 'SMH-Hermes-GenieX-Supervisor' -Confirm:$false
     Unregister-ScheduledTask -TaskName 'SMH-Hermes-WallDisplay' -Confirm:$false
+    Unregister-ScheduledTask -TaskName 'SMH-Hermes-Watchdog' -Confirm:$false
+    # ...and if you want the old cron watchdog back:
+    #   hermes cron create --schedule 'every 1m' --name 'Environmental watch' `
+    #     --script environmental-watch.py --no-agent --deliver telegram
 #>
 [CmdletBinding()]
 param(
-  [ValidateSet('all', 'gateway', 'supervisor', 'wall')]
+  [ValidateSet('all', 'gateway', 'supervisor', 'wall', 'watch')]
   [string] $Only = 'all',
   [switch] $DryRun,
   [switch] $Force
@@ -88,6 +99,10 @@ $McpTools       = Join-Path $RepoRoot 'mcp-tools'
 $WallEntry      = Join-Path $McpTools 'dist\dashboard\server.js'
 $WallTask       = 'SMH-Hermes-WallDisplay'
 $WallLog        = "$HermesHome\wall-display.log"
+$WatchEntry     = Join-Path $McpTools 'dist\alert-skill\watch-loop.js'
+$WatchTask      = 'SMH-Hermes-Watchdog'
+$WatchLog       = "$HermesHome\watch-loop.log"
+$WatchPort      = 7789
 $PsExe          = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 
 function Say([string]$Level, [string]$Message) {
@@ -123,6 +138,7 @@ Say 'INFO' "supervisor : $SupervisorPs1"
 $doGateway    = $Only -in @('all', 'gateway')
 $doSupervisor = $Only -in @('all', 'supervisor')
 $doWall       = $Only -in @('all', 'wall')
+$doWatch      = $Only -in @('all', 'watch')
 Say 'INFO' "scope      : $Only"
 
 # Only the gateway section interrupts turns, so only gate on it.
@@ -248,19 +264,102 @@ elseif (-not (Test-Path $WallEntry)) {
 }
 }
 
-# ── 4. Verify ────────────────────────────────────────────────────────────────
+# ── 4. Watchdog loop (127.0.0.1:7789) → Scheduled Task ───────────────────────
+
+# This REPLACES the `hermes cron` environmental watch. Hermes cron cannot run it
+# faster than ~2 minutes -- `parse_duration` has no seconds unit, the ticker
+# polls on a 60s grid, and next_run_at is computed from the job's COMPLETION
+# time, so an `every 1m` job misses every other poll (measured: 120s x415 at
+# "every 1m", 360s x113 at "every 5m", over 547 executions). Sensor edge to
+# Telegram measured 14.2s best / 102.2s worst, ~86% of it waiting for a tick.
+#
+# RUNNING BOTH DOUBLE-PAGES THE ON-CALL. They persist the same state file and
+# each would decide and deliver independently, so this refuses to install while
+# the cron job is enabled.
+
+if (-not $doWatch) { Say 'INFO' "watchdog: skipped (-Only $Only)" }
+else {
+Say 'INFO' '--- watchdog loop ---'
+
+# Refuse while the cron job is live. Detected by reading Hermes' own jobs.json
+# rather than shelling out, so a broken hermes.exe cannot make this guard pass.
+$cronJobs = "$HermesHome\cron\jobs.json"
+$cronConflict = $false
+if (Test-Path $cronJobs) {
+  try {
+    $jobs = (Get-Content $cronJobs -Raw | ConvertFrom-Json).jobs
+    foreach ($j in $jobs) {
+      if ($j.script -like '*environmental-watch*' -and $j.enabled) {
+        $cronConflict = $true
+        Say 'FAIL' "hermes cron job '$($j.name)' ($($j.id)) is ENABLED and runs $($j.schedule_display)."
+        Say 'FAIL' 'Running it alongside this loop pages the on-call twice for every event.'
+        Say 'FAIL' "Disable it first:  & `"$HermesExe`" cron delete $($j.id)"
+        Say 'FAIL' 'Then re-run this script.'
+      }
+    }
+  } catch { Say 'WARN' "could not parse cron jobs.json: $($_.Exception.Message)" }
+}
+
+$node = (Get-Command node -ErrorAction SilentlyContinue).Source
+if ($cronConflict -and -not $Force) {
+  Say 'FAIL' 'watchdog loop: NOT installed (cron job still enabled). Use -Force to override.'
+} elseif (-not $node) { Say 'WARN' 'node.exe not on PATH -- skipping watchdog loop' }
+elseif (-not (Test-Path $WatchEntry)) {
+  Say 'WARN' "not built: $WatchEntry"
+  Say 'WARN' 'run `npm run build` in mcp-tools, then re-run this script'
+} else {
+  if ($cronConflict) { Say 'WARN' '-Force given: installing the loop while the cron job is ALSO enabled. Expect duplicate pages.' }
+  Say 'INFO' "entry      : $WatchEntry"
+
+  # Delivery needs a bot. Without one the loop still ticks and persists state --
+  # the wall keeps working -- but nothing reaches the phone, so say so loudly
+  # rather than letting a silent thread read as a quiet night.
+  if (-not $env:TELEGRAM_BOT_TOKEN -or -not $env:TELEGRAM_CHAT_ID) {
+    Say 'WARN' 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are not set in this environment.'
+    Say 'WARN' 'The loop will tick and persist state but CANNOT page the phone.'
+    Say 'WARN' 'Set them as MACHINE or USER environment variables so the scheduled task inherits them.'
+  }
+
+  $innerWatch = '& "{0}" "{1}" *>> "{2}"' -f $node, $WatchEntry, $WatchLog
+
+  Invoke-Step "register scheduled task '$WatchTask'" {
+    $action = New-ScheduledTaskAction -Execute $PsExe `
+      -Argument ('-ExecutionPolicy Bypass -WindowStyle Hidden -Command {0}' -f $innerWatch) `
+      -WorkingDirectory $McpTools
+    $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+    $settings = New-ScheduledTaskSettingsSet `
+      -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+      -MultipleInstances IgnoreNew `
+      -RestartInterval (New-TimeSpan -Minutes 1) -RestartCount 999 `
+      -ExecutionTimeLimit ([TimeSpan]::Zero) `
+      -StartWhenAvailable
+    Register-ScheduledTask -TaskName $WatchTask -Action $action -Trigger $trigger `
+      -Settings $settings -RunLevel Limited -Force | Out-Null
+  }
+
+  # The loop binds $WatchPort as its own single-instance mutex and exits 1 if it
+  # is taken, which the task would then retry 999 times. Only start when free.
+  if (Get-NetTCPConnection -LocalPort $WatchPort -State Listen -ErrorAction SilentlyContinue) {
+    Say 'WARN' "something already listening on $WatchPort -- task registered but not started"
+  } else {
+    Invoke-Step "start '$WatchTask' now" { Start-ScheduledTask -TaskName $WatchTask }
+  }
+}
+}
+
+# ── 5. Verify ────────────────────────────────────────────────────────────────
 
 if ($DryRun) { Say 'DRY' 'dry run complete -- nothing changed.'; exit 0 }
 
 Start-Sleep -Seconds 8
 Say 'INFO' '--- verification ---'
 
-Get-ScheduledTask -TaskName 'Hermes_Gateway*', $SupervisorTask, $WallTask -ErrorAction SilentlyContinue |
+Get-ScheduledTask -TaskName 'Hermes_Gateway*', $SupervisorTask, $WallTask, $WatchTask -ErrorAction SilentlyContinue |
   Select-Object TaskName, State | Format-Table -AutoSize
 
 & $HermesExe gateway status
 
-foreach ($p in @(@{Port=18181; What='geniex'}, @{Port=7788; What='wall display'})) {
+foreach ($p in @(@{Port=18181; What='geniex'}, @{Port=7788; What='wall display'}, @{Port=$WatchPort; What='watchdog loop'})) {
   $l = @(Get-NetTCPConnection -LocalPort $p.Port -State Listen -ErrorAction SilentlyContinue)
   if ($l) { Say 'OK'   "$($p.What) listening on $($p.Port) (pid $($l[0].OwningProcess))" }
   else    { Say 'WARN' "nothing listening on $($p.Port) yet" }

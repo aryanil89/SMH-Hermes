@@ -1,5 +1,5 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
+import { writeJsonAtomic } from "../common/atomic-write.js";
 import type { Status } from "../common/types.js";
 
 export interface AlertState {
@@ -7,12 +7,30 @@ export interface AlertState {
   /** ISO timestamp of the last time an alert was actually emitted (for cooldown re-notify). */
   lastAlertedAt?: string;
   /**
-   * The rule engine's last reported infrastructure failure, if it is still
-   * failing. Latched here so a permanently missing sensor log produces one
-   * message on the way in and one on the way out, instead of nagging the on-call
-   * phone every 5 minutes forever. Absent means healthy.
+   * The rule engine's current infrastructure failure, if it is still failing.
+   * Latched here so a permanently missing sensor log produces one message on the
+   * way in and one on the way out, instead of nagging the on-call phone every
+   * tick forever. Absent means healthy.
    */
   ruleEngineError?: string;
+  /**
+   * When the CURRENT failure was first seen. The failure has to persist past a
+   * grace window before anyone is told about it.
+   *
+   * Measured on a 25-minute soak: without this, transient `EBUSY` on the sensor
+   * log produced **11 degraded/recovered pairs** -- one file lock lasting a few
+   * hundred milliseconds, reported as an engine outage and then an engine
+   * recovery, over and over. A latch that latches on the first sample is not a
+   * latch; it is a flap detector wired to the on-call's phone.
+   */
+  ruleEngineErrorSince?: string;
+  /**
+   * True once the failure above was actually reported. Recovery only speaks if
+   * something was said in the first place -- otherwise a blip that never paged
+   * anyone would still produce an "engine has recovered" message about an outage
+   * the on-call never heard of.
+   */
+  ruleEngineReported?: boolean;
   /**
    * A page that was computed, withheld, and is still owed.
    *
@@ -55,6 +73,12 @@ export async function readState(path: string): Promise<AlertState> {
         ...(typeof parsed.ruleEngineError === "string"
           ? { ruleEngineError: parsed.ruleEngineError }
           : {}),
+        ...(typeof parsed.ruleEngineErrorSince === "string"
+          ? { ruleEngineErrorSince: parsed.ruleEngineErrorSince }
+          : {}),
+        ...(typeof parsed.ruleEngineReported === "boolean"
+          ? { ruleEngineReported: parsed.ruleEngineReported }
+          : {}),
         // Allowlisted like ruleEngineError above: this reader drops unknown
         // fields, so a new field that is not named here is silently lost on the
         // next write -- which for a held page would mean quietly forgetting an
@@ -68,7 +92,23 @@ export async function readState(path: string): Promise<AlertState> {
   }
 }
 
+/**
+ * Write atomically: temp file, then rename.
+ *
+ * `access/state.ts` credits this file as the model for its atomic write, but
+ * this one wrote in place -- the pattern was documented here and implemented
+ * only there. It mattered less at a 5-minute cadence with a single writer; it
+ * matters now that the watchdog loop persists every 15s while the wall reads
+ * this same path every 2s.
+ *
+ * The failure it prevents is quiet and expensive: a reader that catches a torn
+ * file falls back to `{lastStatus:"ok"}` by design (readState must never throw),
+ * so a half-written file is indistinguishable from a healthy rack. That would
+ * drop `lastStatus` mid-incident and re-page an excursion as if it were new --
+ * the same class of bug as the mock-fallback false recovery, arriving by a
+ * different road. See common/atomic-write.ts for the mechanism, including why
+ * the rename itself has to retry on Windows.
+ */
 export async function writeState(path: string, state: AlertState): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(state, null, 2), "utf8");
+  await writeJsonAtomic(path, state);
 }

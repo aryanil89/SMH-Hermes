@@ -322,13 +322,14 @@
               Ingests the sensor log; runs four MCP tool servers (environmental is real, network /
               storage / compute are realistic mocks) that the Hermes Agent calls over stdio; sends
               tool-augmented prompts to a local Qwen3-4B model served by GenieX on the Hexagon NPU;
-              runs a five-minute cron watchdog for proactive paging; and serves the wall display and
+              runs a 15-second watchdog loop for proactive paging; and serves the wall display and
               the access terminal, both from one Node process on port 7788.
             </p>
             <h4 class="sub-head">Components on this device</h4>
             <ul class="arch-components">
               <li><span class="arch-comp-name">environmental / network / storage / compute servers</span> — MCP tools, stdio</li>
               <li><span class="arch-comp-name">Hermes Agent</span> — MCP client, skills, memory, cron</li>
+              <li><span class="arch-comp-name">Watchdog loop</span> — 15s tick, health on 127.0.0.1:7789</li>
               <li><span class="arch-comp-name">GenieX serve</span> — OpenAI-compatible endpoint, 127.0.0.1:18181</li>
               <li><span class="arch-comp-name">Qwen3-4B-Instruct-2507</span> — GGUF Q4_0, 64K context</li>
               <li><span class="arch-comp-name">Hexagon NPU v73</span> — CPU stays at 12–17% during inference</li>
@@ -483,7 +484,7 @@
               <li><code>decideAlert()</code> — threshold crossing, cooldown, escalation</li>
               <li><code>suppress.ts</code> reads <code>.state/access.json</code></li>
               <li>Verdict <code>expected</code> → the page is <strong>held, not cancelled</strong></li>
-              <li>Cron watchdog every 5 min writes <code>environmental-watch.json</code></li>
+              <li>Watchdog loop every 15s writes <code>environmental-watch.json</code></li>
               <li>Telegram send · the wall mirrors the state file after the fact</li>
             </ol>
             <p class="flow-note">

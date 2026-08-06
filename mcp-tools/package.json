@@ -14,6 +14,7 @@
     "start:compute": "node dist/servers/compute-server.js",
     "start:environmental": "node dist/servers/environmental-server.js",
     "start:dashboard": "node dist/dashboard/server.js",
+    "start:watch": "node dist/alert-skill/watch-loop.js",
     "start:rules": "node dist/servers/rules-server.js",
     "rules": "node dist/rules/cli.js",
     "test": "vitest run",

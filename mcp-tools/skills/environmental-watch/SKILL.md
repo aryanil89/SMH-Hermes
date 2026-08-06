@@ -12,11 +12,19 @@ metadata:
 
 > ## ⚠️ This skill is NOT the production path any more
 >
-> The live proactive alert runs in Hermes cron's **`--no-agent --script` mode** — a small Python
-> wrapper ([`../../cron/environmental-watch.py`](../../cron/environmental-watch.py)) whose stdout
-> Hermes relays verbatim. No LLM runs on a tick, so a 5-minute cadence costs zero tokens and cannot
-> spam the phone (empty stdout ⇒ silence, by construction). Wiring:
-> [`../../cron/environmental-watch.cron.json`](../../cron/environmental-watch.cron.json).
+> Since **2026-08-05** the live proactive alert is a persistent process:
+> [`../../src/alert-skill/watch-loop.ts`](../../src/alert-skill/watch-loop.ts), ticking every
+> **15s**, delivering to the Telegram Bot API directly, supervised by the Scheduled Task
+> `SMH-Hermes-Watchdog`. No LLM runs on a tick, so it costs zero tokens and cannot spam the phone
+> (an edge-triggered decision with a cooldown, plus latched rule-engine errors). Rationale,
+> measured latency and cutover: [`../../../docs/WATCHDOG.md`](../../../docs/WATCHDOG.md).
+>
+> **Before that** it ran in Hermes cron's `--no-agent --script` mode — a small Python wrapper
+> ([`../../cron/environmental-watch.py`](../../cron/environmental-watch.py)) whose stdout Hermes
+> relays verbatim ([wiring](../../cron/environmental-watch.cron.json)). That path still works and
+> shares the same tick code, but measured over 547 executions it never ticked faster than ~2
+> minutes whatever schedule it was given. **Run one watchdog, not both** — two writers of
+> `environmental-watch.json` means every page arrives twice.
 >
 > **In no-agent mode `--deliver telegram` is correct** — read the `--deliver` warning below as
 > applying *only* to the agent-session design described here, where the model narrates every run.
@@ -67,7 +75,7 @@ See `../../README.md` and `../../cron/environmental-watch.cron.json` for the exa
 short:
 
 ```
-hermes cron create "every 5m" \
+hermes cron create "every 1m" \
   "Follow the environmental-watch skill's instructions exactly: run the check script, then only message Telegram if it says ALERT." \
   --skill environmental-watch \
   --name "Environmental watch"

@@ -1,5 +1,5 @@
-import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
+import { writeJsonAtomic } from "../common/atomic-write.js";
 import type { AccessEvent, AccessState, Approval, ApprovalDecision } from "./types.js";
 
 /**
@@ -51,16 +51,12 @@ export async function readAccessState(path: string): Promise<AccessState> {
  * The wall's 2s tick and an approval POST can persist to this path at the same
  * moment. A torn write leaves invalid JSON, `readAccessState` swallows it by
  * design (it must never throw), and the audit log silently becomes `[]` --
- * failure and clean slate look identical. `rename` is atomic on both NTFS and
- * POSIX, so a reader sees either the old file or the new one and never a
- * half-written one.
+ * failure and clean slate look identical. See common/atomic-write.ts: a reader
+ * sees either the old file or the new one and never a half-written one.
  */
 export async function writeAccessState(path: string, state: AccessState): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
   const stamped: AccessState = { ...state, updatedAt: new Date().toISOString() };
-  const tmp = `${path}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify(stamped, null, 2), "utf8");
-  await rename(tmp, path);
+  await writeJsonAtomic(path, stamped);
 }
 
 const NOT_REQUIRED: Approval = { required: false, state: "not-required" };

@@ -345,6 +345,7 @@ execution time limit):
 | `geniex-supervisor.ps1` | Task `SMH-Hermes-GenieX-Supervisor` | yes |
 | hermes gateway | Task `Hermes_Gateway` (Hermes' own installer) | yes |
 | wall display (7788) | Task `SMH-Hermes-WallDisplay` | yes |
+| watchdog loop (7789) | Task `SMH-Hermes-Watchdog` | yes |
 | MCP servers (6) | the gateway, over stdio | yes — no task needed |
 | Arduino UNO Q | its own systemd units on the board | out of scope here |
 
@@ -371,14 +372,15 @@ only single point of failure that silently kills the whole demo.
    guarantees the compression threshold is never reached.
 3. **Typing-bubble live test** (P3). Send one message; confirm the "typing…"
    bubble appears within ~2 s. This is the whole of P3's remaining work.
-4. **Confirm serving state.** All three watchdogs run as Scheduled Tasks with no
-   visible window (`scripts\install-autostart.ps1`), so check the tasks, not the
-   taskbar:
+4. **Confirm serving state.** All four background processes run as Scheduled
+   Tasks with no visible window (`scripts\install-autostart.ps1`), so check the
+   tasks, not the taskbar:
    ```powershell
-   Get-ScheduledTask Hermes_Gateway, SMH-Hermes-GenieX-Supervisor, SMH-Hermes-WallDisplay |
-     Select-Object TaskName, State                  # all Ready or Running
+   Get-ScheduledTask Hermes_Gateway, SMH-Hermes-GenieX-Supervisor, SMH-Hermes-WallDisplay,
+     SMH-Hermes-Watchdog | Select-Object TaskName, State   # all Ready or Running
    Get-NetTCPConnection -LocalPort 18181 -State Listen   # owner must be geniex
    Get-NetTCPConnection -LocalPort 7788  -State Listen   # wall display / access.json writer
+   curl.exe -s http://127.0.0.1:7789/health              # watchdog: ticks climbing, canDeliver true
    & $H gateway status                              # running + telegram connected
    ```
 5. **Confirm the prompt diet is live.** Use Hermes' own renderer — it is offline,

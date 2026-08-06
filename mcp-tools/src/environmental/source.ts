@@ -5,6 +5,7 @@ import { withTimeout } from "../common/timeout.js";
 import { statusForValue, worstStatus } from "../common/alerts.js";
 import { ENVIRONMENTAL_THRESHOLDS } from "../common/thresholds.js";
 import type { EnvironmentalReading, EnvironmentalResult } from "./types.js";
+import { envPositive } from "../common/env.js";
 
 export interface GetEnvironmentalOptions {
   /** Mock-only: fix the PRNG seed for reproducible output (tests/live fallback). */
@@ -73,7 +74,10 @@ export async function getEnvironmentalReading(opts: GetEnvironmentalOptions = {}
     };
   }
 
-  const timeoutMs = opts.timeoutMs ?? Number(process.env.UNOQ_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  // envPositive, not Number(): a typo here makes withTimeout fire immediately,
+  // so every board read "times out" and the system serves mock data forever
+  // while reporting the board as unreachable. See common/env.ts.
+  const timeoutMs = opts.timeoutMs ?? envPositive("UNOQ_TIMEOUT_MS", DEFAULT_TIMEOUT_MS);
   const client = new UnoQClient({
     host,
     user: process.env.UNOQ_USER,

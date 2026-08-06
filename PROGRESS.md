@@ -31,7 +31,16 @@ starts here"** below it.
 | 15 | **Message receipts — the phone stops guessing** (2026-08-05 PM). Reported from the phone: *"it is not clear the server has received the message and is processing the request. Sometimes it responds a few minutes later, sometimes it does not."* PERF-DESIGN P3 had already verified the Telegram typing indicator works — and it does not solve this: it expires between refreshes, never reaches the notification shade, and looks identical whether the gateway is thinking, wedged, or dead. **The defect was unobservability, not latency**: nothing on the phone distinguished *received-and-working* from *dropped*. Now every inbound message gets an italic one-line receipt in ~2 s, written by the same local model, naming what was asked and carrying a wait estimate learned from that session's own measured turns. It is generated **before** the agent's first model call — GenieX serializes, so a receipt generated afterwards would queue behind the answer it announces — and it asserts no findings (prompt + regex backstop; nothing has been looked up yet). Model down or slow → it still goes out, canned, with the estimate, which turns *"did it hear me?"* into *"it heard me and could not answer."* **43 offline self-test checks, run by the installer before it will install** | [hermes-hooks/README.md](hermes-hooks/README.md), [docs/PERF-DESIGN.md](docs/PERF-DESIGN.md) §P3 follow-up |
 | 16 | **One decimal place, everywhere a number is reported** (2026-08-05 PM). The board logs raw Modulino floats — `"temperature_c": 25.081483840942383` — and those 17 digits were reaching the agent, the alert text, the wall and the learned baselines verbatim. Now every measurement that leaves the system is cut to one decimal by [`common/round.ts`](mcp-tools/src/common/round.ts), applied **at ingestion rather than at each display**, so the number the agent reasons on, the number a threshold is compared against, the number in the Telegram alert and the number on the wall are one number. That ordering fixes a real disagreement, not just presentation: `file-source.ts` now rounds `distance_mm` **before** testing it against `UNOQ_LEAK_DISTANCE_MM`, so a raw 149.96 against a 150mm threshold reports `150` **and** `no leak` instead of paging a leak beside a distance that reads as exactly at the line. Covers temp/humidity/distance, the network/storage/compute mocks, and the baselines quoted back as facts about the room; face embeddings keep 3 decimals, deliberately. Verified on the live feed. **11 new tests (incl. a 60-seed sweep asserting no generated number exceeds 1dp), suite 289/289** | [mcp-tools/README.md](mcp-tools/README.md#one-decimal-place-applied-on-the-way-in) |
 
+| 17 | **The watchdog stops waiting for a clock** (2026-08-05 PM). Measured, not assumed: two real button presses timed end to end gave **14.2 s** and **102.2 s** sensor-edge-to-phone, of which **7.5 s and 88.1 s was waiting for the next cron tick — ~86% of the worst case**. The cause is structural and unreachable by config: `parse_duration` has no seconds unit, the ticker polls a fixed 60 s grid, and `next_run_at` is computed from *completion*, so an `every 1m` job really fires every **120 s** (415 executions) and `every 5m` every **360 s** (113). Replaced by [`watch-loop.ts`](mcp-tools/src/alert-skill/watch-loop.ts) — a persistent 15 s tick delivering to Telegram directly, single-instanced by a bound health port rather than a pidfile (a pidfile goes stale after a crash and locks out the restart), ticks **skipped never queued**, and sharing its decision code with the one-shot CLI so the two cannot drift. Same pass fixed a live false alarm: an `EBUSY` mid-replace made the tick fall through to **mock** data and page *"recovered to OK"* during a real 35 °C / 86 % excursion — now the read retries **and** an untrusted reading can no longer move the alert state machine at all. Every state file write went atomic-with-retry (`common/atomic-write.ts`) and every numeric env var NaN-safe (`common/env.ts`). The wall now **probes** the health port instead of printing a hard-coded cadence. **Suite 295/295** | [docs/WATCHDOG.md](docs/WATCHDOG.md) |
+
 ## Leftovers — next session starts here (as of 2026-08-05 PM)
+
+0. **Cut over to the watchdog loop** (~2 min, deliberately left manual because it stops the
+   current alerting path and mis-sequencing it double-pages the on-call):
+   `hermes cron delete f47e35e60c09` then `.\scripts\install-autostart.ps1 -Only watch`, then
+   `curl.exe -s http://127.0.0.1:7789/health` to confirm ticks climbing and `canDeliver: true`.
+   The installer refuses to run while that cron job is enabled, so the order matters.
+   [docs/WATCHDOG.md §5](docs/WATCHDOG.md#5-running-it).
 
 1. **§4 rehearsal screenshots** (~10 min, needs the user at the GUI while the agent drives
    load): Task Manager → Performance → NPU graph during generation; HWiNFO sensors panel
@@ -101,9 +110,10 @@ starts here"** below it.
    `--no-agent --script` watchdog mode instead of the agent-session skill: the wrapper — originally
    a bash `environmental-watch.sh`, **now `environmental-watch.py`** in
    `%LOCALAPPDATA%\hermes\scripts\` (that is `HERMES_HOME` here; there is no `~/.hermes`) — runs
-   `check-environmental.js` every 5 min and prints only on ALERT/recovery (empty stdout = silent),
-   `--deliver telegram`. Zero LLM cost
-   per tick, so 5-min cadence doesn't starve interactive queries (an agent-session tick costs
+   `check-environmental.js` on a cron schedule and prints only on ALERT/recovery (empty stdout =
+   silent), `--deliver telegram`. **Superseded 2026-08-05 PM by the 15 s watch loop — see item 17;
+   run one watchdog, not both.** Zero LLM cost
+   per tick, so the cadence doesn't starve interactive queries (an agent-session tick costs
    ~3 min of NPU). The skill doc's `--deliver` warning applied to *agent* replies; in no-agent
    mode empty-stdout-silence makes `--deliver` correct. check-environmental.js now self-locates
    the pushed sensor log (repo-relative default).

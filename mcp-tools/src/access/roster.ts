@@ -1,5 +1,5 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
+import { writeJsonAtomic } from "../common/atomic-write.js";
 import type { FaceMatch, IdentityMethod, RosterEntry } from "./types.js";
 
 /**
@@ -53,9 +53,19 @@ export async function readRoster(path: string): Promise<RosterEntry[]> {
   }
 }
 
+/**
+ * Write atomically: temp file, then rename. Same rule as access/state.ts, and it
+ * matters more here.
+ *
+ * `readRoster` returns `[]` for anything it cannot parse, by design -- an absent
+ * roster is a valid state. That makes a torn write indistinguishable from an
+ * empty enrolment: every known face silently becomes `unknown`, so the sentry
+ * challenges people who are on the roster, and the `expected` verdict that
+ * withholds pages can never be reached again. An enrol POST landing while the
+ * dashboard's 2s tick reads the file is all it takes.
+ */
 export async function writeRoster(path: string, entries: RosterEntry[]): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, JSON.stringify(entries, null, 2), "utf8");
+  await writeJsonAtomic(path, entries);
 }
 
 /**

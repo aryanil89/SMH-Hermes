@@ -10,9 +10,10 @@
  * ships `node:sqlite`, so the upgrade is a one-file change if firing history
  * ever needs to be queryable -- but a service (Postgres) is not on that path.
  */
-import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeJsonAtomic } from "../common/atomic-write.js";
 import type { Rule, RuleRuntime, RuleStateFile, RulesFile } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -31,17 +32,11 @@ export function ruleStatePath(): string {
 /**
  * Write via temp-then-rename so a reader mid-write never sees a truncated file.
  * Same discipline as boot_status.json on the board and pull_sensor_log.ps1 on
- * the laptop -- rename is atomic within a filesystem on both platforms.
+ * the laptop. Shared implementation in common/atomic-write.ts, which also
+ * explains why the rename retries.
  */
 async function writeAtomic(path: string, data: unknown): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  // Per-process temp name. A fixed `${path}.tmp` lets two writers interleave
-  // write and rename, so one truncates the other's staging file and the loser
-  // renames a partial document into place -- or fails ENOENT after the winner
-  // renamed it away.
-  const tmp = `${path}.${process.pid}.tmp`;
-  await writeFile(tmp, JSON.stringify(data, null, 2) + "\n", "utf8");
-  await rename(tmp, path);
+  await writeJsonAtomic(path, data, { trailingNewline: true });
 }
 
 /**

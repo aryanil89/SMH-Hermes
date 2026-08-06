@@ -13,6 +13,7 @@
 import type { Status, Thresholds } from "../common/types.js";
 import type { EnvironmentalResult } from "../environmental/types.js";
 import type { Family, IncidentAssessment } from "../assess/types.js";
+import type { WatchRunner } from "./watch-health.js";
 import type { AccessView } from "../access/sentry.js";
 import type { NetworkReport } from "../mock/network.js";
 import type { StorageReport } from "../mock/storage.js";
@@ -164,6 +165,12 @@ export interface TelegramView {
     lastAlertedAt?: string;
     /** Seconds since the watchdog last actually delivered something. */
     lastAlertAgeSeconds?: number;
+    /**
+     * Which watchdog is actually running, probed rather than assumed -- the
+     * panel's cadence caption is only worth showing if it is measured. See
+     * dashboard/watch-health.ts.
+     */
+    runner: WatchRunner;
   };
   /** The alert the watchdog would raise right now, if any. */
   pending?: TelegramMessage;

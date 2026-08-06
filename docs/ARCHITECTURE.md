@@ -39,6 +39,7 @@ flowchart TD
         STO["storage server — mock"]
         COM["compute server — mock"]
         HA["Hermes Agent — MCP client, skills, memory, cron"]
+        WD["watchdog loop — 15s tick, health 127.0.0.1:7789"]
         GX["GenieX serve — 127.0.0.1:18181  ✅ running"]
         MOD["Qwen3-4B-Instruct-2507 — GGUF Q4_0, 64K ctx"]
         NPU["Hexagon NPU v73 — CPU stays at 12-17%"]
@@ -53,8 +54,10 @@ flowchart TD
         HA -->|"POST /v1/chat/completions"| GX
         GX -->|"llama.cpp Hexagon backend"| MOD
         MOD --> NPU
-        HA -->|"cron tick writes"| STATE
+        FILE --> WD
+        WD -->|"every 15s, writes atomically"| STATE
         FILE -.->|"reads the log directly"| WALL
+        WD -.->|"health probe"| WALL
         STATE -.->|"mirrors real deliveries"| WALL
         WALL --> BROW
     end
@@ -116,36 +119,46 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant C as hermes cron every 5m — no-agent
-    participant S as environmental-watch.py
-    participant K as check-environmental.js
+    participant C as watch-loop.js every 15s
+    participant S as runWatchTick (tick.ts)
+    participant K as reading + persisted state
     participant D as decideAlert
     participant A as suppress.ts + access.json
     participant P as Phone (Telegram)
 
-    C->>S: tick
-    S->>K: run script
-    K->>D: current status + persisted state
-    alt threshold crossed or recovered
+    C->>S: tick (skipped, never queued, if one is still running)
+    S->>K: read sensor log + .state/environmental-watch.json
+    K->>D: current status + persisted state + readingTrusted
+    alt reading is mock (source != "real")
+        D-->>K: untrusted-reading — state carried forward verbatim
+        Note over D: A fallback reading can neither raise nor clear an alarm.<br/>This is the fix for the false "recovered to OK" of 2026-08-05.
+    else threshold crossed or recovered
         D-->>K: ALERT status + message
         K->>A: is a known responder on site?
         alt verdict = expected, state fresh, no escalation
             A-->>K: HOLD
-            K-->>S: "NO_ALERT" + record heldPage
+            K-->>S: nothing to send + record heldPage
             Note over K,A: lastStatus is NOT advanced — the crossing stays<br/>un-notified, so it fires the moment they leave
         else nobody there / escalated / access state stale
             A-->>K: PAGE
-            K-->>S: "ALERT critical ..."
-            S->>P: push message via gateway  ☁️
+            K-->>S: "Environmental status is now CRITICAL ..."
+            S->>P: Telegram Bot API, direct  ☁️
         end
     else nothing changed
-        D-->>K: NO_ALERT
-        K-->>S: "NO_ALERT"
+        D-->>K: no alert
+        K-->>S: nothing to send
         Note over S: stays silent — the normal outcome on most ticks
     end
-    Note over C,D: Edge-triggered with cooldown + recovery — not "alert every tick".<br/>Deliberately NOT cron --deliver, which would message on every tick.
+    Note over C,D: Edge-triggered with cooldown + recovery — not "alert every tick".<br/>Zero LLM tokens: the model is never in this path.
     Note over A: Fails OPEN. Suppression needs the dashboard alive to write<br/>access.json — a stale file pages rather than staying quiet.
 ```
+
+**Cadence.** 15s, from `watch-loop.ts`, which replaced a `hermes cron` job that could not run
+faster than ~2 minutes no matter what schedule it was given. Measured sensor-edge-to-phone
+latency fell from a 102s worst case to roughly 15–30s. The full measurement, the three
+independent reasons cron floors out, and the cutover procedure are in
+**[WATCHDOG.md](WATCHDOG.md)**. The one-shot `check-environmental.js` still exists and shares
+the same tick code; the legacy cron job can still drive it.
 
 ## §3 Build-time — QUAD, a separate graph entirely
 
@@ -205,6 +218,6 @@ explicitly**, so the benchmark doesn't read as a bait-and-switch. Evidence:
 | ⚠️ `distance_mm` surfaced | **CR-2 closed**, then narrowed. Distance now reaches the laptop **only** on presence (`object_entered`/`object_left`) and button lines, gated to readings under 1000mm. Because the reader takes the newest line — almost always a tick, which has no distance — **level-based leak detection is no longer reachable**; button C is the live leak path. Restoring it means putting `distance_mm` back on the tick | [../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md) |
 | ⚠️ Telegram round-trip constraints | wired ✅, but requires the non-streaming local patch (`HERMES_FORCE_NONSTREAM=1`, reverted by `hermes update`) and replies take 2–4 min | [../PROGRESS.md](../PROGRESS.md) NEXT 4 |
 | ⚠️ NPU claim now measured, but not by `profile_workload` | The bundle **is** profiled per-op on Hexagon (prefill/decode latency + HTP cycle counts). `profile_workload` itself was unusable — the QUAD server is a remote x86 VM with no Hexagon and no access to local disk — so the numbers come from `qnn-net-run` + `qnn-profile-viewer`, driven by `profile_device_plan` | [BENCHMARKS.md](BENCHMARKS.md), [../PROGRESS.md](../PROGRESS.md) NEXT 7 |
-| ⚠️ cron alert job created, and its first design was broken | The proactive path runs as a `--no-agent` **Python** script every 5 min. The original `.sh` wrapper failed *every scheduled tick* (WSL had no `/bin/bash`); fixed 2026-08-04. Verify via a real tick, never a one-off run | [E2E_TEST.md](E2E_TEST.md) §7, [../PROGRESS.md](../PROGRESS.md) NEXT 6 |
+| ✅ proactive alerting, now off cron entirely | Ran as a `--no-agent` Python script under `hermes cron`; the original `.sh` wrapper failed *every scheduled tick* (WSL had no `/bin/bash`, fixed 2026-08-04), and then measurement showed cron could not tick faster than ~2 min regardless of schedule. Since 2026-08-05 the path is `watch-loop.ts`, a 15s persistent loop delivering to Telegram directly. Verify via a real tick, never a one-off run | [WATCHDOG.md](WATCHDOG.md), [E2E_TEST.md](E2E_TEST.md) §7 |
 
 This section is a pointer, not a tracker — status truth lives in PROGRESS.md.

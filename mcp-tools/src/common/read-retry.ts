@@ -30,9 +30,23 @@ import { readFile } from "node:fs/promises";
  */
 const TRANSIENT_CODES = new Set(["EBUSY", "EPERM", "EACCES", "UNKNOWN"]);
 
-/** Attempts include the first try, so 4 = one read plus three retries. */
-const DEFAULT_ATTEMPTS = 4;
-/** Total added latency in the worst transient case: 3 x 50ms = 150ms. */
+/**
+ * Attempts include the first try, so 6 = one read plus five retries.
+ *
+ * Was 4 attempts at a flat 50ms (150ms of headroom). Measured on a 25-minute
+ * soak of the watchdog loop: that was not enough. The sensor log has four
+ * parties on it -- the puller replacing it every ~10s, the wall reading it every
+ * 2s, and the watchdog reading it twice per tick -- and the failures that got
+ * through were reported as a rule-engine outage. See tick.ts for the second half
+ * of that fix; a longer retry alone is a narrower window, not a closed one.
+ */
+const DEFAULT_ATTEMPTS = 6;
+/**
+ * Backoff is linear in the attempt number: 50, 100, 150, 200, 250 -> 750ms in
+ * the worst transient case, against a 15s tick. Linear rather than flat because
+ * the lock duration is unknown; if 50ms was not enough, another 50ms probably
+ * is not either.
+ */
 const DEFAULT_DELAY_MS = 50;
 
 export function isTransientReadError(err: unknown): boolean {
@@ -68,7 +82,7 @@ export async function readFileWithRetry(path: string, opts: ReadRetryOptions = {
       lastErr = err;
       // A non-transient failure is the answer, not something to wait out.
       if (!isTransientReadError(err)) throw err;
-      if (i < attempts - 1) await sleep(delayMs);
+      if (i < attempts - 1) await sleep(delayMs * (i + 1));
     }
   }
   throw lastErr;
@@ -90,7 +104,7 @@ export async function withReadRetry<T>(fn: () => Promise<T>, opts: ReadRetryOpti
     } catch (err) {
       lastErr = err;
       if (!isTransientReadError(err)) throw err;
-      if (i < attempts - 1) await sleep(delayMs);
+      if (i < attempts - 1) await sleep(delayMs * (i + 1));
     }
   }
   throw lastErr;

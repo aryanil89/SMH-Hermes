@@ -25,8 +25,9 @@ Analogy, used once and then dropped: **Hermes** is the employee. **Qwen3** is th
 | **Hermes Agent** | Decides *what to do*: which tool to call, what to remember, when to alert you. The self-improving part — it writes its own skills from experience. Native MCP client, built-in cron, Telegram gateway. | Nous Research (MIT) | installed on the laptop; **`HERMES_HOME` is `%LOCALAPPDATA%\hermes`** on this native-Windows install — config at `%LOCALAPPDATA%\hermes\config.yaml`. Docs that say `~/.hermes` are describing the Linux/WSL layout; that directory does not exist here. |
 | **SMH-Hermes** | This repository. The project, not the agent. | us | you're in it |
 | **MCP tool servers** | Expose datacenter health as callable tools: network, storage, compute (mocked) and environmental (real) — plus **assessment**, which correlates all four into one verdict in a single call, because on the NPU every extra tool call costs 2–4 minutes. | us | [../mcp-tools/src/servers/](../mcp-tools/src/servers/) |
-| **`environmental-watch`** | The *proactive* path: a Hermes cron job every 5 min. Runs in **`--no-agent` script mode** — a small Python wrapper that prints a message only when an alert or recovery is due, and prints nothing otherwise (empty stdout ⇒ Hermes stays silent), so a tick costs **zero LLM tokens**. The same-named *skill* still exists, but only for manual/agent-narrated runs. | us | [../mcp-tools/cron/environmental-watch.py](../mcp-tools/cron/environmental-watch.py) · [skill](../mcp-tools/skills/environmental-watch/) |
-| **`decide-alert`** | Edge-triggered alert logic with cooldown/recovery, so one hot rack doesn't spam you every 5 minutes. | us | [../mcp-tools/src/alert-skill/](../mcp-tools/src/alert-skill/) |
+| **`environmental-watch`** | The *proactive* path. Since 2026-08-05 it runs as **`watch-loop.js`**, a persistent process ticking every **15 s** and delivering to Telegram directly, supervised by the Scheduled Task `SMH-Hermes-Watchdog`. No LLM runs on a tick, so it costs **zero tokens**. The older `hermes cron` + `--no-agent` Python wrapper still works and shares the same tick code, but could not tick faster than ~2 min whatever schedule it was given — **run only one of the two**, or the on-call is paged twice. | us | [WATCHDOG.md](WATCHDOG.md) · [../mcp-tools/src/alert-skill/watch-loop.ts](../mcp-tools/src/alert-skill/watch-loop.ts) |
+| **Watchdog health endpoint** | `http://127.0.0.1:7789/health` — the only way to see that the loop is alive, since Task Scheduler gives it no console. The bound port doubles as an OS-enforced **single-instance mutex**: a second loop exits rather than double-paging, and unlike a pidfile it cannot go stale after a crash. | us | [WATCHDOG.md §5](WATCHDOG.md#5-running-it) |
+| **`decide-alert`** | Edge-triggered alert logic with cooldown/recovery, so one hot rack doesn't spam you every tick. Also refuses to act on an **untrusted reading** (`source != "real"`): a mock fallback can neither raise nor clear an alarm. | us | [../mcp-tools/src/alert-skill/](../mcp-tools/src/alert-skill/) |
 | **Message receipt** / **the `ack` hook** | The italic one-liner the phone gets ~2 s after asking, before the 60–300 s wait for the answer. Written by the same local model, so it names what you asked; carries a wait estimate learned from that session's own turns; states no findings, because nothing has been looked up yet. A **gateway hook** — Hermes' extension point, loaded from `%LOCALAPPDATA%\hermes\hooks\` at startup — not a fork of Hermes. | us | [../hermes-hooks/](../hermes-hooks/) |
 | **Wall display** | The demo-table web page: device on the left, server and its inference in the middle, phone on the right. A **read-only observer** — it re-derives its numbers by calling the same functions the tools call, so it can't disagree with the agent, and removing it changes nothing. Local-only, no dependencies. | us | [../mcp-tools/src/dashboard/](../mcp-tools/src/dashboard/) · [DASHBOARD.md](DASHBOARD.md) |
 | **`hermes-sensor-logger`** | App Lab app on the board: reads the Modulinos and appends JSON lines over three channels — a periodic climate `sensor_tick` (~every 10 s, temperature + humidity only), an event line per **button transition** in both directions (`door_open`/`door_closed`, `light_on`/`light_off`, `leak_detected`/`leak_cleared`), and `object_entered`/`object_left` on ToF presence crossings. Also drives the LED-matrix boot/connection display. A push loop `scp`-overwrites the log onto the laptop every 10 s. | us | [../uno-q/hermes-sensor-logger/](../uno-q/hermes-sensor-logger/) |
@@ -168,16 +169,19 @@ that genuinely needs the internet.
 **Proactive path** — nobody asked anything:
 
 ```
-hermes cron (every 5m, --no-agent)  → environmental-watch.py → check-environmental.js
+watch-loop.js (every 15s, its own process)  → runWatchTick (tick.ts)
    → getEnvironmentalReading()  (the SAME source module the MCP server uses, imported
                                  directly — this path does NOT go through the MCP server)
    → newest line of the pushed UNO Q sensor log
-   → decide-alert  (edge-triggered: fire on crossing, not every poll; cooldown; recovery)
-   → prints a message ONLY if warranted  → Telegram push to your phone
+   → decide-alert  (edge-triggered: fire on crossing, not every poll; cooldown; recovery;
+                    a mock reading moves nothing)
+   → sends ONLY if warranted  → Telegram Bot API → your phone
 ```
 
-No LLM is involved in a tick: the script decides, Hermes just relays stdout. That is why the
-5-minute cadence doesn't compete with interactive queries for the NPU.
+No LLM is involved in a tick: plain arithmetic decides. That is why a 15-second cadence doesn't
+compete with interactive queries for the NPU. The legacy path — `hermes cron` → 
+`environmental-watch.py` → `check-environmental.js` — still works and shares the same tick
+code, but could never tick faster than ~2 min; see [WATCHDOG.md](WATCHDOG.md).
 
 Same components, no incoming message. This is the path that confuses people, because the trigger is
 a clock rather than a human.

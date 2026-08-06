@@ -17,12 +17,34 @@ import { parseSensorLogLine, type SensorLogLine } from "../environmental/file-so
 import { NUMERIC_CHANNELS } from "./channels.js";
 import type { Baselines, NumericBaseline, NumericChannel } from "./types.js";
 
+/**
+ * Parse the log, rounding on the way in.
+ *
+ * Round here, not at each message, for the same reason `file-source.ts` does it
+ * at ingestion: the number a rule is *compared against* and the number the rule
+ * *quotes* have to be the same number, or an alert reads "35.6C (rule: > 35.6C)"
+ * off a raw 35.62625503540039 and looks like it fired on a tie.
+ *
+ * The gap was live: a soak of the watchdog produced
+ * `temperature reached 35.62625503540039C` on the on-call phone. The rounding
+ * pass covered the environmental reader and the baselines computed below, but
+ * not this parse -- which is the *other* consumer of the same file, and the one
+ * whose output is a sentence someone reads at 3am.
+ */
 export function parseLogLines(raw: string): SensorLogLine[] {
   const out: SensorLogLine[] = [];
   for (const line of raw.split(/\r?\n/)) {
     if (line.trim().length === 0) continue;
     const parsed = parseSensorLogLine(line);
-    if (parsed) out.push(parsed);
+    if (!parsed) continue;
+    out.push({
+      ...parsed,
+      temperature_c: round1(parsed.temperature_c),
+      humidity_pct: round1(parsed.humidity_pct),
+      ...(typeof parsed.distance_mm === "number"
+        ? { distance_mm: round1(parsed.distance_mm) }
+        : {}),
+    });
   }
   return out;
 }

@@ -17,12 +17,22 @@ A third consumer sits alongside the agent: the **live operations wall**
 read-only web page for the demo table. It calls the same functions the tools call, so it cannot
 disagree with the agent; it never writes; and it is loopback-only, so it survives the WiFi cut.
 
-Alongside the pull-based tools above, a Hermes cron job watches the environmental data every 5 min
-and proactively pushes a Telegram alert when a threshold is crossed or recovers. It runs in
-**`--no-agent` script mode** ([cron/environmental-watch.py](cron/environmental-watch.py)), so no LLM
-runs on a tick and silence is the default — see
-[Proactive alerting](../docs/HARDWARE_UTILIZATION.md#proactive-alerting) and, to test it end to end,
-[../docs/E2E_TEST.md](../docs/E2E_TEST.md).
+Alongside the pull-based tools above, a **persistent watchdog loop**
+([src/alert-skill/watch-loop.ts](src/alert-skill/watch-loop.ts)) watches the environmental data
+**every 15s** and proactively pushes a Telegram alert when a threshold is crossed or recovers. No
+LLM runs on a tick and silence is the default.
+
+```powershell
+npm run start:watch                       # foreground
+curl.exe -s http://127.0.0.1:7789/health  # ticks, lastSource, canDeliver
+```
+
+It replaced a `hermes cron` job that could not tick faster than ~2 minutes whatever schedule it was
+given; the one-shot CLI (`dist/alert-skill/check-environmental.js`) still exists and shares the same
+tick code, so the cron path still works — but **run only one of the two**, or the on-call is paged
+twice. Full rationale, measurements and cutover: [../docs/WATCHDOG.md](../docs/WATCHDOG.md). Also
+see [Proactive alerting](../docs/HARDWARE_UTILIZATION.md#proactive-alerting) and, to test it end to
+end, [../docs/E2E_TEST.md](../docs/E2E_TEST.md).
 
 See [../docs/HARDWARE_UTILIZATION.md](../docs/HARDWARE_UTILIZATION.md) for the rationale on the
 mock/real split.

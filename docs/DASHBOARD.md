@@ -47,6 +47,8 @@ table (usually the board clock, step 2 ⚠️).
 | `UNOQ_SENSOR_LOG` | repo-root `arduino_uno_q-sensor_log.json` | The sensor log to read |
 | `UNOQ_LOG_MAX_AGE_S` | `3600` | Older than this and the feed counts as down. Set it to `180` to match the demo config |
 | `ALERT_STATE_PATH` | `mcp-tools/.state/environmental-watch.json` | The watchdog state file the phone panel mirrors |
+| `WATCH_HEALTH_PORT` | `7789` | Where the wall probes for a live watchdog loop. `0` disables the probe |
+| `WATCH_HEALTH_CACHE_MS` | `5000` | How long a probe result is reused, so a 2s repaint is not a socket per tick |
 | `TELEGRAM_BOT_LABEL` | `Hermes Ops` | Name shown on the phone panel |
 | `TELEGRAM_CHAT_TITLE` | `On-call · Telegram` | Subtitle under it |
 | `HERMES_STATE_DB` | auto-detected | The Hermes transcript the wall mirrors for phone → server messages. Found from `HERMES_HOME` or `%LOCALAPPDATA%\hermes\state.db`. **This is the default inbound source** |
@@ -174,7 +176,7 @@ When the verdict is `expected` — a person **on the roster**, present while an
 incident is live — the watchdog withholds the page. The chain is
 `check-environmental.js` → `alert-skill/suppress.ts` → `access/decide.ts`, reading
 `.state/access.json` across a process boundary. **One writer per file:** the
-dashboard drives the sentry and owns `access.json`; the cron process only reads it.
+dashboard drives the sentry and owns `access.json`; the watchdog process only reads it.
 
 Three properties, in the order they matter:
 
@@ -254,16 +256,28 @@ show an assessment built from one world beside a device grid from the next.
 The panel must never claim a delivery that has not happened. Three things can put
 a message on it, and each bubble says which:
 
-1. **`watchdog · sent`** — the cron job's state file changed, which only happens
+1. **`watchdog · sent`** — the watchdog's state file changed, which only happens
    when a tick actually decided to send. Evidence of a real delivery, observed
    after the fact. A threshold alert bumps `lastAlertedAt`; a recovery clears it
    and drops `lastStatus` to `ok`, so recovery is detected from the status
    transition instead.
-2. **`queued · next watchdog tick`** — running the *same* `decideAlert` the cron
-   job runs says an alert is due right now. The watchdog fires every 5 minutes,
-   so the wall knows before the phone does. Rendered greyed, dashed and explicitly
-   labelled. When the watchdog then fires, that exact queued text is promoted to
-   a delivered bubble.
+2. **`queued · next tick ≤ 15s`** — running the *same* `decideAlert` the watchdog
+   runs says an alert is due right now. The wall ticks every 2s, so it knows
+   before the phone does. Rendered greyed, dashed and explicitly labelled. When
+   the watchdog then fires, that exact queued text is promoted to a delivered
+   bubble.
+
+   The cadence in that tag is **measured, not assumed**: the server probes
+   `http://127.0.0.1:7789/health` (cached 5s) and reports whatever interval the
+   loop declares. If nothing answers, the tag falls back to
+   `queued · next watchdog tick` and the **Watchdog process** row reads
+   `no loop detected` in warning colour — because a watchdog nobody can see is
+   indistinguishable from one that died, and that is the most expensive thing
+   this panel could get wrong. It never guesses a number.
+
+   The prediction is also made with `readingTrusted`, exactly as the watchdog
+   makes it. Without that, a mock fallback reading would have the wall promise a
+   page that the watchdog will correctly refuse to send.
 3. **`gateway`** — real traffic, verbatim, either direction: an access challenge
    the sentry actually pushed to the phone (marked delivered or not by whether
    the Telegram call itself succeeded), a message read out of the Hermes gateway's
@@ -289,7 +303,7 @@ phone, character for character.
 
 | Direction | Alignment | Where it comes from |
 |---|---|---|
-| **server → phone** | **left**, tagged `server → phone` | the cron watchdog's alerts, every access challenge the sentry actually pushes, and the agent's replies from the gateway transcript |
+| **server → phone** | **left**, tagged `server → phone` | the watchdog's alerts, every access challenge the sentry actually pushes, and the agent's replies from the gateway transcript |
 | **phone → server** | **right**, tagged `phone → server` | the gateway transcript bridge, the inbound poller, or anything posted to `/api/telegram` |
 | wall's own notes | centred, tagged `wall` | the dashboard itself; never a Telegram message |
 

@@ -1,3 +1,4 @@
+import { envNumber } from "../common/env.js";
 import { readFileWithRetry } from "../common/read-retry.js";
 import { round1 } from "../common/round.js";
 import type { EnvironmentalReading } from "./types.js";
@@ -48,20 +49,6 @@ export type FileSourceResult =
 
 const DEFAULT_MAX_AGE_S = 3600;
 const DEFAULT_LEAK_WINDOW_S = 300;
-
-/**
- * Parse an env var as a finite number, falling back to a default otherwise.
- * Guards against e.g. UNOQ_LOG_MAX_AGE_S=abc -> Number("abc") = NaN, where
- * `ageSeconds > NaN` is always false and the staleness check silently never fires.
- */
-function envNumber(name: string, fallback: number): number;
-function envNumber(name: string, fallback: undefined): number | undefined;
-function envNumber(name: string, fallback: number | undefined): number | undefined {
-  const raw = process.env[name];
-  if (raw === undefined || raw.trim() === "") return fallback;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : fallback;
-}
 
 /**
  * Parse one JSON-lines record, tolerating garbage. Exported because the live

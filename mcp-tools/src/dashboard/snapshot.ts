@@ -12,6 +12,7 @@ import { generateNetworkReport } from "../mock/network.js";
 import { generateStorageReport } from "../mock/storage.js";
 import { readSensorLogView } from "./sensor-log.js";
 import type { TelegramFeed } from "./telegram-feed.js";
+import { envPositive } from "../common/env.js";
 import type {
   DashboardSnapshot,
   DeviceView,
@@ -224,7 +225,7 @@ export class SnapshotBuilder {
         tickMs: this.opts.tickMs,
         buildMs: Date.now() - buildStart,
         worldSeed: seed,
-        worldWindowSeconds: Number(process.env.SIM_WORLD_WINDOW_S ?? 60),
+        worldWindowSeconds: envPositive("SIM_WORLD_WINDOW_S", 60),
         assessment,
         families: buildFamilies(environmental.status, network, storage, compute),
         feeders,

@@ -32,6 +32,10 @@ describe("TelegramFeed", () => {
       botLabel: "Hermes Ops",
       chatTitle: "On-call",
       ingestUrl: "http://127.0.0.1:7788/api/telegram",
+      // Stubbed: the real probe opens a loopback socket, so without this the
+      // suite's answer would depend on whether the developer happens to have a
+      // watch loop running on port 7789.
+      watchRunner: async () => ({ mode: "unknown" as const, detail: "stubbed" }),
     });
   });
 
@@ -207,5 +211,35 @@ describe("TelegramFeed", () => {
 
     expect(view.watchdog.stateFound).toBe(false);
     expect(view.messages[0]?.text).toContain("No watchdog state file");
+  });
+
+  it("reports the watchdog cadence the loop declares, not a hard-coded one", async () => {
+    const withLoop = new TelegramFeed({
+      statePath,
+      botLabel: "Hermes Ops",
+      chatTitle: "On-call",
+      ingestUrl: "http://127.0.0.1:7788/api/telegram",
+      watchRunner: async () => ({
+        mode: "loop" as const,
+        intervalMs: 15000,
+        canDeliver: true,
+        lastTickAt: "2026-08-04T19:09:58.000Z",
+      }),
+    });
+
+    const view = await withLoop.update(reading(), new Date("2026-08-04T19:10:00.000Z"));
+
+    expect(view.watchdog.runner.mode).toBe("loop");
+    expect(view.watchdog.runner.intervalMs).toBe(15000);
+    expect(view.watchdog.runner.canDeliver).toBe(true);
+  });
+
+  it("does not claim a loop is running when nothing answers the health port", async () => {
+    const view = await feed.update(reading(), new Date("2026-08-04T19:10:00.000Z"));
+
+    // "unknown", never a guessed interval: the alert path might be hermes cron,
+    // or nothing at all, and the wall cannot tell those apart from out here.
+    expect(view.watchdog.runner.mode).toBe("unknown");
+    expect(view.watchdog.runner.intervalMs).toBeUndefined();
   });
 });

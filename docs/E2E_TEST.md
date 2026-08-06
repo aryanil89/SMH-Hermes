@@ -187,42 +187,58 @@ Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.l
 Get-Content "$env:LOCALAPPDATA\hermes\gateway-starts.log" -Tail 5
 ```
 
-## Layer 7 — the proactive watchdog, via the SCHEDULER
+## Layer 7 — the proactive watchdog
 
-**This is the layer that gave a false pass before. Do not shortcut it.**
+**This is the layer that gave a false pass before. Do not shortcut it.** Verify the watchdog that
+is *actually running*, never a one-off manual invocation — a hand-run tick inherits your shell's
+environment and proves nothing about the supervised one.
 
-**7a. Job is wired correctly**
+**7a. Exactly one watchdog is running**
 ```powershell
-& $H cron list
+curl.exe -s http://127.0.0.1:7789/health | ConvertFrom-Json |
+  Select-Object ticks, failures, lastTickAt, lastStatus, lastSource, intervalMs, canDeliver
+& $H cron list        # 'Environmental watch' must be ABSENT or disabled
 ```
-**Expect** `Environmental watch`, `every 5m`, `Script: environmental-watch.py`,
-`Mode: no-agent`, deliver `telegram`.
-**It must be `.py`, never `.sh`** — Hermes picks the interpreter by extension, and on this box
-`bash` resolves only to WSL launchers whose default distro (`docker-desktop`) has no `/bin/bash`,
-so a `.sh` fails every tick with
+**Expect** `intervalMs=15000`, `canDeliver=True`, `lastSource=real`, `failures=0`, and **no**
+enabled cron job. Two watchdogs means every page arrives twice and the cooldowns race —
+`install-autostart.ps1` refuses to install the loop while the cron job is enabled, but a job
+re-created by hand afterwards will not be caught.
+
+If the loop is not the path in use, the legacy cron checks still apply: `& $H cron list` must show
+`Environmental watch`, `every 1m` (it will really fire every ~120s), `Script:
+environmental-watch.py`, `Mode: no-agent`, deliver `telegram`. **It must be `.py`, never `.sh`** —
+Hermes picks the interpreter by extension, and on this box `bash` resolves only to WSL launchers
+whose default distro (`docker-desktop`) has no `/bin/bash`, so a `.sh` fails every tick with
 `WSL (9 - Relay) ERROR: ... execvpe(/bin/bash) failed`.
 
-**7b. A real tick succeeds and stays quiet**
+**7b. Ticks advance and stay quiet**
 ```powershell
-$f = "$env:LOCALAPPDATA\hermes\cron\jobs.json"
-$b = (Get-Content $f -Raw | ConvertFrom-Json).jobs[0].last_run_at
-do { Start-Sleep 10; $j = (Get-Content $f -Raw | ConvertFrom-Json).jobs[0] } while ($j.last_run_at -eq $b)
-"status=$($j.last_status)  err=$($j.last_error)"
+$a = (curl.exe -s http://127.0.0.1:7789/health | ConvertFrom-Json).ticks
+Start-Sleep 35
+$b = (curl.exe -s http://127.0.0.1:7789/health | ConvertFrom-Json)
+"ticks $a -> $($b.ticks)  failures=$($b.failures)  skipped=$($b.skipped)  err=$($b.lastError)"
 ```
-**Expect** `status=ok`, empty error, **no Telegram message** (nothing is wrong, so silence is
-correct). The run's file under `cron\output\<job_id>\` should say `Status: silent (empty output)`.
+**Expect** `ticks` up by 2–3 in 35s, `failures=0`, `skipped=0`, **no Telegram message** (nothing is
+wrong, so silence is correct).
 
-**If it fails** the `last_error` is the whole diagnosis — it is verbatim stderr from the script.
+**If `failures` is climbing**, `lastError` on the health endpoint is the whole diagnosis. The loop
+logs and continues by design, so a rising count is the only visible symptom.
 
-**7c. Delivery actually works** — force one recovery alert. The run resets the state itself, so
+**7c. Delivery actually works** — force one recovery alert. The tick resets the state itself, so
 this is self-reverting and needs no fake sensor data:
 ```powershell
 $s = "$R\mcp-tools\.state\environmental-watch.json"
 [System.IO.File]::WriteAllText($s, '{"lastStatus":"critical"}', (New-Object System.Text.UTF8Encoding($false)))
-# then wait for the next tick exactly as in 7b
+Start-Sleep 20
 ```
-**Expect** a Telegram push: *"Environmental status has recovered to OK (was CRITICAL). …"*, and the
-state file back to `{"lastStatus": "ok"}`.
+**Expect** a Telegram push within ~15s: *"Environmental status has recovered to OK (was CRITICAL).
+…"*, `delivered` up by one on the health endpoint, and the state file back to `{"lastStatus":
+"ok"}`.
+
+⚠️ **This only fires if the reading is real.** A mock reading (`lastSource: "mock"` in 7a) is
+deliberately inert — it can neither raise nor clear an alarm — so with the board down this test
+correctly does nothing. That is the fix for the false "recovered to OK" of 2026-08-05; see
+[WATCHDOG.md §7](WATCHDOG.md#7-the-false-all-clear-and-the-two-defences-against-it).
 
 > **Write it BOM-free.** PowerShell 5.1's `Set-Content -Encoding utf8` adds a UTF-8 BOM, which makes
 > `JSON.parse` fail in `readState`; it silently defaults to `ok`, no recovery fires, and the tick
@@ -237,14 +253,14 @@ quick tap will recover far sooner than the 5 minutes described below.)
 
 **Expect**
 1. A `leak_detected` line appears in the log within ~10 s (re-run layer 1 to see it).
-2. On the next tick — **up to 5 minutes** — the phone gets
+2. On the next tick — **~15–30 s total**, transport included — the phone gets
    *"Environmental status is now CRITICAL. … LEAK DETECTED …"*.
 3. ~5–10 minutes later, a **one-time** *"recovered to OK"* push, because the leak event ages out of
    its 5-minute window. **That is the edge-triggered recovery working, not a bug** — say so on
    stage before it lands.
 
-**If nothing arrives** work backwards: log line present? (layer 1) → tick succeeded? (7b) →
-delivery works? (7c).
+**If nothing arrives** work backwards: log line present? (layer 1) → is a watchdog running and
+ticking? (7a, 7b) → delivery works? (7c).
 
 ---
 
@@ -275,8 +291,11 @@ environmental tool applies, which is exactly why it fires here first.
 **The check that actually matters** — the wall and the phone must agree. During layer 8, watch the
 Telegram panel:
 
-1. On `leak_detected`, a **greyed, dashed** bubble appears marked *"queued · next watchdog tick"*.
-   The wall knows before the phone does; it must not claim a delivery.
+1. On `leak_detected`, a **greyed, dashed** bubble appears marked *"queued · next tick ≤ 15s"*.
+   The wall knows before the phone does; it must not claim a delivery. (The cadence in that tag is
+   probed from the loop's health endpoint. If it reads *"queued · next watchdog tick"* with the
+   **Watchdog process** row showing `no loop detected`, the loop is down — that is layer 7a
+   failing, and the wall is telling you so rather than guessing.)
 2. When the real tick fires, that same bubble turns solid and marked *"watchdog · sent"* — with
    **identical text** to what landed on the phone. Compare them character for character; both are
    built from `src/alert-skill/summarize.ts`.
