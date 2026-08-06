@@ -1,5 +1,18 @@
 # Design: Face-Verified Physical Access Control for Hermes — Current State → Target State
 
+> **Status (2026-08-06): design snapshot from the evening before the build — kept for the
+> decision trail; the README is the current truth.** Phase A shipped the next day as
+> `face-cpu` (InsightFace buffalo_s, CPU ONNX — built, tested, verified live; see
+> [README § Face recognition](../README.md#face-recognition-face-cpu)). Two claims below are
+> superseded: the threshold is now **0.43, measured** (not the uncalibrated 0.5), and the
+> suite is **327 tests**. Of the two review gaps this doc folds into Phase A:
+> backend-failure signaling shipped (`degradedFrom` reaches the persisted state and the
+> wall/phone captions, and a blind sentry never suppresses a page — `access/sentry.ts`);
+> the enrollment endpoint still accepts a client-supplied embedding and is mitigated
+> operationally instead — the phone enrol form stays disabled, enrolment is offline via
+> `scripts/enroll.py`, and the shared secret is required off-loopback
+> ([RUNBOOK §9](RUNBOOK.md#9-venue-preflight--the-pre-demo-checklist)).
+
 ## Context
 
 Hermes's access-control subsystem (`mcp-tools/src/access/`) exists to close a gap
