@@ -11,6 +11,16 @@
 #
 # The probing lives out here rather than in main.py because nmcli, timedatectl
 # and ssh only exist on the host: the app container has none of them.
+#
+# Sensor readings are always logged locally by main.py (sensor_log.jsonl),
+# independent of any of this -- there is no "server unreachable" mode where
+# a reading goes unrecorded. What SSH being down changes is only the mirror
+# to the laptop: the push is skipped outright rather than paying a doomed
+# ConnectTimeout every 10s, and the SSH probe itself backs off to once a
+# minute so a real outage isn't re-attempting a full auth handshake six
+# times a minute for nothing. The very next successful push after
+# reconnecting carries the whole local file, because that file was never
+# gated on connectivity in the first place.
 
 APP_DIR="/home/arduino/ArduinoApps/hermes-sensor-logger"
 LOCAL_LOG="$APP_DIR/sensor_log.jsonl"
@@ -22,9 +32,13 @@ REMOTE_PATH="${SENSOR_PUSH_PATH:-C:/Users/<windows-user>/Downloads/QUAD/SMH-Herm
 
 PRUNE_SCRIPT="$APP_DIR/prune_sensor_log.py"
 
-PUSH_EVERY=10      # ticks between scp pushes
-SSH_CHECK_EVERY=10 # ticks between ssh probes -- a full handshake is far too
-                   # slow to run every tick, so its result is cached between runs
+PUSH_EVERY=10      # ticks between scp pushes, while ssh_ok
+SSH_CHECK_EVERY=10 # ticks between ssh probes while healthy -- a full handshake
+                   # is far too slow to run every tick, so its result is cached
+                   # between runs
+SSH_RETRY_EVERY=60 # ticks between ssh probes while DOWN -- once a minute, not
+                   # once every 10s, so a real outage isn't spent re-attempting
+                   # a full auth handshake on a link already known to be dead
 PRUNE_EVERY=3600   # ticks between log prunes. Hourly is plenty: at ~2.1k
                    # lines/day the file cannot grow enough in an hour to matter,
                    # and a rarer prune means fewer atomic replaces racing the
@@ -32,6 +46,7 @@ PRUNE_EVERY=3600   # ticks between log prunes. Hourly is plenty: at ~2.1k
 
 tick=0
 ssh_ok=false
+next_ssh_check=0 # tick at which the next SSH probe is due
 
 while true; do
   # --- WiFi: the active connection profile bound to wlan0, if any ----------
@@ -56,12 +71,14 @@ while true; do
   # test. It must be `exit 0` and not `true`: the laptop's SSH shell is
   # PowerShell, where `true` is not a command and every probe would report a
   # false failure even though the link is fine.
-  if [ $((tick % SSH_CHECK_EVERY)) -eq 0 ]; then
+  if [ "$tick" -ge "$next_ssh_check" ]; then
     if ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
          "$SSH_TARGET" "exit 0" >/dev/null 2>&1; then
       ssh_ok=true
+      next_ssh_check=$((tick + SSH_CHECK_EVERY))
     else
       ssh_ok=false
+      next_ssh_check=$((tick + SSH_RETRY_EVERY))
     fi
   fi
 
@@ -84,8 +101,12 @@ while true; do
       || echo "push_sensor_log: prune skipped (already running or failed)"
   fi
 
-  # --- Push ---------------------------------------------------------------
-  if [ $((tick % PUSH_EVERY)) -eq 0 ] && [ -f "$LOCAL_LOG" ]; then
+  # --- Push -----------------------------------------------------------------
+  # Gated on ssh_ok: local logging above never stops, so skipping the scp
+  # attempt while the link is known down costs nothing but a wasted
+  # ConnectTimeout, and the local file already holds everything that
+  # happened in the meantime for the next successful push to carry.
+  if [ "$ssh_ok" = true ] && [ $((tick % PUSH_EVERY)) -eq 0 ] && [ -f "$LOCAL_LOG" ]; then
     scp -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
       "$LOCAL_LOG" "$SSH_TARGET:$REMOTE_PATH" \
       || echo "push_sensor_log: scp failed, will retry next cycle"

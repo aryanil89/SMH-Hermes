@@ -42,6 +42,10 @@ It also reports no findings. The receipt is written before a single tool has
 run, so the prompt forbids readings, numbers and "all clear" -- a witty line
 that invents a status would be worse than the silence it replaces.
 
+If the send itself fails -- Telegram unreachable, not the model -- the receipt
+is queued rather than dropped, and the next inbound message retries it before
+sending its own. See "Outbound retry queue" below.
+
 ## Where the estimate comes from
 
 Measured turns, this session's own. `agent:end` records the duration, and the
@@ -69,6 +73,7 @@ import os
 import random
 import re
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -242,6 +247,97 @@ def _write_state(state: dict[str, Any]) -> None:
         tmp.replace(path)
     except Exception:
         pass
+
+
+# --------------------------------------------------------------------------
+# Outbound retry queue -- Telegram unreachable does not mean the receipt is
+# lost, only that it is late.
+# --------------------------------------------------------------------------
+
+#: A receipt says "got it, working on it, ~N minutes". Delivered much later
+#: than that it stops being a receipt and becomes a confusing, stale message
+#: about a turn the phone may already have the real answer for. Drop rather
+#: than send.
+_ACK_QUEUE_MAX_AGE_S = 300.0
+#: Bound on an outage this hook has never seen end.
+_ACK_QUEUE_MAX_ITEMS = 20
+
+
+def _queue_path() -> Path:
+    return _hermes_home() / "state" / "ack-queue.json"
+
+
+def _read_queue() -> list[dict[str, Any]]:
+    try:
+        loaded = json.loads(_queue_path().read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return loaded if isinstance(loaded, list) else []
+
+
+def _write_queue(items: list[dict[str, Any]]) -> None:
+    path = _queue_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(items, indent=2), encoding="utf-8")
+        tmp.replace(path)
+    except Exception:
+        pass
+
+
+def _queue_receipt(chat_id: str, text: str, thread_id: str, chat_type: str) -> None:
+    items = _read_queue()
+    items.append(
+        {
+            "chat_id": chat_id,
+            "text": text,
+            "thread_id": thread_id,
+            "chat_type": chat_type,
+            "queued_at": time.time(),
+        }
+    )
+    # Keep the newest when over the cap -- during a long outage the most
+    # recent receipt is the one still likely to matter to whoever is waiting.
+    if len(items) > _ACK_QUEUE_MAX_ITEMS:
+        items = items[-_ACK_QUEUE_MAX_ITEMS:]
+    _write_queue(items)
+
+
+def _flush_queue(token: str) -> None:
+    """Retry the single oldest queued receipt, if any.
+
+    One attempt per call, not a drain loop: this runs inline in `_on_start`,
+    on the same latency budget as the receipt about to be sent, and a burst
+    of retries here would extend that block by their count times
+    `_SEND_TIMEOUT_S` instead of by one more send. A backlog longer than one
+    item drains at one entry per inbound message -- slower than a dedicated
+    retry loop would be, but this hook has no persistent process to run one
+    in; it only runs when a Telegram message arrives.
+    """
+    items = _read_queue()
+    if not items:
+        return
+
+    item = items[0]
+    if time.time() - float(item.get("queued_at") or 0) > _ACK_QUEUE_MAX_AGE_S:
+        print(f"[hooks:ack] dropping stale queued receipt: {str(item.get('text', ''))[:40]!r}", flush=True)
+        _write_queue(items[1:])
+        return
+
+    try:
+        _send_blocking(
+            token,
+            str(item.get("chat_id") or ""),
+            str(item.get("text") or ""),
+            str(item.get("thread_id") or ""),
+            str(item.get("chat_type") or ""),
+        )
+    except Exception as err:
+        # Still down. Leave it queued and try again on the next inbound message.
+        print(f"[hooks:ack] queued receipt retry failed (ignored): {err!r}", flush=True)
+        return
+    _write_queue(items[1:])
 
 
 def estimate_seconds(durations: list[float]) -> float:
@@ -484,17 +580,24 @@ async def _on_start(context: dict[str, Any]) -> None:
     if not token:
         print("[hooks:ack] TELEGRAM_BOT_TOKEN unset; receipt not sent", flush=True)
         return
-    try:
-        await asyncio.to_thread(
-            _send_blocking,
-            token,
-            chat_id,
-            text,
-            str(context.get("thread_id") or ""),
-            str(context.get("chat_type") or "").lower(),
-        )
-    except Exception as err:
-        print(f"[hooks:ack] could not send receipt: {err!r}", flush=True)
+
+    thread_id = str(context.get("thread_id") or "")
+    chat_type = str(context.get("chat_type") or "").lower()
+
+    # Flushing the backlog and sending the fresh receipt run concurrently
+    # rather than one after the other: both are bounded by the same
+    # _SEND_TIMEOUT_S, and sequencing them would double the worst-case delay
+    # on exactly the turns where Telegram is down -- the one case this hook
+    # must not make slower than it already is. _flush_queue never raises, so
+    # only the fresh send's result needs checking.
+    _, send_result = await asyncio.gather(
+        asyncio.to_thread(_flush_queue, token),
+        asyncio.to_thread(_send_blocking, token, chat_id, text, thread_id, chat_type),
+        return_exceptions=True,
+    )
+    if isinstance(send_result, Exception):
+        print(f"[hooks:ack] could not send receipt, queued for retry: {send_result!r}", flush=True)
+        await asyncio.to_thread(_queue_receipt, chat_id, text, thread_id, chat_type)
 
 
 def _on_end(context: dict[str, Any]) -> None:
@@ -630,6 +733,50 @@ def _selftest() -> int:
         check("400 retries as plain text", attempts[-1] == {"chat_id": "42", "text": "italics rejected"})
     finally:
         _post_json = real_post
+
+    print("outbound retry queue")
+    global _queue_path
+    real_queue_path = _queue_path
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        fake_path = Path(tmp_dir) / "ack-queue.json"
+        _queue_path = lambda: fake_path  # noqa: E731
+
+        check("starts empty", _read_queue() == [])
+        _queue_receipt("42", "on it - about a minute", "", "dm")
+        queued = _read_queue()
+        check("queued one", len(queued) == 1 and queued[0]["text"] == "on it - about a minute")
+
+        for i in range(_ACK_QUEUE_MAX_ITEMS + 5):
+            _queue_receipt("42", f"receipt {i}", "", "dm")
+        check("capped at max items", len(_read_queue()) == _ACK_QUEUE_MAX_ITEMS)
+        check("keeps the newest, drops the oldest", _read_queue()[-1]["text"] == f"receipt {_ACK_QUEUE_MAX_ITEMS + 4}")
+
+        _write_queue([])
+        real_post = _post_json
+        try:
+            attempts = []
+            _post_json = lambda url, payload, timeout: attempts.append(payload) or {}  # noqa: E731
+            _queue_receipt("42", "still queued", "", "dm")
+            _flush_queue("t")
+            check("flush sends the queued receipt", len(attempts) == 1 and "still queued" in attempts[0]["text"])
+            check("flush empties the queue on success", _read_queue() == [])
+
+            def _always_fails(url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any]:
+                raise urllib.error.HTTPError(url, 503, "Service Unavailable", None, None)
+
+            _post_json = _always_fails
+            _queue_receipt("42", "network still down", "", "dm")
+            _flush_queue("t")
+            check("failed retry stays queued", len(_read_queue()) == 1)
+        finally:
+            _post_json = real_post
+
+        _write_queue([])
+        stale = {"chat_id": "42", "text": "ancient", "thread_id": "", "chat_type": "dm", "queued_at": 0.0}
+        _write_queue([stale])
+        _flush_queue("t")
+        check("stale entry dropped instead of sent late", _read_queue() == [])
+    _queue_path = real_queue_path
 
     print(f"\n{'FAILED: ' + str(len(failures)) if failures else 'all checks passed'}")
     return 1 if failures else 0

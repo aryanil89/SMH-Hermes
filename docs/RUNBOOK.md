@@ -398,3 +398,33 @@ The real prefill drivers, in order:
 | `status=203/EXEC` on a file that exists | CRLF line endings on a board shell script. |
 | Rule fired once, never again | `level` rules latch. Working as designed. |
 | GenieX gone, no error anywhere | The silent-exit bug. Run the supervisor. |
+
+## 8. Stopping the whole stack
+
+`scripts\stop-all.ps1` shuts down everything §1–§4 cover — watchdog, wall display, GenieX
+(supervisor first, then the process, or it just relaunches what you killed), then the
+gateway — in that order and no other. **Order matters**: the access sentry fails OPEN
+([docs/DASHBOARD.md](DASHBOARD.md) — search `ACCESS_SUPPRESS_MAX_AGE_S`), so if the wall
+stopped first the watchdog would start paging on stale `access.json` while the rest of the
+stack was still coming down. Stopping the watchdog first closes that window before it opens.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\stop-all.ps1
+```
+
+It refuses to stop the gateway mid-turn (same `active_agents` guard as §3) unless `-Force`
+is given — everything else has already stopped by the time that guard is checked, so a
+blocked run still leaves you with only the gateway to deal with by hand. Add `-DryRun` to
+preview.
+
+At the end it offers to pull `main`, rebuild `mcp-tools`, and bring the stack back up via
+`install-autostart.ps1` — interactively, or unconditionally with `-PullAndRestart` for
+unattended use. It refuses to pull over a dirty working tree.
+
+### Start/stop notifications
+
+`install-autostart.ps1` (after its verification step) and `stop-all.ps1` (before it stops
+anything) each post one line to Telegram — up/down status per component for the former, who
+initiated it for the latter. Same `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` the watchdog uses,
+same contract: silent no-op when unset, fire-and-forget, a failed send is logged and
+swallowed rather than failing the script.

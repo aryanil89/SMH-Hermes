@@ -54,10 +54,20 @@ Two systemd units on the board's Linux side make this run unattended from boot:
   (`Restart=always`). Ordered `After=` the app service and `tailscaled.service`.
 
 Neither unit blocks hard on the other being *fully ready* (e.g. Tailscale actually connected,
-not just the daemon started) — instead `push_sensor_log.sh` just retries every 10s and logs a
+not just the daemon started) — instead `push_sensor_log.sh` just keeps probing SSH and logs a
 one-line failure message if `scp` fails, so a slow boot or a transient Tailscale hiccup delays
 the first successful push instead of crashing anything. This was observed for real during
 testing (see below).
+
+**Local logging never depends on any of this.** `sensor_log.jsonl` is written by `main.py` on
+every reading regardless of connectivity — there is no code path where a reading goes
+unrecorded because the laptop is unreachable. What SSH being down changes is only the mirror:
+`push_sensor_log.sh` skips the `scp` outright rather than paying its `ConnectTimeout` on a link
+already known dead, and backs the SSH probe itself off to once a minute (`SSH_RETRY_EVERY`)
+instead of the healthy-state 10s (`SSH_CHECK_EVERY`) — a real outage should not spend six full
+auth handshakes a minute finding out it is still down. The first successful push after
+reconnecting carries the whole local file, since it was never gated on connectivity to begin
+with.
 
 **Boot ordering (added 2026-08-05).** Two drop-ins on *stock* units make Tailscale wait for the
 clock, because the board has no RTC battery and a VPN brought up in 1970 produces wrong timestamps
