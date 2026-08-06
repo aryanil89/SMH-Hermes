@@ -97,7 +97,7 @@ export function applyDecision(
     AccessEvent,
     "faces" | "identityMethod" | "verdict" | "severity" | "reasons" | "doorOpenCount"
   > &
-    Partial<Pick<AccessEvent, "doorConsistent" | "concurrentIncident" | "capturePath">> & {
+    Partial<Pick<AccessEvent, "doorConsistent" | "concurrentIncident" | "capturePath" | "degradedFrom">> & {
       approvalRequired: boolean;
       at: Date;
     },
