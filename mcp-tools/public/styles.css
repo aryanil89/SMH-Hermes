@@ -1723,6 +1723,15 @@ svg {
   gap: 14px;
 }
 
+/* Detailed architecture tab stacks the conceptual and logical briefs in one
+   scrolling panel -- this seam is the only thing that marks where one ends
+   and the other begins. */
+.brief--detailed-second {
+  border-top: 1px solid var(--hairline);
+  margin-top: 8px;
+  padding-top: 26px;
+}
+
 /* Sized for the wall, not for a laptop lap: everything on these tabs is a step
    larger than the live display's chrome, because the live display is read at
    arm's length and these are read from across the table. Scoped to `.brief` so

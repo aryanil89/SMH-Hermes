@@ -1021,6 +1021,7 @@ const tabPanels = {
   overview: $("panel-overview"),
   architecture: $("panel-architecture"),
   logical: $("panel-logical"),
+  detailed: $("panel-detailed"),
   live: $("panel-live"),
 };
 
