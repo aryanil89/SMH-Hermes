@@ -36,6 +36,16 @@
   --series-temp: #3987e5;
   --series-hum: #199e70;
 
+  /* Card-accent palette -- purely decorative hues for prose cards (the
+     Executive overview brief-cards row), deliberately kept out of the
+     red/amber/green range above so an accented card is never mistaken for a
+     status reading. Evenly spaced around the wheel so no two sit close
+     enough to read as "the same colour, different card". */
+  --accent-cyan: #22b8cf;
+  --accent-blue: #3987e5;
+  --accent-violet: #8b5cf6;
+  --accent-pink: #e0629f;
+
   --radius: 10px;
   --radius-sm: 7px;
   --head-h: 62px;
@@ -1983,9 +1993,46 @@ svg {
   align-items: start;
 }
 
-.card--accent {
-  border-color: color-mix(in srgb, var(--series-temp) 30%, var(--hairline));
-  background: color-mix(in srgb, var(--series-temp) 6%, var(--surface-1));
+/* One accent per card in the Executive overview row -- border, tinted
+   background and a matching icon colour, so all four stand out equally
+   instead of just the one that used to carry `.card--accent`. */
+.card--accent-cyan,
+.card--accent-blue,
+.card--accent-violet,
+.card--accent-pink {
+  border-width: 1.5px;
+}
+
+.card--accent-cyan {
+  border-color: color-mix(in srgb, var(--accent-cyan) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-cyan) 7%, var(--surface-1));
+}
+.card--accent-cyan .head-icon {
+  color: var(--accent-cyan);
+}
+
+.card--accent-blue {
+  border-color: color-mix(in srgb, var(--accent-blue) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-blue) 7%, var(--surface-1));
+}
+.card--accent-blue .head-icon {
+  color: var(--accent-blue);
+}
+
+.card--accent-violet {
+  border-color: color-mix(in srgb, var(--accent-violet) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-violet) 7%, var(--surface-1));
+}
+.card--accent-violet .head-icon {
+  color: var(--accent-violet);
+}
+
+.card--accent-pink {
+  border-color: color-mix(in srgb, var(--accent-pink) 40%, var(--hairline));
+  background: color-mix(in srgb, var(--accent-pink) 7%, var(--surface-1));
+}
+.card--accent-pink .head-icon {
+  color: var(--accent-pink);
 }
 
 .note-card p {
