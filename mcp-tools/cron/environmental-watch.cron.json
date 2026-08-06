@@ -1,9 +1,14 @@
 {
+  "_SUPERSEDED": "LEGACY PATH as of 2026-08-05. Production is now src/alert-skill/watch-loop.ts -- a persistent process ticking every 15s, installed as the Scheduled Task 'SMH-Hermes-Watchdog' by scripts/install-autostart.ps1. RUN ONE WATCHDOG, NOT BOTH: this job and the loop both persist .state/environmental-watch.json, so running both pages the on-call twice and races the cooldowns. install-autostart.ps1 refuses to install the loop while this job is enabled. See docs/WATCHDOG.md.",
+
+  "_why_superseded": "Hermes cron cannot tick faster than ~2 minutes, for three reasons no config can reach: parse_duration has no seconds unit ({'m':1,'h':60,'d':1440}); the ticker thread polls on a fixed 60s grid; and mark_job_run computes next_run_at from the job's COMPLETION time, so a tick lands its due time just past the next poll and fires on the one after. Measured over 547 executions in cron/executions.db: 120s x415 while configured 'every 1m', 360s x113 while configured 'every 5m'. End to end that made the wait for the next tick ~86% of the worst-case sensor-edge-to-phone latency (102.2s measured).",
+
   "_comment": "Reference config for wiring the environmental watchdog into Hermes Agent's cron. Not consumed by any code in this repo -- Hermes' own `hermes cron create` CLI / `/cron add` chat command is the actual mechanism. This documents the exact parameters to use.",
 
-  "_mode": "no_agent script watchdog. The script IS the job: Hermes delivers its stdout verbatim and delivers NOTHING when stdout is empty. Costs zero LLM tokens per tick, so a 5-minute cadence does not compete with interactive queries (an agent-session tick costs ~3 min of NPU). All alert/cooldown/recovery logic lives in check-environmental.js; the wrapper only translates the ALERT/NO_ALERT contract into 'print or stay silent'.",
+  "_mode": "no_agent script watchdog. The script IS the job: Hermes delivers its stdout verbatim and delivers NOTHING when stdout is empty. Costs zero LLM tokens per tick, so the cadence does not compete with interactive queries (an agent-session tick costs ~3 min of NPU). All alert/cooldown/recovery logic lives in check-environmental.js -- which since 2026-08-05 is a thin wrapper over the shared tick in src/alert-skill/tick.ts, so this path and the loop cannot drift. The Python wrapper only translates the ALERT/NO_ALERT contract into 'print or stay silent'.",
 
-  "schedule": "every 5m",
+  "schedule": "every 1m",
+  "_schedule_note": "'every 1m' is the fastest this mechanism accepts and it really fires every 120s -- see _why_superseded. There is no seconds unit; 'every 15s' does not parse.",
   "name": "Environmental watch",
   "script": "environmental-watch.py",
   "no_agent": true,
@@ -11,7 +16,7 @@
 
   "_install": [
     "1. Copy ./environmental-watch.py to %LOCALAPPDATA%\\hermes\\scripts\\ -- Hermes blocks any script path that resolves outside HERMES_HOME/scripts.",
-    "2. hermes cron create --schedule 'every 5m' --name 'Environmental watch' --script environmental-watch.py --no-agent --deliver telegram",
+    "2. hermes cron create --schedule 'every 1m' --name 'Environmental watch' --script environmental-watch.py --no-agent --deliver telegram",
     "3. Verify through the SCHEDULER, not a manual run -- see _verification below."
   ],
 

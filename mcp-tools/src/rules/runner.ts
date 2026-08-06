@@ -1,10 +1,12 @@
 /**
  * One tick: read the log, learn from it, evaluate every rule, persist runtime.
  *
- * Called from the cron watchdog (check-environmental.ts) and from the CLI. The
- * only writer of rule-state.json, which is what lets rules.json stay lock-free.
+ * Called from the watchdog tick (alert-skill/tick.ts, shared by the persistent
+ * loop and the one-shot CLI) and from the rules CLI. The only writer of
+ * rule-state.json, which is what lets rules.json stay lock-free.
  */
-import { readFile } from "node:fs/promises";
+import { readFileWithRetry } from "../common/read-retry.js";
+import { envPositive } from "../common/env.js";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { SensorLogLine } from "../environmental/file-source.js";
@@ -21,8 +23,7 @@ const PACKAGE_ROOT = join(__dirname, "..", "..");
  * How often the slow rules re-evaluate, independent of how often the tick runs.
  * Overridable so the demo can be dialled without touching the cron schedule.
  */
-const LEVEL_INTERVAL_MS =
-  Number(process.env["UNOQ_LEVEL_INTERVAL_S"] ?? "300") * 1000 || 300_000;
+const LEVEL_INTERVAL_MS = envPositive("UNOQ_LEVEL_INTERVAL_S", 300) * 1000;
 
 export function sensorLogPath(): string {
   return process.env.UNOQ_SENSOR_LOG ?? join(PACKAGE_ROOT, "..", "arduino_uno_q-sensor_log.json");
@@ -65,7 +66,7 @@ export async function runRuleTick(opts: TickOptions = {}): Promise<TickResult> {
   let logError: string | undefined;
   let lines: SensorLogLine[] = [];
   try {
-    lines = parseLogLines(await readFile(path, "utf8"));
+    lines = parseLogLines(await readFileWithRetry(path));
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     logError = `sensor log not readable at ${path}: ${reason}`;
@@ -83,11 +84,12 @@ export async function runRuleTick(opts: TickOptions = {}): Promise<TickResult> {
   // that could not fire when it was. Evaluating against zero lines fires the
   // staleness rule and leaves every other kind untouched (they all return
   // "cannot judge" without samples).
-  // Cadence split. The tick runs every minute so an event rule ("tell me when
-  // the door opens") reaches the phone in tens of seconds instead of up to five
-  // minutes -- a door is a now-or-never signal. Temperature is not: re-deciding
-  // it every minute buys nothing and only adds noise, so the slow rules keep
-  // their five-minute rhythm behind this gate.
+  // Cadence split, and the reason this gate is independent of the tick rate.
+  // The watchdog loop ticks every 15s so an event rule ("tell me when the door
+  // opens") reaches the phone in tens of seconds -- a door is a now-or-never
+  // signal. Temperature is not: re-deciding it every 15s buys nothing and only
+  // adds noise, so the slow rules keep their five-minute rhythm behind this
+  // gate no matter how fast the caller runs.
   const lastLevels = state.levelsEvaluatedAt ? Date.parse(state.levelsEvaluatedAt) : NaN;
   const evaluateLevels =
     !Number.isFinite(lastLevels) || now.getTime() - lastLevels >= LEVEL_INTERVAL_MS;
@@ -135,7 +137,7 @@ export async function currentReadings(): Promise<{
   distance_mm?: number;
 }> {
   try {
-    const lines = parseLogLines(await readFile(sensorLogPath(), "utf8"));
+    const lines = parseLogLines(await readFileWithRetry(sensorLogPath()));
     const newest = lines[lines.length - 1];
     if (!newest) return {};
     return {
@@ -152,7 +154,7 @@ export async function currentReadings(): Promise<{
 
 export async function currentBaselines(): Promise<Baselines> {
   try {
-    const lines = parseLogLines(await readFile(sensorLogPath(), "utf8"));
+    const lines = parseLogLines(await readFileWithRetry(sensorLogPath()));
     return computeBaselines(lines);
   } catch {
     return computeBaselines([]);

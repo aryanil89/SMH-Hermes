@@ -17,12 +17,22 @@ A third consumer sits alongside the agent: the **live operations wall**
 read-only web page for the demo table. It calls the same functions the tools call, so it cannot
 disagree with the agent; it never writes; and it is loopback-only, so it survives the WiFi cut.
 
-Alongside the pull-based tools above, a Hermes cron job watches the environmental data every 5 min
-and proactively pushes a Telegram alert when a threshold is crossed or recovers. It runs in
-**`--no-agent` script mode** ([cron/environmental-watch.py](cron/environmental-watch.py)), so no LLM
-runs on a tick and silence is the default — see
-[Proactive alerting](../docs/HARDWARE_UTILIZATION.md#proactive-alerting) and, to test it end to end,
-[../docs/E2E_TEST.md](../docs/E2E_TEST.md).
+Alongside the pull-based tools above, a **persistent watchdog loop**
+([src/alert-skill/watch-loop.ts](src/alert-skill/watch-loop.ts)) watches the environmental data
+**every 15s** and proactively pushes a Telegram alert when a threshold is crossed or recovers. No
+LLM runs on a tick and silence is the default.
+
+```powershell
+npm run start:watch                       # foreground
+curl.exe -s http://127.0.0.1:7789/health  # ticks, lastSource, canDeliver
+```
+
+It replaced a `hermes cron` job that could not tick faster than ~2 minutes whatever schedule it was
+given; the one-shot CLI (`dist/alert-skill/check-environmental.js`) still exists and shares the same
+tick code, so the cron path still works — but **run only one of the two**, or the on-call is paged
+twice. Full rationale, measurements and cutover: [../docs/WATCHDOG.md](../docs/WATCHDOG.md). Also
+see [Proactive alerting](../docs/HARDWARE_UTILIZATION.md#proactive-alerting) and, to test it end to
+end, [../docs/E2E_TEST.md](../docs/E2E_TEST.md).
 
 See [../docs/HARDWARE_UTILIZATION.md](../docs/HARDWARE_UTILIZATION.md) for the rationale on the
 mock/real split.
@@ -118,6 +128,34 @@ level detection means putting `distance_mm` back on the tick, board-side.
 
 Background on the push pipeline:
 [../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md).
+
+### One decimal place, applied on the way in
+
+Every measurement that leaves this package — temperature, humidity, distance, and the mock
+network / storage / compute telemetry — carries **at most one decimal place**. The board logs raw
+Modulino floats (`"temperature_c": 25.081483840942383`); the operator hears `25.1C`. Helpers:
+[src/common/round.ts](src/common/round.ts) — `round1()` for values, `fixed1()` for display text.
+
+The rounding happens where a reading is **read**, not where it is printed. That ordering is the
+whole point:
+
+- The agent, the threshold comparison, the alert text and the wall all quote **one number**. Round
+  at each display instead and the alert can read `Temperature 30.0C` next to an `ok` badge, because
+  the raw 29.96 never crossed the 30 threshold the badge was computed from.
+- The live case is the level leak. [file-source.ts](src/environmental/file-source.ts) rounds
+  `distance_mm` **before** comparing it to `UNOQ_LEAK_DISTANCE_MM`, so a raw 149.96 against a 150mm
+  threshold reports `150` **and** `leakDetected: false` — agreeing with itself — instead of paging a
+  leak while displaying a distance that reads as exactly at the line. Pinned by test in
+  [src/common/round.test.ts](src/common/round.test.ts).
+
+One decimal is an order of magnitude finer than any decision the data drives: every threshold in the
+system is an integer (temperature warns at 30, packet loss at 1), and the learned baselines
+(`rules/baseline.ts`) are rounded too, because they get quoted back at the operator as facts about
+the room. Deliberately **not** rounded: face embeddings in `access/roster.ts`, which keep 3 decimals
+— those are compared to each other, never shown to anyone.
+
+`round1()` leaves whole numbers whole (`25`, not `25.0`) so JSON stays honest about precision;
+`fixed1()` pads for text, so a 22 and a 22.4 in consecutive alerts don't read as two instruments.
 
 **Wired into Hermes and verified end to end** (2026-08-03) — the four status servers are registered in
 `%LOCALAPPDATA%\hermes\config.yaml` and have been exercised over the NPU-served endpoint with real

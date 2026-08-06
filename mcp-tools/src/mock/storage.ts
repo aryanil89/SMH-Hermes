@@ -1,4 +1,5 @@
-import { createRng, range, chance, round2, type Rng } from "../common/rng.js";
+import { createRng, range, chance, type Rng } from "../common/rng.js";
+import { round1 } from "../common/round.js";
 import { statusForValue, worstStatus } from "../common/alerts.js";
 import { STORAGE_THRESHOLDS } from "../common/thresholds.js";
 import {
@@ -6,8 +7,7 @@ import {
   backupDelayMin,
   backupThroughputMbs,
   storageLatencyMs,
-  thermalExcessC,
-} from "../common/thermal.js";
+  thermalExcessC } from "../common/thermal.js";
 import type { Status } from "../common/types.js";
 
 export interface StorageVolume {
@@ -64,8 +64,7 @@ export function generateStorageReport(opts: GenerateStorageOptions = {}): Storag
     generatedAt: new Date().toISOString(),
     volumes,
     overallStatus: worstStatus(...volumes.map((v) => v.status)),
-    ...(opts.ambientC !== undefined ? { ambientC: round2(opts.ambientC) } : {}),
-  };
+    ...(opts.ambientC !== undefined ? { ambientC: round1(opts.ambientC) } : {}) };
 }
 
 /**
@@ -109,12 +108,11 @@ function buildVolume(rng: Rng, id: string, zone: string, ambientC?: number): Sto
   return {
     id,
     zone,
-    capacityUsedPct: round2(capacityUsedPct),
-    failureRiskScore: round2(failureRiskScore),
-    latencyMs: round2(latencyMs),
-    backupThroughputMbs: round2(throughput),
-    backupDelayMin: round2(delayMin),
+    capacityUsedPct: round1(capacityUsedPct),
+    failureRiskScore: round1(failureRiskScore),
+    latencyMs: round1(latencyMs),
+    backupThroughputMbs: round1(throughput),
+    backupDelayMin: round1(delayMin),
     thermallyAffected: affected && excessC > 0,
-    status,
-  };
+    status };
 }

@@ -1,0 +1,8 @@
+name: ack
+description: >-
+  Replies to an inbound Telegram message the moment it lands, with a one-line
+  receipt written by the local model that names what was asked and carries the
+  measured wait estimate. Learns the estimate from this session's own turns.
+events:
+  - agent:start
+  - agent:end

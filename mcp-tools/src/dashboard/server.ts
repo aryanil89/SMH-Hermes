@@ -22,16 +22,20 @@
  *   ALERT_STATE_PATH     watchdog state file the phone panel mirrors
  *   TELEGRAM_BOT_LABEL   name shown on the phone panel (default "Hermes Ops")
  *
- * Phone -> wall messages (all optional; without one the thread is outbound-only,
- * and the panel says so rather than just looking quiet):
- *   TELEGRAM_WALL_BOT_TOKEN  a SECOND bot, polled by the wall. Preferred -- it
- *                            cannot collide with `hermes gateway`
+ * Phone -> wall messages. The gateway transcript bridge is on by default and
+ * needs no configuration; the rest are alternatives for a machine without Hermes:
+ *   HERMES_STATE_DB          the Hermes transcript to mirror. Auto-detected from
+ *                            HERMES_HOME / %LOCALAPPDATA%\hermes; HERMES_BRIDGE=0
+ *                            turns it off. See gateway-bridge.ts
+ *   TELEGRAM_WALL_BOT_TOKEN  a SECOND bot, polled by the wall. Cannot collide
+ *                            with `hermes gateway`
  *   TELEGRAM_POLL=1          poll the shared TELEGRAM_BOT_TOKEN instead. Only
  *                            safe when the gateway is NOT running; see
  *                            telegram-poll.ts
  *   TELEGRAM_ALLOWED_USERS   comma-separated numeric ids allowed on the wall
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { envPositive } from "../common/env.js";
 import { exec } from "node:child_process";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -41,6 +45,7 @@ import { fileURLToPath } from "node:url";
 import { AccessSentry } from "../access/sentry.js";
 import { THERMAL_ZONE } from "../common/thermal.js";
 import { drainSentNotifications } from "../access/notify.js";
+import { HermesGatewayBridge, mergeInbound, resolveHermesStateDb } from "./gateway-bridge.js";
 import { SnapshotBuilder } from "./snapshot.js";
 import { TelegramFeed } from "./telegram-feed.js";
 import { TelegramPoller, allowedUsers, resolveInboundToken } from "./telegram-poll.js";
@@ -60,14 +65,18 @@ if (!process.env.UNOQ_SENSOR_LOG && existsSync(DEFAULT_SENSOR_LOG)) {
   process.env.UNOQ_SENSOR_LOG = DEFAULT_SENSOR_LOG;
 }
 
-const PORT = Number(process.env.DASHBOARD_PORT ?? 7788);
+const PORT = envPositive("DASHBOARD_PORT", 7788);
 const HOST = process.env.DASHBOARD_HOST ?? "127.0.0.1";
 /** This is a demo-table display meant to be looked at, so open it by default. Opt out for a
  *  headless run (e.g. before a projector is connected) with DASHBOARD_OPEN_BROWSER=0. */
 const OPEN_BROWSER = process.env.DASHBOARD_OPEN_BROWSER !== "0";
 // Floored: a sub-250ms cadence buys nothing visually and turns the log tail into
 // a busy loop on a machine that is also running NPU inference.
-const TICK_MS = Math.max(250, Number(process.env.DASHBOARD_TICK_MS ?? 2000));
+//
+// envPositive, not Number(): `Math.max(250, NaN)` is NaN and `setInterval(NaN)`
+// is treated as 1ms, so a typo in DASHBOARD_TICK_MS produced exactly the busy
+// loop the floor above exists to prevent. See common/env.ts.
+const TICK_MS = Math.max(250, envPositive("DASHBOARD_TICK_MS", 2000));
 const SENSOR_LOG = process.env.UNOQ_SENSOR_LOG ?? DEFAULT_SENSOR_LOG;
 const STATE_PATH = process.env.ALERT_STATE_PATH ?? DEFAULT_STATE_PATH;
 /** Ingest bodies are one chat message; anything larger is a mistake or an attack. */
@@ -101,6 +110,42 @@ const MIME: Record<string, string> = {
 const inbound = resolveInboundToken();
 let poller: TelegramPoller | undefined;
 
+/**
+ * The default inbound source: Hermes's own durable transcript, read-only.
+ *
+ * This is what makes the thread two-directional out of the box. The gateway
+ * already owns the bot token and already writes down every message it carried,
+ * so mirroring that file gives the panel real phone → server traffic without a
+ * second bot and without a `getUpdates` consumer fighting the agent for updates.
+ */
+const stateDb = resolveHermesStateDb();
+// A junk value here must fall back to the default rather than reach SQLite as a
+// NaN bind, which fails the read and takes the whole inbound path down.
+const backfill = Number(process.env.HERMES_BRIDGE_BACKFILL?.trim() || Number.NaN);
+const bridge = stateDb
+  ? new HermesGatewayBridge({
+      dbPath: stateDb,
+      ...(Number.isFinite(backfill) ? { backfill: Math.max(0, Math.trunc(backfill)) } : {}),
+    })
+  : undefined;
+
+function inboundStatus(): { mode: string; detail: string; bot: string } {
+  const merged = mergeInbound(
+    bridge?.getStatus(),
+    poller?.getStatus() ??
+      (inbound ? { mode: "starting", detail: "starting", bot: inbound.bot } : undefined),
+  );
+  return (
+    merged ?? {
+      mode: "off",
+      detail:
+        "No Hermes transcript found and no wall bot configured, so questions typed on the phone " +
+        "do not reach this panel. Set HERMES_STATE_DB, or TELEGRAM_WALL_BOT_TOKEN, or POST to /api/telegram.",
+      bot: "none",
+    }
+  );
+}
+
 const telegram: TelegramFeed = new TelegramFeed({
   statePath: STATE_PATH,
   botLabel: process.env.TELEGRAM_BOT_LABEL ?? "Hermes Ops",
@@ -109,7 +154,7 @@ const telegram: TelegramFeed = new TelegramFeed({
   // The access sentry pages the phone directly; this is how those real sends
   // reach the panel instead of only the cron watchdog's alerts.
   drainOutbound: () => drainSentNotifications(),
-  ...(inbound ? { inboundStatus: () => poller?.getStatus() ?? { mode: "starting", detail: "starting", bot: inbound.bot } } : {}),
+  inboundStatus,
 });
 
 if (inbound) {
@@ -156,6 +201,12 @@ async function tick(): Promise<void> {
   if (building) return;
   building = true;
   try {
+    // Before the snapshot, not after: a message pulled from the gateway
+    // transcript has to be in the feed that this tick is about to publish, or it
+    // shows up 2s late next to a phone that is in the same shot.
+    if (bridge) {
+      for (const message of await bridge.drain()) telegram.ingest(message);
+    }
     latest = await builder.build();
     broadcast(latest);
   } catch (err) {
@@ -556,6 +607,14 @@ async function main(): Promise<void> {
     console.log(`[dashboard] alert state: ${STATE_PATH}`);
     console.log(`[dashboard] tick        : ${TICK_MS}ms`);
 
+    if (bridge) {
+      console.log(`[dashboard] gateway     : mirroring phone traffic from ${stateDb}`);
+    } else {
+      console.log(
+        "[dashboard] gateway     : no Hermes transcript found (set HERMES_STATE_DB to point at one)",
+      );
+    }
+
     if (poller && inbound) {
       poller.start();
       console.log(`[dashboard] telegram in : polling the ${inbound.bot} bot for phone messages`);
@@ -570,7 +629,7 @@ async function main(): Promise<void> {
       }
     } else {
       console.log(
-        "[dashboard] telegram in : off (set TELEGRAM_WALL_BOT_TOKEN, or POST /api/telegram)",
+        "[dashboard] telegram in : no wall bot (the gateway bridge above is the usual source)",
       );
     }
 
@@ -580,6 +639,7 @@ async function main(): Promise<void> {
   const shutdown = (): void => {
     clearInterval(timer);
     poller?.stop();
+    bridge?.close();
     for (const client of clients) client.end();
     server.close(() => process.exit(0));
   };

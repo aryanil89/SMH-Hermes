@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { round1 } from "../common/round.js";
 import type { EnvironmentalReading } from "./types.js";
 
 export class UnoQSensorError extends Error {}
@@ -79,7 +80,9 @@ function parseSensorPayload(raw: string): EnvironmentalReading {
     throw new UnoQSensorError(`sensor payload missing numeric temperature_c/humidity_pct: ${raw.slice(0, 200)}`);
   }
 
-  return { temperatureC, humidityPct, leakDetected };
+  // Same rounding as the log path -- the SSH pull is a fallback for the same
+  // sensors, so it must not report them to a different precision.
+  return { temperatureC: round1(temperatureC), humidityPct: round1(humidityPct), leakDetected };
 }
 
 function defaultSshExec(cmd: string, args: string[], timeoutMs: number): Promise<string> {

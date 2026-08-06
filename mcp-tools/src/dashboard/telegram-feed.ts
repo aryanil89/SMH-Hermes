@@ -4,6 +4,7 @@ import { readState, type AlertState } from "../alert-skill/state-store.js";
 import { summarizeReading } from "../alert-skill/summarize.js";
 import type { EnvironmentalResult } from "../environmental/types.js";
 import type { TelegramMessage, TelegramView } from "./types.js";
+import { probeWatchRunner, type WatchRunner } from "./watch-health.js";
 
 /**
  * What the on-call phone is showing, reconstructed from the alert pipeline
@@ -11,13 +12,14 @@ import type { TelegramMessage, TelegramView } from "./types.js";
  *
  * There are three ways a message gets onto this panel, and the panel says which:
  *
- *  1. `watchdog`, delivered -- the cron job's persisted state file changed, which
+ *  1. `watchdog`, delivered -- the watchdog's persisted state file changed, which
  *     only happens when a tick actually decided to send. This is evidence of a
  *     real delivery, observed after the fact.
- *  2. `watchdog`, queued -- running the *same* `decideAlert` the cron job runs
- *     says an alert is due right now. The watchdog fires every 5 minutes, so the
- *     wall knows before the phone does. Rendered greyed and marked queued: the
- *     display must never claim a delivery that has not happened.
+ *  2. `watchdog`, queued -- running the *same* `decideAlert` the watchdog runs
+ *     says an alert is due right now. The wall ticks every 2s and the watchdog
+ *     every 15s (watch-loop.ts) or every ~2 min (hermes cron), so the wall knows
+ *     before the phone does. Rendered greyed and marked queued: the display must
+ *     never claim a delivery that has not happened.
  *  3. `gateway` -- posted in over `POST /api/telegram` by whatever is bridging
  *     the real Hermes gateway. These are verbatim, both directions.
  *
@@ -47,6 +49,11 @@ export interface TelegramFeedOptions {
   drainOutbound?: () => OutboundSend[];
   /** Live status of the inbound path, for the panel to report honestly. */
   inboundStatus?: () => InboundReport;
+  /**
+   * Asks which watchdog process is actually alive. Injected so tests do not open
+   * a socket, and defaulted to the real loopback probe.
+   */
+  watchRunner?: (now: Date) => Promise<WatchRunner>;
 }
 
 export interface OutboundSend {
@@ -118,7 +125,7 @@ export class TelegramFeed {
         text: stateFound
           ? `Wall display attached. Watchdog state: ${state.lastStatus.toUpperCase()}` +
             (state.lastAlertedAt ? `, last alert ${state.lastAlertedAt}.` : ", no alert on record.")
-          : "Wall display attached. No watchdog state file yet -- the cron job has not run since install.",
+          : "Wall display attached. No watchdog state file yet -- no watchdog tick has run since install.",
         delivered: true,
       });
     } else {
@@ -134,6 +141,11 @@ export class TelegramFeed {
       previous: state,
       now,
       summary,
+      // Passed for the same reason the watchdog passes it: the panel's "queued"
+      // bubble is a prediction of what the watchdog will do, so it has to be
+      // made from the same inputs. Without this the wall would promise a page
+      // off a mock reading that the watchdog will correctly refuse to send.
+      readingTrusted: reading.source === "real",
     });
 
     let pending: TelegramMessage | undefined;
@@ -154,6 +166,7 @@ export class TelegramFeed {
     }
 
     const lastAlertMs = state.lastAlertedAt ? Date.parse(state.lastAlertedAt) : Number.NaN;
+    const runner = await (this.opts.watchRunner ?? probeWatchRunner)(now);
 
     return {
       botLabel: this.opts.botLabel,
@@ -167,6 +180,7 @@ export class TelegramFeed {
         ...(Number.isNaN(lastAlertMs)
           ? {}
           : { lastAlertAgeSeconds: Math.max(0, Math.round((now.getTime() - lastAlertMs) / 1000)) }),
+        runner,
       },
       ...(pending ? { pending } : {}),
       inbound: this.opts.inboundStatus?.() ?? {

@@ -7,7 +7,8 @@
  * "thermal, not network" and be right, instead of blaming everything at once.
  * Do not add thermal coupling here -- it would destroy the discriminating signal.
  */
-import { createRng, range, chance, round2, type Rng } from "../common/rng.js";
+import { createRng, range, chance, type Rng } from "../common/rng.js";
+import { round1 } from "../common/round.js";
 import { statusForValue, worstStatus } from "../common/alerts.js";
 import { NETWORK_THRESHOLDS } from "../common/thresholds.js";
 import type { Status } from "../common/types.js";
@@ -54,8 +55,7 @@ export function generateNetworkReport(opts: GenerateNetworkOptions = {}): Networ
   return {
     generatedAt: new Date().toISOString(),
     links,
-    overallStatus: worstStatus(...links.map((l) => l.status)),
-  };
+    overallStatus: worstStatus(...links.map((l) => l.status)) };
 }
 
 /**
@@ -90,9 +90,8 @@ function buildLink(rng: Rng, from: string, to: string): NetworkLink {
     id: `${from}--${to}`,
     from,
     to,
-    latencyMs: round2(latencyMs),
-    packetLossPct: round2(packetLossPct),
+    latencyMs: round1(latencyMs),
+    packetLossPct: round1(packetLossPct),
     connected,
-    status,
-  };
+    status };
 }

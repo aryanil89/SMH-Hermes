@@ -75,6 +75,12 @@ node "$R\mcp-tools\dist\alert-skill\check-environmental.js" --json
 says which. Fix layer 1; do not proceed. A mock reading will still produce a perfectly convincing
 Telegram alert, which is exactly why this check exists.
 
+**Also expect one decimal at most** on `temperatureC` / `humidityPct` / `distanceMm` — `25.1`, not
+`25.081483840942383`. The raw log line behind it (layer 1) will show the long float; that's correct,
+the cut happens on this side. Seeing a long float *here* means the tool servers are running stale
+`dist/` — rebuild (`npm run build` in `mcp-tools`) and restart the gateway, or the wall and the
+agent can end up quoting the same sample differently.
+
 ## Layer 3 — GenieX is serving the model on the NPU
 
 **Test** (start the server if it isn't up)
@@ -150,8 +156,30 @@ user ID is allowlisted and set as the home channel (`/sethome`).
 
 **Test** From the phone, message the bot: *"what's the temperature in rack B1?"*
 
-**Expect** tool-call progress lines, then a real answer. **2–4 minutes** is normal. Scope demo
-questions to a single tool call.
+**Expect two replies.** First an *italic* receipt within ~2 s naming what you asked and giving a
+wait estimate — *"Pulling the temperature data from rack B1 now — about a minute."* Then
+tool-call progress lines and a real answer. **2–4 minutes** is normal. Scope demo questions to a
+single tool call.
+
+**The receipt splits this layer's failure mode in two, which is the point of testing for it:**
+
+| What you see | What it means |
+|---|---|
+| Receipt, then answer | Everything works. |
+| Receipt, no answer | The gateway received you and reached the model server; the **turn** failed. Go to layer 3. |
+| No receipt, no answer | It never got that far — gateway down, allowlist, or Telegram. Layers 5 and below. |
+| Answer with no receipt | The hook isn't loaded. Everything else is fine. |
+
+Verify the hook first, offline, so a missing receipt is unambiguous when it happens:
+
+```powershell
+$py = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe"
+Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.log"
+& $py "$R\hermes-hooks\ack\handler.py" --try "what's the temperature in rack B1?"
+```
+
+`--try` prints the receipt it would send and its latency without touching Telegram. Missing hook
+→ `scripts\install-hermes-hooks.ps1`.
 
 **If it fails** but layers 4 and 5 pass, the gateway is the problem:
 ```powershell
@@ -159,42 +187,58 @@ questions to a single tool call.
 Get-Content "$env:LOCALAPPDATA\hermes\gateway-starts.log" -Tail 5
 ```
 
-## Layer 7 — the proactive watchdog, via the SCHEDULER
+## Layer 7 — the proactive watchdog
 
-**This is the layer that gave a false pass before. Do not shortcut it.**
+**This is the layer that gave a false pass before. Do not shortcut it.** Verify the watchdog that
+is *actually running*, never a one-off manual invocation — a hand-run tick inherits your shell's
+environment and proves nothing about the supervised one.
 
-**7a. Job is wired correctly**
+**7a. Exactly one watchdog is running**
 ```powershell
-& $H cron list
+curl.exe -s http://127.0.0.1:7789/health | ConvertFrom-Json |
+  Select-Object ticks, failures, lastTickAt, lastStatus, lastSource, intervalMs, canDeliver
+& $H cron list        # 'Environmental watch' must be ABSENT or disabled
 ```
-**Expect** `Environmental watch`, `every 5m`, `Script: environmental-watch.py`,
-`Mode: no-agent`, deliver `telegram`.
-**It must be `.py`, never `.sh`** — Hermes picks the interpreter by extension, and on this box
-`bash` resolves only to WSL launchers whose default distro (`docker-desktop`) has no `/bin/bash`,
-so a `.sh` fails every tick with
+**Expect** `intervalMs=15000`, `canDeliver=True`, `lastSource=real`, `failures=0`, and **no**
+enabled cron job. Two watchdogs means every page arrives twice and the cooldowns race —
+`install-autostart.ps1` refuses to install the loop while the cron job is enabled, but a job
+re-created by hand afterwards will not be caught.
+
+If the loop is not the path in use, the legacy cron checks still apply: `& $H cron list` must show
+`Environmental watch`, `every 1m` (it will really fire every ~120s), `Script:
+environmental-watch.py`, `Mode: no-agent`, deliver `telegram`. **It must be `.py`, never `.sh`** —
+Hermes picks the interpreter by extension, and on this box `bash` resolves only to WSL launchers
+whose default distro (`docker-desktop`) has no `/bin/bash`, so a `.sh` fails every tick with
 `WSL (9 - Relay) ERROR: ... execvpe(/bin/bash) failed`.
 
-**7b. A real tick succeeds and stays quiet**
+**7b. Ticks advance and stay quiet**
 ```powershell
-$f = "$env:LOCALAPPDATA\hermes\cron\jobs.json"
-$b = (Get-Content $f -Raw | ConvertFrom-Json).jobs[0].last_run_at
-do { Start-Sleep 10; $j = (Get-Content $f -Raw | ConvertFrom-Json).jobs[0] } while ($j.last_run_at -eq $b)
-"status=$($j.last_status)  err=$($j.last_error)"
+$a = (curl.exe -s http://127.0.0.1:7789/health | ConvertFrom-Json).ticks
+Start-Sleep 35
+$b = (curl.exe -s http://127.0.0.1:7789/health | ConvertFrom-Json)
+"ticks $a -> $($b.ticks)  failures=$($b.failures)  skipped=$($b.skipped)  err=$($b.lastError)"
 ```
-**Expect** `status=ok`, empty error, **no Telegram message** (nothing is wrong, so silence is
-correct). The run's file under `cron\output\<job_id>\` should say `Status: silent (empty output)`.
+**Expect** `ticks` up by 2–3 in 35s, `failures=0`, `skipped=0`, **no Telegram message** (nothing is
+wrong, so silence is correct).
 
-**If it fails** the `last_error` is the whole diagnosis — it is verbatim stderr from the script.
+**If `failures` is climbing**, `lastError` on the health endpoint is the whole diagnosis. The loop
+logs and continues by design, so a rising count is the only visible symptom.
 
-**7c. Delivery actually works** — force one recovery alert. The run resets the state itself, so
+**7c. Delivery actually works** — force one recovery alert. The tick resets the state itself, so
 this is self-reverting and needs no fake sensor data:
 ```powershell
 $s = "$R\mcp-tools\.state\environmental-watch.json"
 [System.IO.File]::WriteAllText($s, '{"lastStatus":"critical"}', (New-Object System.Text.UTF8Encoding($false)))
-# then wait for the next tick exactly as in 7b
+Start-Sleep 20
 ```
-**Expect** a Telegram push: *"Environmental status has recovered to OK (was CRITICAL). …"*, and the
-state file back to `{"lastStatus": "ok"}`.
+**Expect** a Telegram push within ~15s: *"Environmental status has recovered to OK (was CRITICAL).
+…"*, `delivered` up by one on the health endpoint, and the state file back to `{"lastStatus":
+"ok"}`.
+
+⚠️ **This only fires if the reading is real.** A mock reading (`lastSource: "mock"` in 7a) is
+deliberately inert — it can neither raise nor clear an alarm — so with the board down this test
+correctly does nothing. That is the fix for the false "recovered to OK" of 2026-08-05; see
+[WATCHDOG.md §7](WATCHDOG.md#7-the-false-all-clear-and-the-two-defences-against-it).
 
 > **Write it BOM-free.** PowerShell 5.1's `Set-Content -Encoding utf8` adds a UTF-8 BOM, which makes
 > `JSON.parse` fail in `readState`; it silently defaults to `ok`, no recovery fires, and the tick
@@ -209,14 +253,14 @@ quick tap will recover far sooner than the 5 minutes described below.)
 
 **Expect**
 1. A `leak_detected` line appears in the log within ~10 s (re-run layer 1 to see it).
-2. On the next tick — **up to 5 minutes** — the phone gets
+2. On the next tick — **~15–30 s total**, transport included — the phone gets
    *"Environmental status is now CRITICAL. … LEAK DETECTED …"*.
 3. ~5–10 minutes later, a **one-time** *"recovered to OK"* push, because the leak event ages out of
    its 5-minute window. **That is the edge-triggered recovery working, not a bug** — say so on
    stage before it lands.
 
-**If nothing arrives** work backwards: log line present? (layer 1) → tick succeeded? (7b) →
-delivery works? (7c).
+**If nothing arrives** work backwards: log line present? (layer 1) → is a watchdog running and
+ticking? (7a, 7b) → delivery works? (7c).
 
 ---
 
@@ -247,8 +291,11 @@ environmental tool applies, which is exactly why it fires here first.
 **The check that actually matters** — the wall and the phone must agree. During layer 8, watch the
 Telegram panel:
 
-1. On `leak_detected`, a **greyed, dashed** bubble appears marked *"queued · next watchdog tick"*.
-   The wall knows before the phone does; it must not claim a delivery.
+1. On `leak_detected`, a **greyed, dashed** bubble appears marked *"queued · next tick ≤ 15s"*.
+   The wall knows before the phone does; it must not claim a delivery. (The cadence in that tag is
+   probed from the loop's health endpoint. If it reads *"queued · next watchdog tick"* with the
+   **Watchdog process** row showing `no loop detected`, the loop is down — that is layer 7a
+   failing, and the wall is telling you so rather than guessing.)
 2. When the real tick fires, that same bubble turns solid and marked *"watchdog · sent"* — with
    **identical text** to what landed on the phone. Compare them character for character; both are
    built from `src/alert-skill/summarize.ts`.
@@ -334,8 +381,11 @@ $l = Get-Content "$R\arduino_uno_q-sensor_log.json" -Tail 1 | ConvertFrom-Json
 # 2. reading real, not mock?
 (node "$R\mcp-tools\dist\alert-skill\check-environmental.js" --json | ConvertFrom-Json).reading.source
 
-# 3. model serving?
-(curl -s http://127.0.0.1:18181/v1/models) -ne $null
+# 3. model serving? NOT `curl /v1/models` -- that probe queues behind an in-flight
+#    completion and hangs for minutes. This sends a request GenieX will actually serve,
+#    and doubles as a check that message receipts work.
+& "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe" `
+    "$R\hermes-hooks\ack\handler.py" --try "pre-stage check"
 
 # 4. gateway + cron healthy?
 & $H cron status

@@ -1,4 +1,6 @@
 import { open, stat } from "node:fs/promises";
+import { withReadRetry } from "../common/read-retry.js";
+import { round1 } from "../common/round.js";
 import { parseSensorLogLine, type SensorLogLine } from "../environmental/file-source.js";
 import { EVENT_CHANNELS } from "../rules/channels.js";
 import type { ChannelState, ChannelView, ClimatePoint, SensorEvent } from "./types.js";
@@ -111,24 +113,32 @@ const UNKNOWN: ChannelView = { state: "unknown", observed: false };
  * garbage -- or worse, as a valid record with a mangled timestamp.
  */
 async function readTail(path: string): Promise<{ text: string; size: number; windowed: boolean }> {
-  const info = await stat(path);
-  const size = info.size;
-  const start = Math.max(0, size - MAX_TAIL_BYTES);
-  const length = size - start;
-  const handle = await open(path, "r");
-  try {
-    const buffer = Buffer.alloc(length);
-    if (length > 0) await handle.read(buffer, 0, length, start);
-    let text = buffer.toString("utf8");
-    const windowed = start > 0;
-    if (windowed) {
-      const firstBreak = text.indexOf("\n");
-      text = firstBreak >= 0 ? text.slice(firstBreak + 1) : "";
+  // Retried as a unit: the push replaces this file wholesale every ~10s, and
+  // losing that race on Windows surfaces as EBUSY on either the stat or the
+  // open. Retrying the whole read (rather than each syscall) also guarantees the
+  // size and the bytes come from the same generation of the file -- a stat from
+  // before the replace paired with an open from after it would slice the window
+  // at the wrong offset. See common/read-retry.ts.
+  return withReadRetry(async () => {
+    const info = await stat(path);
+    const size = info.size;
+    const start = Math.max(0, size - MAX_TAIL_BYTES);
+    const length = size - start;
+    const handle = await open(path, "r");
+    try {
+      const buffer = Buffer.alloc(length);
+      if (length > 0) await handle.read(buffer, 0, length, start);
+      let text = buffer.toString("utf8");
+      const windowed = start > 0;
+      if (windowed) {
+        const firstBreak = text.indexOf("\n");
+        text = firstBreak >= 0 ? text.slice(firstBreak + 1) : "";
+      }
+      return { text, size, windowed };
+    } finally {
+      await handle.close();
     }
-    return { text, size, windowed };
-  } finally {
-    await handle.close();
-  }
+  });
 }
 
 /**
@@ -213,10 +223,13 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
     eventCounts[line.event] = (eventCounts[line.event] ?? 0) + 1;
   }
 
+  // The wall reads the log itself rather than going through the environmental
+  // tool, so it has to apply the same rounding the tool does -- otherwise the
+  // sparkline and the agent quote the same sample to different precision.
   const climate: ClimatePoint[] = lines.slice(-CLIMATE_POINTS).map((line) => ({
     at: line.timestamp,
-    temperatureC: line.temperature_c,
-    humidityPct: line.humidity_pct,
+    temperatureC: round1(line.temperature_c),
+    humidityPct: round1(line.humidity_pct),
   }));
 
   // Newest first: the feed reads top-down like a console.
@@ -230,10 +243,10 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
       id: `${line.timestamp}|${line.event}`,
       at: line.timestamp,
       event: line.event,
-      temperatureC: line.temperature_c,
-      humidityPct: line.humidity_pct,
+      temperatureC: round1(line.temperature_c),
+      humidityPct: round1(line.humidity_pct),
       ...(typeof line.distance_mm === "number" && line.distance_mm >= 0
-        ? { distanceMm: line.distance_mm }
+        ? { distanceMm: round1(line.distance_mm) }
         : {}),
     }))
     .reverse();
@@ -259,7 +272,7 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
     lastLineAt: latest.timestamp,
     ...(Number.isNaN(latestMs) ? {} : { ageSeconds: Math.max(0, Math.round((nowMs - latestMs) / 1000)) }),
     ...(distanceLine
-      ? { distanceMm: distanceLine.distance_mm, distanceAt: distanceLine.timestamp }
+      ? { distanceMm: round1(distanceLine.distance_mm as number), distanceAt: distanceLine.timestamp }
       : {}),
     // From every line in the window, deliberately -- not from `events`, which is
     // capped for the display.

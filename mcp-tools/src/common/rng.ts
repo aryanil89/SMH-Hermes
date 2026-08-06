@@ -76,6 +76,6 @@ export function pick<T>(rng: Rng, items: readonly T[]): T {
   return items[idx] as T;
 }
 
-export function round2(n: number): number {
-  return Math.round(n * 100) / 100;
-}
+// Rounding moved to common/round.ts and went from 2dp to 1dp: a generated
+// `latencyMs: 12.47` is fake precision the same way a raw sensor float is, and
+// mixing 2dp telemetry with 1dp readings in one alert reads as a bug.

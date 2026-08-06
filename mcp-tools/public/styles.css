@@ -1323,6 +1323,10 @@ svg {
   border-radius: 3px;
 }
 
+/* Direction is the layout: server → phone hangs off the left rail, phone →
+   server off the right, the way every chat client on the demo phone already
+   behaves. The tag under each bubble spells it out too, because a screenshot of
+   one bubble has no other side to compare against. */
 .bubble {
   max-width: 88%;
   padding: 7px 10px 6px;
@@ -1332,6 +1336,7 @@ svg {
   background: var(--surface-3);
   color: var(--ink-1);
   align-self: flex-start;
+  text-align: left;
   border-bottom-left-radius: 4px;
   word-break: break-word;
 }
@@ -1341,6 +1346,12 @@ svg {
   background: #1d4f3c;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 4px;
+}
+
+/* The meta row hugs the same edge as its bubble, so the two sides stay legible
+   as two columns rather than one ragged block. */
+.bubble--inbound .bubble-meta {
+  justify-content: flex-end;
 }
 
 .bubble--alert {
@@ -1684,35 +1695,87 @@ svg {
 
 /* ── Brief (overview / architecture prose layout) ───────────────────────── */
 
+/*
+ * These tabs are read off a wall, not scrolled through. The target is the demo
+ * laptop's own display -- 2560x1600 at 150%, so ~1700x950 CSS px -- and the
+ * layout below is built to land inside that in one screen: full-bleed width
+ * instead of a 900px reading column, a two-column head strip, and card rows that
+ * fan out with `auto-fit` rather than stacking. Narrow windows still get the
+ * stacked layout and the panel's own scrollbar; nothing is ever clipped away.
+ */
 .brief {
-  max-width: 900px;
+  width: 100%;
+  max-width: 1760px;
   margin: 0 auto;
-  padding: 28px 24px 40px;
+  padding: 18px 24px 22px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+}
+
+/* Sized for the wall, not for a laptop lap: everything on these tabs is a step
+   larger than the live display's chrome, because the live display is read at
+   arm's length and these are read from across the table. Scoped to `.brief` so
+   the wall's own cards keep their tighter measurements. */
+.brief .card {
+  padding: 15px 17px;
+}
+
+.brief .card-head {
+  margin-bottom: 8px;
+}
+
+.brief .card-head h3 {
+  font-size: 12.5px;
+}
+
+/* The wall's kv rows are label-left/value-right because those columns are narrow
+   and the values are numbers being scanned down. In a 550px brief card that same
+   rule strands the value half a screen from its label, so pair them instead. */
+.brief .kv {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 10px;
+  font-size: 12px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--hairline);
+}
+
+.brief .kv dd {
+  text-align: left;
+  white-space: normal;
+}
+
+/* Title and lede side by side: the lede is the one paragraph everyone reads, and
+   stacking it under a 26px title costs ~90px of a fixed height budget. */
+.brief-head {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+  gap: 6px 32px;
+  align-items: end;
 }
 
 .brief-title {
-  font-size: 26px;
+  font-size: 27px;
   font-weight: 700;
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .brief-lede {
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.6;
   color: var(--ink-2);
-  max-width: 68ch;
+  max-width: 92ch;
 }
 
 .brief-h2 {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-3);
-  margin-top: 8px;
+  margin-top: 2px;
 }
 
 .brief-grid {
@@ -1721,8 +1784,17 @@ svg {
   gap: 12px;
 }
 
+/* One row on the wall, two on a laptop window, one column on anything narrow --
+   decided by the track width rather than by a breakpoint guess. */
+.brief-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
 .brief p {
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.55;
   color: var(--ink-2);
 }
@@ -1745,16 +1817,30 @@ svg {
 .brief-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: 13.5px;
+  /* Fixed, with the widths declared below: left to itself at 1700px the middle
+     column eats the row and the "planned" column ends up pinned to the far edge,
+     which reads as two tables rather than a comparison. */
+  table-layout: fixed;
 }
 
 .brief-table th,
 .brief-table td {
   text-align: left;
-  padding: 9px 12px;
+  padding: 14px 16px;
   border-bottom: 1px solid var(--hairline);
-  line-height: 1.45;
+  line-height: 1.5;
   vertical-align: top;
+}
+
+.brief-table th:first-child,
+.brief-table td:first-child {
+  width: 12%;
+}
+
+.brief-table th:last-child,
+.brief-table td:last-child {
+  width: 40%;
 }
 
 .brief-table th {
@@ -1786,7 +1872,7 @@ svg {
   display: flex;
   align-items: stretch;
   gap: 14px;
-  padding: 18px 4px;
+  padding: 4px 4px 2px;
 }
 
 .arch-node {
@@ -1901,8 +1987,9 @@ svg {
 
 .arch-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 12px;
+  align-items: start;
 }
 
 .arch-does {
@@ -1947,10 +2034,219 @@ svg {
   color: var(--ink-2);
 }
 
+/* ── Logical architecture (what moves, in what order) ────────────────────── */
+
+/*
+ * Six stages in a row, each one a box that only knows what the box before it
+ * produced. The arrow lives in the gap as a pseudo-element rather than as its
+ * own grid item, so the stages stay a plain list -- readable in source order and
+ * still a sensible reading order when the row wraps on a narrow window.
+ */
+.flow-rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
+  gap: 12px 22px;
+  counter-reset: flow;
+}
+
+.flow-stage {
+  position: relative;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-top: 2px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 10px 12px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* The connector sits in the 22px column gap. Hidden on the last stage of each
+   visual row via the wrap-safe trick below. */
+.flow-stage::after {
+  content: "";
+  position: absolute;
+  top: 22px;
+  right: -16px;
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  border-right: 2px solid var(--rule);
+  border-top: 2px solid var(--rule);
+}
+
+.flow-stage:last-child::after {
+  display: none;
+}
+
+.flow-stage[data-tier="sense"] {
+  border-top-color: var(--series-hum);
+}
+.flow-stage[data-tier="ingest"],
+.flow-stage[data-tier="derive"] {
+  border-top-color: color-mix(in srgb, var(--series-temp) 55%, var(--rule));
+}
+.flow-stage[data-tier="reason"] {
+  border-top-color: var(--series-temp);
+}
+.flow-stage[data-tier="decide"] {
+  border-top-color: var(--warning);
+}
+.flow-stage[data-tier="surface"] {
+  border-top-color: var(--good);
+}
+
+.flow-step {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+
+.flow-stage h3 {
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.flow-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.flow-items li {
+  position: relative;
+  padding-left: 11px;
+}
+
+.flow-items li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+/* What leaves the stage, stated as a contract rather than left implicit -- the
+   next box down the rail is only allowed to use this. */
+.flow-out {
+  margin-top: auto;
+  padding-top: 7px;
+  border-top: 1px dashed var(--rule);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.flow-out span {
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-size: 9px;
+  color: var(--ink-3);
+  margin-right: 5px;
+}
+
+.flow-branches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.card[data-branch="alert"] {
+  border-color: color-mix(in srgb, var(--warning) 26%, var(--hairline));
+}
+.card[data-branch="access"] {
+  border-color: color-mix(in srgb, var(--series-temp) 26%, var(--hairline));
+}
+.card[data-branch="chat"] {
+  border-color: color-mix(in srgb, var(--good) 26%, var(--hairline));
+}
+
+/* Numbered because these are ordered steps, not a bag of facts: the order is
+   the argument in all three branches. */
+.flow-chain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0 0;
+  counter-reset: step;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.flow-chain li {
+  position: relative;
+  padding-left: 22px;
+  counter-increment: step;
+}
+
+.flow-chain li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 15px;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--rule);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+}
+
+.flow-note {
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+.flow-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.flow-facts p,
+.flow-chain code,
+.flow-items code,
+.flow-out code {
+  font-size: 11.5px;
+}
+
+.flow-chain code,
+.flow-items code,
+.flow-out code,
+.flow-note code {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--ink-1);
+}
+
 @media (max-width: 980px) {
   .brief-grid,
   .arch-cards {
     grid-template-columns: 1fr;
+  }
+
+  .brief-head {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .arch-flow {
@@ -1963,6 +2259,11 @@ svg {
   }
 
   .arch-arrow {
+    display: none;
+  }
+
+  /* A wrapped rail has no room for a connector pointing off the edge. */
+  .flow-stage::after {
     display: none;
   }
 }

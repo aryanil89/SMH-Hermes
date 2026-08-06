@@ -81,7 +81,7 @@ and how to know it worked. The flow being started:
                                    environmental = real, assessment = the one-call verdict]
                                         ↑ log file
                                   [2] Arduino UNO Q sensors → WiFi + Tailscale VPN
-                                  [5] cron watchdog → proactive Telegram alerts
+                                  [5] watchdog loop (15s) → proactive Telegram alerts
                                   [6] wall display     → local browser (read-only)
                                   [7] access terminal  → the phone (the only thing that writes)
 ```
@@ -166,13 +166,30 @@ ten-minute answer. `get_incident_assessment` does all four families plus the ris
 arithmetic in one call. Confirm it is live with `hermes -z "assess the current incident"`. If the
 laptop's existing `config.yaml` only lists four servers, this is the missing one.
 
-**6. Proactive alert job** (see [mcp-tools/cron/](mcp-tools/cron/)):
+**6. Proactive alert watchdog** — a persistent 15s loop, not a cron job (see
+[docs/WATCHDOG.md](docs/WATCHDOG.md)):
+
+```powershell
+cd mcp-tools; npm run build; cd ..
+.\scripts\install-autostart.ps1 -Only watch      # Scheduled Task SMH-Hermes-Watchdog
+curl.exe -s http://127.0.0.1:7789/health         # ticks climbing, canDeliver true
+```
+
+It needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in its environment to page; without them it
+still ticks and persists, and says so on the health endpoint and the wall.
+
+<details><summary>Legacy: the same watchdog as a Hermes cron job</summary>
 
 ```powershell
 copy mcp-tools\cron\environmental-watch.py "$env:LOCALAPPDATA\hermes\scripts\"
-hermes cron create --schedule "every 5m" --name "Environmental watch" `
+hermes cron create --schedule "every 1m" --name "Environmental watch" `
   --script environmental-watch.py --no-agent --deliver telegram
 ```
+
+Shares the same tick code, but fires every ~2 minutes no matter what schedule it is given
+(measured 120s × 415 executions at `every 1m`). **Run one watchdog, not both** — both persist
+`.state/environmental-watch.json`, so two means every page arrives twice.
+</details>
 
 **7. UNO Q app** — deploy `uno-q/hermes-sensor-logger/` to the board (see
 [uno-q/README.md](uno-q/README.md)); it auto-starts via systemd.
@@ -228,7 +245,7 @@ Why these flags:
   contract. Don't use `--compute gpu`: faster prefill, but reproducibly fails tool-enabled
   requests (GenieX preview bug).
 - **`--keepalive 3600`** — the default is **300**, which unloads the model after 5 minutes
-  idle. The cron watchdog runs `--no-agent` and never touches the model, so nothing keeps it
+  idle. The watchdog loop never touches the model, so nothing keeps it
   warm: every Telegram message after a quiet spell pays a full model reload *before* prefill.
   This is the single largest avoidable chunk of "first reply takes minutes".
 
@@ -264,6 +281,12 @@ can't, set the clock from the laptop over USB:
 $utc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss")
 adb shell "docker run --rm --user 0 --cap-add SYS_TIME --entrypoint date ghcr.io/arduino/app-bricks/python-apps-base:0.5.0 -u -s '$utc'"
 ```
+
+📏 **The log holds raw floats; everything sent is one decimal.** A tick reads
+`"temperature_c": 25.081483840942383` on disk and reaches the phone as `25.1C`. The cut happens once
+on the laptop, at ingestion, so the agent, the alert threshold, the Telegram text and the wall
+display all quote the same number —
+[mcp-tools/README.md](mcp-tools/README.md#one-decimal-place-applied-on-the-way-in).
 
 **Worked when:** `arduino_uno_q-sensor_log.json` at the repo root gets a fresh `sensor_tick` line
 every ~10–20s. If you edited the board app, redeploy over USB:
@@ -314,24 +337,52 @@ works with WiFi off, because model, agent, and tools are all local.
 ```powershell
 hermes gateway start      # background service (stop / restart / status also available)
 hermes gateway status     # expect: running, telegram connected
+
+# Message receipts — install once, and again after any `hermes update`
+powershell -ExecutionPolicy Bypass -File scripts\install-hermes-hooks.ps1
 ```
 
-**Worked when:** messaging the bot from the allowlisted phone gets an answer (2–4 min for
-tool-calling questions). Note: Telegram is the one cloud hop in the system — it relays chat text
-only; the LLM never leaves the laptop.
+**Worked when:** messaging the bot from the allowlisted phone gets **two** replies — an italic
+receipt within a couple of seconds, then the answer (2–4 min for tool-calling questions). Note:
+Telegram is the one cloud hop in the system — it relays chat text only; the LLM never leaves the
+laptop.
 
-### 5. Proactive alerts — the cron watchdog
+A turn takes 60–300 s and Hermes runs non-streaming here, so without the receipt the phone shows
+nothing at all in that window — the same silence whether the gateway is thinking, wedged, or
+dead. Telegram's `typing…` bubble doesn't fix that: it expires between refreshes and never
+reaches the notification shade. So the gateway answers twice:
 
-Already registered ("Environmental watch", every 5m, `hermes cron list` to confirm). It runs
-`check-environmental.js` with **zero LLM cost per tick** and pushes to Telegram only on a
-threshold crossing or recovery — silence is the normal state. To exercise it end to end:
+```
+> what's the temperature in rack B1?
+  Pulling the temperature data from rack B1 now — about a minute.     (~2 s, italic)
+  Rack B1 is 22.4 °C, humidity 41%, source: real (sensor age 12 s).   (~60 s, plain)
+```
+
+The receipt is one line from the same local model — it names what you asked, and carries a wait
+estimate learned from that session's own measured turns. It is generated **before** the agent's
+first model call, because GenieX serializes requests and a receipt generated afterwards would
+queue behind the answer it announces; that costs the turn ~2.3 s. It reports no findings ever
+(nothing has been looked up yet), and if the model is down or slow it still goes out, canned,
+with the estimate. Design, configuration and limits:
+[hermes-hooks/README.md](hermes-hooks/README.md).
+
+### 5. Proactive alerts — the watchdog loop
+
+A persistent process ticking every **15s** (`curl.exe -s http://127.0.0.1:7789/health` to confirm)
+with **zero LLM cost per tick**, pushing to Telegram only on a threshold crossing or recovery —
+silence is the normal state. To exercise it end to end:
 
 1. Press and **hold** button C on the UNO Q (press logs `leak_detected`; releasing logs
    `leak_cleared`, which cancels the alert rather than re-raising it). The water-level path is not
    currently reachable — see the warning in [uno-q/README.md](uno-q/README.md).
-2. Within one 5-min tick (or immediately via `hermes cron run <job-id>`): **ALERT on the phone.**
-3. ~5–10 min later: a one-time "recovered to OK" push — that's edge-triggered recovery working,
-   not a bug.
+2. **ALERT on the phone within ~15–30s** — the board pushes on a ~10s loop, and the watchdog picks
+   it up on the next tick.
+3. A one-time "recovered to OK" push once it clears — that's edge-triggered recovery working, not
+   a bug.
+
+Measured sensor-edge-to-phone: **14.2s** on a lucky press, **102.2s** on an unlucky one, back when
+this ran on `hermes cron`. The wait for the next tick was ~86% of that worst case, which is the
+whole reason the loop exists — [docs/WATCHDOG.md](docs/WATCHDOG.md) has the full budget.
 
 ⚠️ **The watchdog can now stay silent on purpose.** If an enrolled person is standing at the rack
 while an incident is live (step 7), the page is **withheld** — you are looking at the thing it
@@ -345,7 +396,10 @@ has two causes now — nothing wrong, or someone is on site. The wall says which
 A local web page for the demo table: the UNO Q and its door / lighting / leak / temperature /
 humidity state on the left, the server ingesting that feed alongside the network, storage and
 compute telemetry — and the inference it draws from them — in the middle, and the phone's Telegram
-thread on the right.
+thread on the right, **both directions** — pages the server sent on the left rail, questions the
+phone sent on the right. Three static tabs sit alongside the live one: the executive overview, the
+conceptual architecture (what the parts are) and the logical architecture (what moves, stage by
+stage).
 
 ```powershell
 cd mcp-tools
@@ -361,8 +415,13 @@ delivering, and the Ingest card carries the reason string.
 It reads the same functions the MCP tools call, so it cannot disagree with the agent; it never
 writes anything; and it is loopback-only, so it works with the WiFi off. Set
 `UNOQ_LOG_MAX_AGE_S=180` here too, to match the environmental server's env block — otherwise the
-agent falls back to mock while the wall still shows a live feed. Full reference, including how to
-put real phone traffic on the Telegram panel: **[docs/DASHBOARD.md](docs/DASHBOARD.md)**.
+agent falls back to mock while the wall still shows a live feed.
+
+The phone thread is real traffic in both directions with nothing to configure: the wall opens
+Hermes's own transcript (`%LOCALAPPDATA%\hermes\state.db`) **read-only** and mirrors it. It does not
+poll Telegram — `hermes gateway` is the single allowed consumer of that bot token, and a second
+poller would starve the agent of the very questions it exists to answer. Full reference:
+**[docs/DASHBOARD.md](docs/DASHBOARD.md)**.
 
 ### 7. The access terminal — the phone
 
@@ -416,7 +475,11 @@ Get-Item arduino_uno_q-sensor_log.json | % LastWriteTime          # [2] fresh = 
 node mcp-tools\dist\alert-skill\check-environmental.js --json     # [tools] source: real
 hermes -z "what's the temperature in rack B1?"                    # [3] agent + tools + NPU
 hermes gateway status                                             # [4] telegram connected
-hermes cron list                                                  # [5] Environmental watch active
+& "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe" `
+    hermes-hooks\ack\handler.py --try "is rack B1 hot?"           # [4] receipts work + geniex
+                                                                  #     answers (a request it
+                                                                  #     serves, unlike a probe)
+curl.exe -s http://127.0.0.1:7789/health                          # [5] watchdog ticking
 curl.exe -s http://127.0.0.1:7788/api/health                      # [6] wall display up, feed state
 curl.exe -s http://127.0.0.1:7788/api/access/state                # [7] access verdict + roster
 ```
@@ -427,8 +490,12 @@ Every row here cost us real time; none are hypothetical.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Telegram **questions** fail — *"model provider failed after retries"*; log shows `APIConnectionError … 127.0.0.1:18181` | **GenieX isn't running.** Nothing auto-starts it after a reboot | Redo step 1. Note the **cron alerts keep arriving while this is broken** — they never call the model, so "alerts are fine" is *not* evidence the agent is fine |
+| Telegram **questions** fail — *"model provider failed after retries"*; log shows `APIConnectionError … 127.0.0.1:18181` | **GenieX isn't running.** Nothing auto-starts it after a reboot | Redo step 1. Note the **watchdog alerts keep arriving while this is broken** — they never call the model, so "alerts are fine" is *not* evidence the agent is fine |
 | Replies never finalize; Hermes retries forever | The non-streaming patch was reverted — usually by `hermes update` | Re-apply the patch and keep `HERMES_FORCE_NONSTREAM=1` |
+| **No receipt arrives** — the phone is silent until the answer | The ack hook isn't loaded. Hooks are discovered at gateway **startup only**, and `hermes update` rewrites `HERMES_HOME` | `Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.log"`. Missing → re-run `scripts\install-hermes-hooks.ps1` |
+| A receipt arrives but the answer never does | Working as intended, and now visible: the receipt is sent before the model call, so it proves the gateway heard you and the *model* is what failed | Check GenieX (row 1). The receipt narrows "did it hear me?" to "it heard me and couldn't answer" |
+| Receipts are canned (*"Message received, work started"*) every time | The model call behind them is failing or timing out — usually GenieX down, or a reload taking longer than `HERMES_ACK_TIMEOUT_S` | `hermes-hooks\ack\handler.py --try "..."` prints the real error and the latency |
+| The wait estimate is obviously wrong | It is learned from that session's last five turns; a fresh session starts from the measured priors and needs a turn or two to converge | Nothing to fix. `%LOCALAPPDATA%\hermes\state\ack-hook.json` shows what it has measured |
 | `"source": "mock"`, reason *"sensor log is stale"* | Board clock is wrong. The UNO Q has **no RTC battery**, so a power-up with no reachable NTP resumes hours behind and its timestamps look ancient | On a network with NTP the boot sequence fixes this itself — just wait ~70s. With no NTP, set the clock over USB — step 2 ⚠️ |
 | Board takes over a minute to appear after power-on | Expected. Boot waits for NTP before starting Tailscale (~38s of a ~69s boot) so the VPN never comes up on a 1970 clock | Nothing to fix — budget ~70s. See [boot timing](uno-q/hermes-sensor-logger/README.md#boot-sequence-and-timing) |
 | An alert arrives with plausible-but-invented numbers | Same as above. The mock fallback labels itself honestly, but the *severity* still reads as real | Check `source` before trusting any alert. `mock` = the physical path is down |
@@ -444,10 +511,11 @@ Every row here cost us real time; none are hypothetical.
 | Phone gets **401** on Approve / Enrol | `ACCESS_SHARED_SECRET` is set on the server but missing from the phone's URL | Open `…/phone.html?secret=<the secret>` |
 | Everyone reads as `unknown` no matter what | `ACCESS_IDENTITY_METHOD` is `stub` (the default and only claimed rung) — detection-only, by design. Nothing is broken | This is expected. The loop, matrix and audit trail all run the same way; a human decides from the photo either way |
 | Access card says *"presence unobservable"* | The sensor feed is stale, so the sentry froze rather than guess | Same fix as the `source: mock` row above. It is **not** filing false audit entries while in this state |
-| First reply of a session takes minutes, later ones are faster | `--keepalive` defaults to **300s**, so the model unloads after 5 min idle. The cron runs `--no-agent`, so nothing keeps it warm | `--keepalive 3600` (step 1), or send a throwaway message a minute before presenting |
+| First reply of a session takes minutes, later ones are faster | `--keepalive` defaults to **300s**, so the model unloads after 5 min idle. The watchdog never calls the model, so nothing keeps it warm | `--keepalive 3600` (step 1), or send a throwaway message a minute before presenting |
 | `curl /v1/models` hangs for minutes | **Not a fault.** GenieX serializes all requests; your probe is queued behind a completion. Measured 654 µs idle vs 1m42s behind one | Health-check with `Get-Process geniex` + `Get-NetTCPConnection -LocalPort 18181`, never HTTP |
 | Model replies in prose and calls **no** tools at all | `tools.tool_search.enabled` is on. Qwen3-4B will not do the 3-hop `tool_search`→`tool_describe`→`tool_call` discovery dance — it answers from memory and calls nothing | Set `tool_search.enabled: "off"` so schemas are inline, then **restart the gateway** |
 | A tool that exists "does not exist"; or a code change has no effect | The gateway reads `config.yaml` **at boot only**, and MCP servers run from `mcp-tools\dist\` | Restart the gateway after any config edit; `npm run build` after any TypeScript change |
+| A reading arrives as `25.081483840942383` instead of `25.1` | The tool servers are running a `dist/` built before the rounding change. The raw log *should* look like that — the cut happens laptop-side, at ingestion ([contract](mcp-tools/README.md#one-decimal-place-applied-on-the-way-in)) | `npm run build` in `mcp-tools`, then restart the gateway — same row as above |
 | A `level` rule fired once and never again | **Working as designed** — level rules latch (`fired: true`) until the value crosses back and re-crosses | Check `fireCount` / `lastFiredAt` in `mcp-tools\.state\rule-state.json` before debugging |
 | **GenieX vanishes — no error, no dump, no log** | Observed under load on a plain 180-token request with other traffic in flight; the *server* closed the connection, then the process was gone. 17.7 GB RAM was free, so not memory pressure. **Root cause unknown**; leading suspect is an `--nctx` / `context_length` mismatch | Make those two equal, and run `scripts\geniex-supervisor.ps1` rather than trusting the process |
 
@@ -460,6 +528,12 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
   lies while the model is thinking, the flags that silently drift, `--keepalive` and the slow
   first reply, what actually drives prefill cost (measured — the sensor log does **not**), and a
   symptom→cause table
+- **[The environmental watchdog](docs/WATCHDOG.md)** — the proactive path, end to end: which
+  process is actually paging you and how to see it (`127.0.0.1:7789/health`), the measured
+  sensor-edge-to-phone budget that made waiting for a cron tick ~86% of the worst case, the three
+  structural reasons Hermes cron cannot tick faster than ~2 min, why 15s and not faster, the false
+  *"recovered to OK"* of 2026-08-05 and the two defences against it, and the two staleness
+  thresholds that look like a bug and are not
 - **[Phone compute plan (2026-08-05)](docs/PHONE_PLAN_2026-08-05.md)** — **planned, not
   built**: the designed next step for the Galaxy S25 Ultra — on-phone Qwen3 NPU benchmark
   over `adb` (no app), the face-embedding identity rung, and measured joules-per-token on
@@ -512,11 +586,18 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
   CR-1..CR-8 and sensor upgrades S-1..S-6 with status markers (CR-1/2/3/5 + S-1 done, live-verified)
 
 ## Layout
-- `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive cron watchdog, plus the local wall display (`src/dashboard/` + the dependency-free pages in `public/`, see [docs/DASHBOARD.md](docs/DASHBOARD.md)), plus the physical-access sentry (`src/access/` — decision matrix, identity ladder, roster of embeddings, append-only audit trail) and the bridge that lets a responder on site withhold a page (`src/alert-skill/suppress.ts`)
+- `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive watchdog loop (`src/alert-skill/watch-loop.ts`, see [docs/WATCHDOG.md](docs/WATCHDOG.md)), plus the local wall display (`src/dashboard/` + the dependency-free pages in `public/`, see [docs/DASHBOARD.md](docs/DASHBOARD.md)), plus the physical-access sentry (`src/access/` — decision matrix, identity ladder, roster of embeddings, append-only audit trail) and the bridge that lets a responder on site withhold a page (`src/alert-skill/suppress.ts`)
 - `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic climate `sensor_tick`, both-edge button events, and ToF presence crossings over three Bridge channels, plus the LED-matrix boot/connection display), pushed to the laptop over WiFi + Tailscale, and deployment/bring-up docs
 - `bench/` — NPU profiling harness (qnn-net-run against the W4A16 bundle); results in [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
+- `hermes-hooks/` — gateway hooks this project adds to Hermes (source of truth; the installed copy
+  under `%LOCALAPPDATA%\hermes\hooks\` is not version-controlled and `hermes update` rewrites it).
+  Today: `ack`, the two-second message receipt that replaced the 60–300 s silence on the phone —
+  written by the local model, carrying a wait estimate learned from the session's own turns.
+  Install with `scripts\install-hermes-hooks.ps1`; design and limits in
+  [hermes-hooks/README.md](hermes-hooks/README.md)
 - `hermes.env.example` — template for Hermes's own `.env` (copy to `%LOCALAPPDATA%\hermes\.env`); the
-  only five settings that matter, everything else in Hermes's stock file can stay untouched
+  only four settings that matter plus the ack hook's optional knobs, everything else in Hermes's
+  stock file can stay untouched
 - `phone/` — Samsung Galaxy S25 Ultra (Snapdragon 8 Elite). **No app to build**: the phone runs
   Telegram plus the access terminal served from the laptop at `/phone.html` — the authorisation
   surface, the rack camera, and roster enrolment. Its NPU is **not** in use yet; the on-phone

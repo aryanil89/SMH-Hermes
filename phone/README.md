@@ -10,6 +10,33 @@ There is no app to build. The phone runs two things, both served from the laptop
 2. **The access terminal** — `http://<laptop>:7788/phone.html`. Live rack status, the camera
    capture for an access challenge, the Approve / Deny control, and roster enrolment.
 
+## Ask something, and you hear back twice
+
+An answer takes 60–300 s here — full-prompt re-prefill on every model call, no KV cache. The
+laptop can see that work happening. The phone could not: Hermes runs non-streaming against
+GenieX, so until the answer landed there was nothing, and *thinking*, *wedged* and *dead* all
+looked the same from a pocket. Telegram's `typing…` bubble does not close that gap — it expires
+between refreshes and never reaches the notification shade, which is where a phone is actually
+read.
+
+So the gateway answers twice:
+
+```
+> what's the temperature in rack B1?
+  Pulling the temperature data from rack B1 now — about a minute.     (~2 s, italic)
+  Rack B1 is 22.4 °C, humidity 41%, source: real (sensor age 12 s).   (~60 s, plain)
+```
+
+The receipt is one line from the same local model — it names what you asked, so it could only be
+a reply to *this* message, and it carries a wait estimate learned from that session's own
+measured turns. Italic, because on a phone the difference between a receipt and an answer has to
+survive a glance at a notification.
+
+It states no findings, ever: it is written before a single tool has run, so it says only what is
+starting. And it goes out even when the model is down — canned, but sent — which turns the old
+unanswerable *"did it hear me?"* into *"it heard me and could not answer"*. Design and limits:
+[../hermes-hooks/README.md](../hermes-hooks/README.md).
+
 ## Why the phone is the authorisation surface
 
 The project's stated posture is *observe → explain → recommend → **human approves** → act*

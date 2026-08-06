@@ -3,8 +3,10 @@
 Author: benchmark session (Claude), 2026-08-05 PM.
 Status: **REVIEWED** 2026-08-05 by the repo-owning agent session. Verdicts are
 inline under each proposal. Outcome: P1 MODIFY (right diagnosis, wrong target),
-P2 REJECT for the demo, P3 REJECT-as-new-work / verify instead, P4 ACCEPT,
-P5 DEFER upstream. Shipped: the P1 skills-catalogue cut (see P1's verdict).
+P2 REJECT for the demo, P3 REJECT-as-new-work / verify instead — **later
+reopened and superseded, see P3's follow-up**, P4 ACCEPT, P5 DEFER upstream.
+Shipped: the P1 skills-catalogue cut (see P1's verdict), and the P3 follow-up
+(message receipts).
 Composition measurements that drove these calls are in §0; demo-day steps in §6.
 Evidence base: `llm-serving-bench/RESULTS.md` (all numbers measured 2026-08-05).
 
@@ -173,6 +175,49 @@ bubble), not a feature. If the bubble is missing, that is a bug hunt.
 Agreed on the streaming `finish_reason` synthesis: that is the exact bug that
 forced `HERMES_FORCE_NONSTREAM=1`. Post-Friday, not this week.
 
+#### Follow-up 2026-08-05 (evening): the verdict was right, the fix was not enough
+
+Reported from the phone: *"it is not clear the server has received the message
+and is processing the request. Sometimes it responds a few minutes later,
+sometimes it does not."* The typing indicator was verified present and working
+— and it does not solve that. Three reasons, none visible from the laptop:
+
+1. It expires ~5 s between refreshes, so it flickers rather than persists.
+2. It never reaches the **notification shade**, which is where a phone in a
+   pocket is actually read.
+3. It is identical whether the gateway is thinking, wedged, or dead — so the
+   healthy path and every failure mode present as the same thing.
+
+(3) is the real defect and it is not a latency problem at all: the user could
+not tell *received-and-working* from *dropped*. Perceived latency was the
+symptom; **unobservability** was the cause.
+
+**Shipped: a message receipt.** `hermes-hooks/ack/` — a gateway hook on
+`agent:start` that replies within ~2 s with one model-written line naming what
+was asked, carrying a wait estimate learned from that session's own measured
+turns. Design, configuration and limits:
+[../hermes-hooks/README.md](../hermes-hooks/README.md).
+
+Two things this proposal's framing would have got wrong:
+
+- **It must block the turn it announces.** GenieX serializes every request
+  (§ RESULTS.md), so a receipt generated in a background task queues *behind*
+  the turn and lands after the answer. `agent:start` is awaited immediately
+  before `_run_agent`, which is the only ordering that works. Cost: ~2.3 s
+  measured warm on a 60–300 s turn, and ~0 on a cold-model turn, where the
+  receipt pays a reload the turn was going to pay anyway.
+- **The receipt must assert nothing.** It is written before any tool has run,
+  so a witty line that invents *"no alerts on rack B1"* would be the same
+  failure class as an alert with plausible invented numbers — which this
+  project already treats as a first-class risk. Not theoretical: an earlier
+  prompt produced *"…no signs of entry yet"* — a status nothing had looked up.
+  Fixed with a hardened prompt (8/8 clean on the same question set) plus a regex
+  backstop that drops any asserting line and falls back to canned.
+
+This does not retire P3's streaming work — synthesizing the missing
+`finish_reason` is still the deeper fix and still post-Friday. A receipt makes
+the silence *legible*; streaming would make it shorter.
+
 One risk this proposal surfaced that is **higher severity than the latency it
 addresses**: on 2026-08-04 the gateway lost DNS for `api.telegram.org`
 (`getaddrinfo failed`) *and* the hard-coded fallback IPs failed. Those errors are
@@ -286,6 +331,33 @@ Post-hackathon, bench-only fix: scope the kill to the PID owning 18181, or add a
 pause-file the supervisor honours while benchmarks run. Modifying a watchdog days
 before the demo is a worse risk than a bug that only fires during benching.
 
+**What *did* change: the supervisor is no longer the top of the chain.** Reviewing
+it exposed that the safety net had a single point of failure — the supervisor
+watched geniex, but nothing watched the supervisor, and nothing watched the
+gateway at all. All three were hand-launched windows, so a reboot or a stray
+window close ended the demo with no recovery. `scripts\install-autostart.ps1`
+registers them as Scheduled Tasks (at logon, restart every 1 min × 999, no
+execution time limit):
+
+| process | restarted by | survives reboot |
+|---|---|---|
+| geniex (18181) | `geniex-supervisor.ps1` | yes (via the task below) |
+| `geniex-supervisor.ps1` | Task `SMH-Hermes-GenieX-Supervisor` | yes |
+| hermes gateway | Task `Hermes_Gateway` (Hermes' own installer) | yes |
+| wall display (7788) | Task `SMH-Hermes-WallDisplay` | yes |
+| watchdog loop (7789) | Task `SMH-Hermes-Watchdog` | yes |
+| MCP servers (6) | the gateway, over stdio | yes — no task needed |
+| Arduino UNO Q | its own systemd units on the board | out of scope here |
+
+The wall display earns a task for a correctness reason, not a cosmetic one: it
+is the only writer of `.state\access.json`, and the access sentry **fails open**,
+so a dead display makes the demo emit false pages (`DASHBOARD.md`). Its log goes
+to `%LOCALAPPDATA%\hermes\wall-display.log` since the task runs hidden.
+
+The supervisor's own logic is untouched — only its lifetime changed. Start/stop
+model and the `Get-Process hermes` hazard: `RUNBOOK.md` §3. Use
+`-Only gateway|supervisor|wall` to add one component without bouncing the others.
+
 ## 6. Demo-day checklist
 
 Run in order. Item 1 is the highest-severity item in this document — it is the
@@ -300,9 +372,42 @@ only single point of failure that silently kills the whole demo.
    guarantees the compression threshold is never reached.
 3. **Typing-bubble live test** (P3). Send one message; confirm the "typing…"
    bubble appears within ~2 s. This is the whole of P3's remaining work.
-4. **Confirm serving state**: `Get-NetTCPConnection -LocalPort 18181` shows a
-   `geniex` owner, and the supervisor window is running.
-5. **Confirm the prompt diet is live**: the newest `system_prompts` row in
-   `state.db` should show a skills block of ~1,833 chars, not 8,201. If it still
-   reads 8,201, the gateway was not restarted after the `config.yaml` edit
-   (`RUNBOOK.md` — config is read at boot only).
+4. **Confirm serving state.** All four background processes run as Scheduled
+   Tasks with no visible window (`scripts\install-autostart.ps1`), so check the
+   tasks, not the taskbar:
+   ```powershell
+   Get-ScheduledTask Hermes_Gateway, SMH-Hermes-GenieX-Supervisor, SMH-Hermes-WallDisplay,
+     SMH-Hermes-Watchdog | Select-Object TaskName, State   # all Ready or Running
+   Get-NetTCPConnection -LocalPort 18181 -State Listen   # owner must be geniex
+   Get-NetTCPConnection -LocalPort 7788  -State Listen   # wall display / access.json writer
+   curl.exe -s http://127.0.0.1:7789/health              # watchdog: ticks climbing, canDeliver true
+   & $H gateway status                              # running + telegram connected
+   ```
+5. **Confirm the prompt diet is live.** Use Hermes' own renderer — it is offline,
+   needs no Telegram message, and reports the real number:
+   ```powershell
+   $env:HERMES_PLATFORM = 'telegram'; & $H prompt-size --platform telegram
+   ```
+   Expect **system prompt ≈ 8,636 chars** with a **skills index of ~149 B**.
+   Without the diet it reads 15,004 chars / 6,539 B.
+
+   **Two instruments will lie to you here, and both did during review:**
+
+   - **`state.db` cannot answer this.** `system_prompts` is
+     `(hash PRIMARY KEY, prompt)` — content-addressed, garbage-collected, with
+     **no timestamp and no session id**. It stores a per-session snapshot taken at
+     session creation, not a per-turn log, so it looks identical whether or not
+     live turns are pruned. Four unpruned rows only means no *new session* has
+     been created since the edit.
+   - **`prompt-size` without `HERMES_PLATFORM` also cannot answer it.** The
+     disabled-skills filter reads an ambient session hint
+     (`prompt_builder.py:1568` → `HERMES_PLATFORM` / `HERMES_SESSION_PLATFORM`,
+     else the gateway's `session_context`), **not** the `--platform` flag. In a
+     CLI process the hint is empty, so the filter resolves to zero disabled and
+     telegram reports the same 6,539 B as cli. Setting the env var is what makes
+     the check honest.
+
+   In the gateway the hint is bound per session via contextvars
+   (`approval.py:247`), and `build_system_prompt_parts` re-renders the prompt
+   every turn (the volatile tier carries a timestamp), so the diet applies to
+   in-flight sessions too — not just new ones.

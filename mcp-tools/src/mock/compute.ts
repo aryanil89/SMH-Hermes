@@ -1,4 +1,5 @@
-import { createRng, range, chance, round2, type Rng } from "../common/rng.js";
+import { createRng, range, chance, type Rng } from "../common/rng.js";
+import { round1 } from "../common/round.js";
 import { statusForValue, worstStatus } from "../common/alerts.js";
 import { COMPUTE_THRESHOLDS } from "../common/thresholds.js";
 import { thermalThrottled, throttleCpuPenaltyPct } from "../common/thermal.js";
@@ -48,8 +49,7 @@ export function generateComputeReport(opts: GenerateComputeOptions = {}): Comput
     generatedAt: new Date().toISOString(),
     nodes,
     overallStatus: worstStatus(...nodes.map((n) => n.status)),
-    ...(opts.ambientC !== undefined ? { ambientC: round2(opts.ambientC) } : {}),
-  };
+    ...(opts.ambientC !== undefined ? { ambientC: round1(opts.ambientC) } : {}) };
 }
 
 /**
@@ -84,11 +84,10 @@ function buildNode(rng: Rng, id: string, ambientC?: number): ComputeNode {
 
   return {
     id,
-    cpuPct: round2(cpuPct),
-    memPct: round2(memPct),
+    cpuPct: round1(cpuPct),
+    memPct: round1(memPct),
     uptimeSec,
     serviceState,
     thermalThrottle: throttle,
-    status,
-  };
+    status };
 }

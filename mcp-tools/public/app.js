@@ -728,10 +728,38 @@ const INBOUND_LABEL = {
   error: { text: "inbound error", status: "warning" },
 };
 
+/** Where phone → server messages are coming from, in words rather than a keyword. */
+const INBOUND_SOURCE = {
+  gateway: "Hermes gateway transcript",
+  dedicated: "dedicated wall bot",
+  shared: "shared bot",
+  none: "",
+};
+
+/**
+ * The watchdog the server most recently found running, so the captions below can
+ * say how long a queued page will actually sit there. Set once per repaint by
+ * renderPhone; read by bubbleTag, which the list renderer calls per bubble.
+ *
+ * Deliberately not a constant: this used to read "next watchdog tick" against a
+ * hard-coded "every 5 minutes" note, and both were wrong. The cron path fires
+ * every ~2 min (never the configured 1 min) and the loop fires every 15s.
+ */
+let watchRunner = { mode: "unknown" };
+
+/** "15s" / "2 min", or null when nothing has told us the cadence. */
+function watchCadence() {
+  if (watchRunner.mode !== "loop" || !watchRunner.intervalMs) return null;
+  const s = Math.round(watchRunner.intervalMs / 1000);
+  return s < 60 ? `${s}s` : `${Math.round(s / 60)} min`;
+}
+
 function bubbleTag(message) {
   if (message.kind === "system") return "wall";
   if (!message.delivered) {
-    return message.origin === "watchdog" ? "queued · next watchdog tick" : "not delivered";
+    if (message.origin !== "watchdog") return "not delivered";
+    const cadence = watchCadence();
+    return cadence ? `queued · next tick ≤ ${cadence}` : "queued · next watchdog tick";
   }
   return message.direction === "inbound"
     ? `phone → server · ${message.origin}`
@@ -762,12 +790,14 @@ function renderThreadPlaceholder(t) {
     node,
     inboundOff
       ? "No messages yet. Outbound pages appear here as they are sent; phone → server messages need an inbound source (see below)."
-      : "No messages yet. Connected to the phone — anything sent either way appears here immediately.",
+      : "No messages yet. Both directions are wired — server → phone on the left, phone → server on the right, as soon as either carries anything.",
   );
 }
 
 function renderPhone(snap) {
   const t = snap.telegram;
+  // Before the thread renders: bubbleTag reads this for the queued-bubble tag.
+  watchRunner = t.watchdog.runner ?? { mode: "unknown" };
   const inbound = t.inbound ?? { mode: "off", detail: "", bot: "none" };
   const label = INBOUND_LABEL[inbound.mode] ?? INBOUND_LABEL.off;
   setText(els.tgBot, t.botLabel);
@@ -830,18 +860,42 @@ function renderPhone(snap) {
         : "none on record",
     },
     { label: "State file", value: t.watchdog.stateFound ? "found" : "missing", status: t.watchdog.stateFound ? undefined : "warning" },
+    {
+      // Probed, not configured. A watchdog nobody can see is indistinguishable
+      // from one that died, and that is the single most expensive thing this
+      // panel could get wrong.
+      label: "Watchdog process",
+      value:
+        watchRunner.mode === "loop"
+          ? `loop · every ${watchCadence() ?? "?"}${watchRunner.canDeliver === false ? " · cannot page" : ""}`
+          : "no loop detected",
+      status:
+        watchRunner.mode === "loop"
+          ? watchRunner.canDeliver === false
+            ? "warning"
+            : undefined
+          : "warning",
+      title:
+        watchRunner.detail ??
+        (watchRunner.ticks !== undefined ? `${watchRunner.ticks} ticks since start` : ""),
+    },
     { label: "Real messages", value: String(t.ingestedCount) },
     {
       label: "Phone → server",
-      value: `${label.text}${inbound.bot !== "none" ? ` (${inbound.bot} bot)` : ""}`,
+      value: `${label.text}${INBOUND_SOURCE[inbound.bot] ? ` (${INBOUND_SOURCE[inbound.bot]})` : ""}`,
       status: label.status === "unknown" ? undefined : label.status,
       title: inbound.detail,
     },
   ]);
+  const cadence = watchCadence();
+  const cadenceNote =
+    watchRunner.mode === "loop"
+      ? `The watchdog loop re-checks every ${cadence ?? "tick"}.`
+      : "No watchdog loop is answering on the health port, so paging is on the hermes cron path (~2 min per tick) or is not running at all.";
   setText(
     els.watchdogNote,
     inbound.mode === "live"
-      ? "The cron watchdog re-checks every 5 minutes and pushes only on a threshold crossing or a recovery — silence is the normal state. A queued bubble is what the next tick will send, not something the phone has received."
+      ? `${cadenceNote} It pushes only on a threshold crossing or a recovery — silence is the normal state. A queued bubble is what the next tick will send, not something the phone has received.`
       : `${inbound.detail} — outbound pages still appear here the moment they are sent.`,
   );
 }
@@ -913,6 +967,7 @@ const tabButtons = Array.from(document.querySelectorAll(".tab-btn"));
 const tabPanels = {
   overview: $("panel-overview"),
   architecture: $("panel-architecture"),
+  logical: $("panel-logical"),
   live: $("panel-live"),
 };
 

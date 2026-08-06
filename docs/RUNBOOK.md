@@ -31,14 +31,25 @@ Get-Item .\arduino_uno_q-sensor_log.json | Select-Object Length, LastWriteTime
 # Board services
 adb shell "systemctl is-active hermes-sensor-logger hermes-sensor-logger-push"
 
-# Cron + rule engine
+# Watchdog loop: ticks climbing, lastSource "real", canDeliver true
+curl.exe -s http://127.0.0.1:7789/health
+
+# Rule engine + the legacy cron path (only one watchdog should be running)
 & "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\hermes.exe" cron list
 Get-Content .\mcp-tools\.state\rule-state.json -Raw | ConvertFrom-Json |
   Select-Object -ExpandProperty levelsEvaluatedAt
+
+# Message receipts: is the hook loaded?
+Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.log"
 ```
 
 Healthy looks like: GenieX listening; log `LastWriteTime` within ~20s of now; both board
-units `active`; cron `Last run … ok` within the last minute.
+units `active`; the health endpoint answering with `lastSource: "real"` and `failures: 0`;
+**no** enabled `Environmental watch` cron job (that is the old watchdog — running both
+double-pages the on-call); one `Loaded hook 'ack'` line per gateway start.
+
+The watchdog has its own page: **[WATCHDOG.md](WATCHDOG.md)** — cadence, health endpoint,
+cutover, and the measured latency budget.
 
 ### ⚠️ Never health-check GenieX over HTTP
 
@@ -154,13 +165,34 @@ Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" |
 
 ## 3. Hermes gateway
 
+The gateway runs as a **Windows Scheduled Task** (`Hermes_Gateway`), installed by
+`scripts\install-autostart.ps1`. Drive it through Hermes' own subcommands — never with
+`Get-Process` / `Stop-Process`:
+
 ```powershell
 # Location is not on PATH -- it lives in its own venv
 $H = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\hermes.exe"
 
-Get-Process hermes | Stop-Process -Force     # stop
-& $H gateway                                 # start (foreground)
+& $H gateway status      # pid, state, telegram, active_agents
+& $H gateway restart     # after any config.yaml edit
+& $H gateway stop        # stop; the task restarts it at next logon
+& $H gateway start       # start
 ```
+
+**Do not use `Get-Process hermes | Stop-Process -Force`.** It has the same blast-radius
+problem as the image-wide geniex kill in §2 — it matches *every* hermes process, including
+CLI sessions and any agent mid-turn — and against a service-hosted gateway it fights the
+task's restart-on-failure instead of stopping it cleanly.
+
+**Do not run `& $H gateway` in the foreground while the task is installed.** Hermes refuses
+that combination on purpose: the foreground instance leaves an orphan dispatcher that
+escapes the service, survives restarts, and writes to the same `state.db` concurrently —
+which can corrupt it.
+
+There is no console window by design: the task launches via `wscript.exe`, because a
+console-hosted gateway receives `STATUS_CONTROL_C_EXIT` at logon and Task Scheduler reads
+that as a *user cancel*, so restart-on-failure would never fire. Use `gateway status` and
+the log files instead of looking for a window.
 
 `HERMES_HOME` is `%LOCALAPPDATA%\hermes` — there is **no `~/.hermes` on Windows**. Config,
 secrets (`.env`), cron scripts, and `state.db` all live there.
@@ -172,6 +204,42 @@ mysteriously not existing.
 MCP servers need no separate start — Hermes spawns them over stdio. But they run from
 `mcp-tools\dist\`, so **after any TypeScript change**: `npm run build`, then restart the
 gateway.
+
+### Message receipts (the `ack` hook)
+
+Every inbound Telegram message gets an italic one-line receipt within ~2 s, before the
+60–300 s wait for the real answer. It is a gateway hook, so it is subject to the same rule
+as `config.yaml`: **loaded at gateway startup only.**
+
+```powershell
+$py = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe"
+
+# Is it loaded?
+Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.log"
+
+# Does it work, without messaging the bot? (prints the receipt and its latency)
+& $py hermes-hooks\ack\handler.py --try "is rack B1 hot?"
+
+# Reinstall from the repo — after editing the hook, and after any `hermes update`
+powershell -ExecutionPolicy Bypass -File scripts\install-hermes-hooks.ps1
+
+# Turn receipts off without uninstalling: HERMES_ACK_ENABLED=0 in .env, then restart
+```
+
+Two things to know when something looks wrong:
+
+- **The receipt is generated before the agent's first model call**, on purpose — GenieX
+  serializes requests (§1), so a receipt generated afterwards would queue behind the very
+  turn it announces. It therefore adds ~2.3 s to each turn, capped by
+  `HERMES_ACK_TIMEOUT_S` (default 12 s), past which it goes out canned.
+- **A receipt with no answer behind it is diagnostic, not a bug.** It proves the gateway
+  received the message and reached the model server; what failed afterwards is the turn.
+  Before receipts existed, both cases looked identical from the phone.
+
+`--try` doubles as the GenieX liveness check that `curl` cannot do: it is a request GenieX
+will actually serve, so it returns rather than hanging behind an in-flight completion.
+
+Full design, configuration and limits: [../hermes-hooks/README.md](../hermes-hooks/README.md).
 
 ---
 
@@ -233,7 +301,7 @@ Two files, one writer each, under `mcp-tools\.state\`:
 | File | Written by | Contains |
 |---|---|---|
 | `rules.json` | the **agent** (MCP `rules` server) | rule definitions |
-| `rule-state.json` | the **evaluator** (cron tick) | watermarks, fire counts, baselines, `levelsEvaluatedAt` |
+| `rule-state.json` | the **evaluator** (the watchdog tick) | watermarks, fire counts, baselines, `levelsEvaluatedAt` |
 
 Never let one process write both — that is the lost-watermark race the split exists to
 prevent.
@@ -245,13 +313,18 @@ Get-Content .\mcp-tools\.state\rules.json -Raw
 # Is the evaluator ticking? (should be within the last ~5 min)
 (Get-Content .\mcp-tools\.state\rule-state.json -Raw | ConvertFrom-Json).levelsEvaluatedAt
 
-# Evaluate once by hand, without persisting
+# Evaluate once by hand, without persisting (--json implies a dry run)
 cd mcp-tools; node dist\alert-skill\check-environmental.js --json
 ```
 
-**Cadence:** the cron runs every 1m. Event rules (door, leak) evaluate **every tick**; level
-rules (temperature, humidity) are gated to 5 min behind `levelsEvaluatedAt`. Override with
+**Cadence:** the watchdog loop ticks every **15s** ([WATCHDOG.md](WATCHDOG.md)). Event rules
+(door, leak) evaluate **every tick**; level rules (temperature, humidity) stay gated to 5 min
+behind `levelsEvaluatedAt`, independent of how fast the loop runs. Override with
 `UNOQ_LEVEL_INTERVAL_S`.
+
+> On the legacy `hermes cron` path the tick was never faster than ~2 minutes regardless of the
+> configured schedule — measured 120s at `every 1m` over 415 executions. See
+> [WATCHDOG.md §2](WATCHDOG.md#2-why-the-loop-exists-the-cron-path-cannot-go-fast).
 
 **A `level` rule latches.** Once fired, `fired: true` and it will not fire again until the
 value crosses back and re-crosses. A rule that "stopped working" has usually just already
@@ -306,7 +379,16 @@ The real prefill drivers, in order:
 
 | Symptom | Likely cause |
 |---|---|
-| Telegram silent, rules still firing | GenieX down. The cron is `--no-agent`, so alerts survive the model dying. |
+| Telegram silent, rules still firing | GenieX down. The watchdog never calls the model, so alerts survive it dying. |
+| Every page arrives twice | Both watchdogs are running. `hermes cron list` **and** `Get-ScheduledTask SMH-Hermes-Watchdog` — delete one. |
+| Nothing pages at all, wall looks fine | No watchdog is running. `curl.exe http://127.0.0.1:7789/health` — connection refused means the loop is down. |
+| Health endpoint says `canDeliver: false` | The loop has no `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`. It is ticking and persisting; it just cannot page. |
+| Watchdog exits immediately with exit 1 | Port 7789 is already bound — the single-instance mutex working. Another loop is running. |
+| Feed died, no page for ~7 min | By design: 180s makes a reading unusable, 600s wakes someone. [WATCHDOG.md §8](WATCHDOG.md#8-the-two-staleness-thresholds-this-is-deliberate). |
+| No receipt, then no answer either | Gateway not running, or the message never reached it. The receipt fires before any model call, so its absence points upstream of GenieX. |
+| Receipt arrives, answer never does | The gateway heard you and the turn failed — check GenieX. This is the case that used to be indistinguishable from the one above. |
+| Receipts are canned every time | The model call behind them is failing or timing out. `handler.py --try` prints the real error. |
+| No receipts at all, answers fine | Hook not loaded (gateway restarted without it, or `hermes update` rewrote `HERMES_HOME`), or `HERMES_ACK_ENABLED=0`. |
 | First reply of the session takes minutes | Model reload after `--keepalive 300` idle. |
 | `/v1/models` hangs | Normal — queued behind a completion. Not a fault. |
 | Model replies in prose, calls no tools | `tool_search` re-enabled, or gateway not restarted after a config edit. |

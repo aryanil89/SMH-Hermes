@@ -47,9 +47,14 @@ table (usually the board clock, step 2 ⚠️).
 | `UNOQ_SENSOR_LOG` | repo-root `arduino_uno_q-sensor_log.json` | The sensor log to read |
 | `UNOQ_LOG_MAX_AGE_S` | `3600` | Older than this and the feed counts as down. Set it to `180` to match the demo config |
 | `ALERT_STATE_PATH` | `mcp-tools/.state/environmental-watch.json` | The watchdog state file the phone panel mirrors |
+| `WATCH_HEALTH_PORT` | `7789` | Where the wall probes for a live watchdog loop. `0` disables the probe |
+| `WATCH_HEALTH_CACHE_MS` | `5000` | How long a probe result is reused, so a 2s repaint is not a socket per tick |
 | `TELEGRAM_BOT_LABEL` | `Hermes Ops` | Name shown on the phone panel |
 | `TELEGRAM_CHAT_TITLE` | `On-call · Telegram` | Subtitle under it |
-| `TELEGRAM_WALL_BOT_TOKEN` | unset | A **second** bot the wall polls for phone → server messages. The safe option — see below |
+| `HERMES_STATE_DB` | auto-detected | The Hermes transcript the wall mirrors for phone → server messages. Found from `HERMES_HOME` or `%LOCALAPPDATA%\hermes\state.db`. **This is the default inbound source** |
+| `HERMES_BRIDGE` | unset | `0` disables the transcript bridge entirely |
+| `HERMES_BRIDGE_BACKFILL` | `8` | Recent transcript entries shown on attach, so a wall started mid-demo is not blank. `0` starts empty |
+| `TELEGRAM_WALL_BOT_TOKEN` | unset | A **second** bot the wall polls for phone → server messages. An alternative to the bridge — see below |
 | `TELEGRAM_POLL` | unset | `1` polls the shared `TELEGRAM_BOT_TOKEN` instead. **Conflicts with `hermes gateway`** |
 | `TELEGRAM_ALLOWED_USERS` | unset | Comma-separated numeric ids allowed to appear on the wall |
 | `SIM_WORLD_WINDOW_S` | `60` | How long the simulated families hold still — shared with the MCP tools |
@@ -83,6 +88,26 @@ while the wall still shows a live feed, and the two will contradict each other.
 | `POST /api/access/approve` | `{id, decision, decidedBy}` — authorise or refuse a challenge |
 | `POST /api/access/enroll` | `{name, embedding, method}` — add to the roster |
 
+## The four tabs
+
+| Tab | Answers | Live? |
+|---|---|---|
+| **Executive overview** | What Hermes is, what it is not, what was built and what was not | Static |
+| **Conceptual architecture** | What the parts *are* — three devices, the links between them, the components on each | Static |
+| **Logical architecture** | What *moves* — the six stages from a bus read to a page on the phone, and the three branches that are allowed to act | Static |
+| **Live system** | The wall itself, driven by `/api/stream` | Every 2s |
+
+The three static tabs are laid out to fit **one screen without scrolling** at the
+demo laptop's own resolution — 2560×1600 at 150%, so roughly 1700×950 CSS px.
+That is a constraint, not a preference: a scrollbar on a display standing in
+front of an audience is a paragraph nobody reads. They fall back to stacked
+columns and a normal scrollbar on anything narrower, so nothing is ever clipped
+out of reach.
+
+Conceptual and logical are deliberately separate. "What did you build" and "how
+does a reading become a page" are different questions, and one diagram trying to
+answer both answers neither.
+
 ## What each panel is reading
 
 Nothing on this page is generated for the display. Every value comes from the
@@ -97,7 +122,7 @@ cannot disagree.
 | Ingest card | The log file itself: size, line count, newest timestamp, freshness gate | **Real** |
 | Signal sources grid | `generateNetworkReport` / `generateStorageReport` / `generateComputeReport` | **Simulated**, each card says so |
 | Risk score, confidence, evidence, cause, action | `assessIncident()` — the exact call behind `get_incident_assessment` | Rule-derived from the above |
-| Telegram thread | The watchdog's state file, plus anything posted to `/api/telegram` | **Real** — see the honesty rules below |
+| Telegram thread | The watchdog's state file, the Hermes gateway's own transcript, plus anything posted to `/api/telegram` | **Real** — see the honesty rules below |
 | Access card | `AccessSentry.update()` — the same object the phone terminal talks to | **Real** decision over real presence/door edges; identity depends on the configured rung |
 
 ### Access — who is at the rack
@@ -151,7 +176,7 @@ When the verdict is `expected` — a person **on the roster**, present while an
 incident is live — the watchdog withholds the page. The chain is
 `check-environmental.js` → `alert-skill/suppress.ts` → `access/decide.ts`, reading
 `.state/access.json` across a process boundary. **One writer per file:** the
-dashboard drives the sentry and owns `access.json`; the cron process only reads it.
+dashboard drives the sentry and owns `access.json`; the watchdog process only reads it.
 
 Three properties, in the order they matter:
 
@@ -204,6 +229,16 @@ log. When the tool has fallen back to mock, those two are different sources, so
 the page dims the trace, captions it "last logged trend · N old", and adds
 "value above is mock". They are not one measurement and are not drawn as one.
 
+### Every number on the wall is one decimal
+
+The wall reads the sensor log directly rather than going through the environmental MCP tool, so it
+applies the **same rounding at the same point** — `round1()` from `common/round.ts`, on the way in.
+Without that, the sparkline and the agent would quote the same sample to different precision, and a
+judge comparing the screen to the phone would find them disagreeing in the last digit.
+
+Whole numbers stay whole in the data (`25`, not `25.0`); only alert *text* pads to a fixed decimal.
+Contract and rationale: [mcp-tools/README.md](../mcp-tools/README.md#one-decimal-place-applied-on-the-way-in).
+
 ### The world holds still for 60 seconds
 
 The simulated families seed their PRNG from a 60-second time bucket
@@ -221,24 +256,44 @@ show an assessment built from one world beside a device grid from the next.
 The panel must never claim a delivery that has not happened. Three things can put
 a message on it, and each bubble says which:
 
-1. **`watchdog · sent`** — the cron job's state file changed, which only happens
+1. **`watchdog · sent`** — the watchdog's state file changed, which only happens
    when a tick actually decided to send. Evidence of a real delivery, observed
    after the fact. A threshold alert bumps `lastAlertedAt`; a recovery clears it
    and drops `lastStatus` to `ok`, so recovery is detected from the status
    transition instead.
-2. **`queued · next watchdog tick`** — running the *same* `decideAlert` the cron
-   job runs says an alert is due right now. The watchdog fires every 5 minutes,
-   so the wall knows before the phone does. Rendered greyed, dashed and explicitly
-   labelled. When the watchdog then fires, that exact queued text is promoted to
-   a delivered bubble.
+2. **`queued · next tick ≤ 15s`** — running the *same* `decideAlert` the watchdog
+   runs says an alert is due right now. The wall ticks every 2s, so it knows
+   before the phone does. Rendered greyed, dashed and explicitly labelled. When
+   the watchdog then fires, that exact queued text is promoted to a delivered
+   bubble.
+
+   The cadence in that tag is **measured, not assumed**: the server probes
+   `http://127.0.0.1:7789/health` (cached 5s) and reports whatever interval the
+   loop declares. If nothing answers, the tag falls back to
+   `queued · next watchdog tick` and the **Watchdog process** row reads
+   `no loop detected` in warning colour — because a watchdog nobody can see is
+   indistinguishable from one that died, and that is the most expensive thing
+   this panel could get wrong. It never guesses a number.
+
+   The prediction is also made with `readingTrusted`, exactly as the watchdog
+   makes it. Without that, a mock fallback reading would have the wall promise a
+   page that the watchdog will correctly refuse to send.
 3. **`gateway`** — real traffic, verbatim, either direction: an access challenge
    the sentry actually pushed to the phone (marked delivered or not by whether
-   the Telegram call itself succeeded), a message the inbound poller received, or
-   anything posted to `POST /api/telegram`.
+   the Telegram call itself succeeded), a message read out of the Hermes gateway's
+   own transcript, a message the inbound poller received, or anything posted to
+   `POST /api/telegram`.
 
 The alternative — letting the dashboard run its own alert loop against its own
 state file — would produce a plausible message stream that no phone ever
 received. Mirroring the real state file keeps the panel accountable.
+
+One caveat the bridge does not paper over: Hermes's transcript records the turn,
+not the HTTP result of the send, so an agent reply is weaker evidence than the
+sentry's own pushes — those carry the actual call outcome and render as
+**undelivered** with the error when the WiFi is off. A transcript reply is an
+observed record of something the gateway produced and handed to Telegram; it is
+not proof the phone's radio was on.
 
 Both the watchdog and the dashboard build their alert text from
 `src/alert-skill/summarize.ts`, so the wording on the wall is the wording on the
@@ -248,9 +303,14 @@ phone, character for character.
 
 | Direction | Alignment | Where it comes from |
 |---|---|---|
-| **server → phone** | **left**, tagged `server → phone` | the cron watchdog's alerts, and every access challenge the sentry actually pushes |
-| **phone → server** | **right**, tagged `phone → server` | the inbound poller, or anything posted to `/api/telegram` |
+| **server → phone** | **left**, tagged `server → phone` | the watchdog's alerts, every access challenge the sentry actually pushes, and the agent's replies from the gateway transcript |
+| **phone → server** | **right**, tagged `phone → server` | the gateway transcript bridge, the inbound poller, or anything posted to `/api/telegram` |
 | wall's own notes | centred, tagged `wall` | the dashboard itself; never a Telegram message |
+
+Alignment and the tag say the same thing twice on purpose. Someone reading this
+across a room gets the direction from which rail the bubble hangs off; a
+screenshot of a single bubble has no other side to compare against, so the tag
+spells it out.
 
 Outbound pushes carry the send's real outcome: a challenge that failed to reach
 Telegram (the WiFi-off beat guarantees one will) shows as an **undelivered**
@@ -258,20 +318,42 @@ bubble with the error, not a confident outbound message.
 
 ### Getting phone → server messages onto the panel
 
-Outbound works with no configuration. Inbound needs a source, and the panel's
-header says which state it is in (`receiving from phone` / `outbound only` /
-`inbound blocked`) so a quiet thread is never mistaken for a broken one.
+Both directions work with no configuration, via the **gateway transcript bridge**
+(`src/dashboard/gateway-bridge.ts`). The panel's header says which state the
+inbound path is in (`receiving from phone` / `outbound only` / `inbound blocked`)
+so a quiet thread is never mistaken for a broken one.
 
 ⚠️ **Telegram's `getUpdates` is single-consumer per bot token.** `hermes gateway`
 long-polls `TELEGRAM_BOT_TOKEN` for the entire demo — that is how a question from
 the phone reaches the agent. If the wall polled the same token, Telegram would
 answer one of them with `409 Conflict` and the two would starve each other. A
-display that breaks the thing it depicts is the worst failure available here, so
-this is off by default.
+display that breaks the thing it depicts is the worst failure available here.
 
-Pick one:
+So the wall does not poll Telegram. It reads what the gateway already wrote down:
 
-1. **A second bot (recommended).** Make another bot with
+**The bridge (default).** Hermes keeps a durable transcript in
+`%LOCALAPPDATA%\hermes\state.db` — one row per message, with the role, the
+verbatim text, the real timestamp and the session's platform. The dashboard opens
+that file **read-only** and mirrors the Telegram sessions onto the panel. No
+polling, no token, no conflict, and both directions come out verbatim rather than
+reconstructed. It is found automatically from `HERMES_HOME` or `%LOCALAPPDATA%`;
+point it somewhere else with `HERMES_STATE_DB`, or turn it off with
+`HERMES_BRIDGE=0`. On startup the server prints which file it is mirroring.
+
+An agent transcript is a working record, not a chat log, so the bridge drops
+everything a human never saw: `tool` and `session_meta` rows, assistant rows with
+empty content (those are tool-call turns), and Hermes's bracketed control markers
+(`[SILENT]`, `[This response was interrupted…]`). Rendering one of those as a
+delivered reply would put words on the wall the on-call never received.
+
+`node:sqlite` is Node 22.5+ and this package's floor is Node 20, so on an older
+runtime the bridge reports that on the panel instead of failing — as it does when
+there is no Hermes install at all, which is the normal case for a judge who just
+cloned the repo.
+
+Two alternatives, for a machine with no Hermes on it:
+
+1. **A second bot.** Make another bot with
    [@BotFather](https://t.me/BotFather) and set `TELEGRAM_WALL_BOT_TOKEN`.
    Nothing else polls it, so there is no conflict. Message *that* bot from the
    phone and it appears on the wall within a second.
@@ -280,19 +362,18 @@ Pick one:
    $env:TELEGRAM_ALLOWED_USERS  = "<your numeric id>"
    npm run start:dashboard
    ```
-2. **Push them in** over `POST /api/telegram` from whatever already has them.
-   Exact, no polling, no conflict.
-3. **`TELEGRAM_POLL=1`** to poll the shared bot — **only** when the Hermes
+2. **`TELEGRAM_POLL=1`** to poll the shared bot — **only** when the Hermes
    gateway is not running. If it is, the poller detects the 409, **shuts itself
    down permanently rather than fighting for updates**, and says so on the panel.
 
-`TELEGRAM_ALLOWED_USERS` is the same allowlist Hermes uses. Set it: without it,
-anyone who finds the bot can put text on a display standing in front of an
+Both can run alongside the bridge; the panel reports the best state any source is
+in. `TELEGRAM_ALLOWED_USERS` is the same allowlist Hermes uses. Set it: without
+it, anyone who finds the bot can put text on a display standing in front of an
 audience.
 
 ### Showing real phone traffic
 
-Beyond the poller, anything that already holds a message can push it straight in:
+Beyond the bridge, anything that already holds a message can push it straight in:
 
 ```powershell
 curl.exe -X POST http://127.0.0.1:7788/api/telegram `
@@ -302,9 +383,7 @@ curl.exe -X POST http://127.0.0.1:7788/api/telegram `
 
 `direction` is `inbound` (phone → server) or `outbound` (server → phone); `text`
 is required; `kind` and `at` are optional. Anything ingested pushes a frame
-immediately rather than waiting for the next tick. **Hermes itself does not post
-here** — bridging the agent's own gateway traffic is still unbuilt, which is why
-the second-bot route above exists.
+immediately rather than waiting for the next tick.
 
 ## Design notes
 
@@ -367,7 +446,9 @@ mcp-tools/
     server.ts                  HTTP + SSE + static + ingest + access routes
     snapshot.ts                assembles one frame from the same calls the tools make
     sensor-log.ts              tail the log; derive channels, trend, event feed
-    telegram-feed.ts           the phone panel's three message sources
+    telegram-feed.ts           the phone panel's message sources
+    gateway-bridge.ts          read-only mirror of the Hermes transcript — inbound + replies
+    telegram-poll.ts           optional second-bot poller, and why it must not be the first choice
     types.ts                   the wire contract
   src/access/
     decide.ts                  the access decision matrix — pure, table-testable

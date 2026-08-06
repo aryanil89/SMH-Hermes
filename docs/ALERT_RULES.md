@@ -14,12 +14,19 @@ plain code on every cron tick.
 | | When | Cost | Who |
 |---|---|---|---|
 | Authoring | once, when someone asks | slow is fine | LLM, via the `rules` MCP server |
-| Evaluation | every 5 minutes, forever | **zero tokens** | `src/rules/evaluate.ts` |
+| Evaluation | every 15 seconds, forever | **zero tokens** | `src/rules/evaluate.ts` |
 
 This is not a style preference. One completion on the local Qwen3-4B takes one to
-three minutes; a 5-minute tick that needed the model would never keep up. It is
-also why validation is a table lookup and a comparison rather than a judgement
-call — a 4B model asked whether −100 °C is plausible will agree that it is.
+three minutes; a tick that needed the model could not run at any useful cadence,
+let alone every 15 seconds. It is also why validation is a table lookup and a
+comparison rather than a judgement call — a 4B model asked whether −100 °C is
+plausible will agree that it is.
+
+Tick cadence and rule cadence are separate. `event` rules evaluate on every tick;
+`level` rules stay gated to five minutes behind `levelsEvaluatedAt`
+(`UNOQ_LEVEL_INTERVAL_S`), so running the watchdog faster makes door and leak
+alerts faster without making temperature alerts noisier. See
+[WATCHDOG.md](WATCHDOG.md).
 
 ## Predicate shapes
 
@@ -86,6 +93,15 @@ weights, no training, no model call — but it is what lets the agent say *"this
 room has never gone past 35.7 °C in 31 hours, so that rule may never fire"*,
 which nobody typed in.
 
+Baselines are computed from the **raw** log values and rounded to one decimal on
+the way out, like every other measurement the system reports
+([common/round.ts](../mcp-tools/src/common/round.ts)) — that sentence is quoted
+at an operator as a fact about the room, and `35.68359375 °C` reads as a dump,
+not a measurement. Rule *thresholds* are unaffected: they are compared against
+the reading the environmental tool returns, which is already rounded, and every
+built-in threshold is an integer — an order of magnitude coarser than the
+precision retained.
+
 ## Storage
 
 ```
@@ -114,12 +130,19 @@ created. On a degraded read the evaluator skips pruning and reports
 ## Failure reporting is latched
 
 Infrastructure failures — sensor log unreadable, `rules.json` unreadable,
-evaluation threw — are reported to Telegram, because stderr from a cron process
-goes nowhere anyone looks. They are also **latched** in
+evaluation threw — are reported to Telegram, because stderr from a background
+process goes nowhere anyone looks. They are also **latched** in
 `environmental-watch.json`: one message entering the failure, silence while it
 persists, one line on recovery. Otherwise a permanently missing log would nag the
-on-call phone every 5 minutes, which is the one thing every rule firing is
+on-call phone every 15 seconds, which is the one thing every rule firing is
 careful not to do.
+
+The failure must also **persist for `RULE_ENGINE_GRACE_S` (default 120s) before
+anyone is told**, and recovery only speaks if something was actually said. That
+is not defensive padding: on a 25-minute soak of the 15s loop, reporting on the
+first failing tick produced **11 degraded/recovered pairs** from transient file
+locks on the sensor log. See
+[WATCHDOG.md §7](WATCHDOG.md#7-the-false-all-clear-and-the-two-defences-against-it).
 
 ## Built-in rules
 

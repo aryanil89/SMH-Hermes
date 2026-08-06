@@ -1,4 +1,5 @@
-import { createRng, range, chance, round2 } from "../common/rng.js";
+import { createRng, range, chance } from "../common/rng.js";
+import { round1 } from "../common/round.js";
 import type { EnvironmentalReading } from "./types.js";
 
 /**
@@ -14,8 +15,7 @@ export function generateMockEnvironmentalReading(seed?: number): EnvironmentalRe
   const humidityPct = degraded ? range(rng, 72, 92) : range(rng, 35, 55);
 
   return {
-    temperatureC: round2(temperatureC),
-    humidityPct: round2(humidityPct),
-    leakDetected: leakEvent,
-  };
+    temperatureC: round1(temperatureC),
+    humidityPct: round1(humidityPct),
+    leakDetected: leakEvent };
 }

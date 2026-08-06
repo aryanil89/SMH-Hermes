@@ -1,3 +1,4 @@
+import { sendTelegramMessage } from "../common/telegram.js";
 import type { AccessEvent } from "./types.js";
 
 /**
@@ -130,20 +131,9 @@ export function notifyChallenge(event: AccessEvent, config = notifyConfig()): bo
   return true;
 }
 
+/** Thin adapter onto the shared sender; kept so the call sites above read unchanged. */
 async function send(token: string, chatId: string, text: string): Promise<void> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`telegram responded ${res.status}`);
-  } finally {
-    clearTimeout(timer);
-  }
+  await sendTelegramMessage({ botToken: token, chatId }, text, { timeoutMs: TIMEOUT_MS });
 }
 
 /** Test-only: forget which challenges have been notified, and drop the sent log. */
