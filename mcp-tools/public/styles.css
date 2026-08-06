@@ -1756,7 +1756,7 @@ svg {
 /* Bolder icon strokes to match the heavier card borders and connector lines
    below -- the wall's own icons (door, temp, ...) keep the lighter default. */
 .brief svg {
-  stroke-width: 2;
+  stroke-width: 2.4;
 }
 
 /* Detailed architecture tab stacks the conceptual and logical briefs in one
@@ -1774,7 +1774,7 @@ svg {
    the wall's own cards keep their tighter measurements. */
 .brief .card {
   padding: 19px 21px;
-  border-width: 1.5px;
+  border-width: 2px;
 }
 
 .brief .card-head {
@@ -1804,7 +1804,7 @@ svg {
   font-size: 16px;
   margin-top: 12px;
   padding-top: 11px;
-  border-top: 1.5px solid var(--hairline);
+  border-top: 2px solid var(--hairline);
 }
 
 .brief .kv dd {
@@ -1968,7 +1968,8 @@ svg {
 
 .state-tile--lg {
   padding: 20px 22px 22px;
-  border-left-width: 5px;
+  border-width: 2px;
+  border-left-width: 6px;
 }
 
 .state-tile--lg .tile-icon {
@@ -2000,6 +2001,101 @@ svg {
   align-items: start;
 }
 
+/* Live system: sensor picture on the left (60%), the phone thread on the
+   right (40%) -- the two things a room actually watches during a demo. */
+.live-split {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 22px;
+  align-items: start;
+}
+
+.live-split-left {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.live-split-right {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.live-split-head h2 {
+  font-size: 22px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.live-split-sub {
+  font-size: 15px;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+/* Sized for this column rather than inheriting the wall's tight sidebar
+   dimensions -- this is the one place on the tab a fixed height is correct,
+   since the phone thread needs a bounded box to scroll inside. */
+.live-split-right .phone-frame {
+  height: 620px;
+}
+
+.infra-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.infra-card {
+  background: var(--surface-2);
+  border: 2px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.infra-card .fam-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.infra-card .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: 0 0 auto;
+}
+
+.infra-card[data-status="ok"] .dot {
+  background: var(--good);
+}
+.infra-card[data-status="warning"] .dot {
+  background: var(--warning);
+}
+.infra-card[data-status="critical"] .dot {
+  background: var(--critical);
+}
+
+.infra-card .fam-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.infra-card .fam-sub {
+  font-size: 13.5px;
+  color: var(--ink-3);
+  margin-top: 3px;
+}
+
 /* One accent per card in the Executive overview row -- border, tinted
    background and a matching icon colour, so all four stand out equally
    instead of just the one that used to carry `.card--accent`. */
@@ -2010,7 +2106,7 @@ svg {
 .card.card--accent-blue,
 .card.card--accent-violet,
 .card.card--accent-pink {
-  border-width: 2px;
+  border-width: 2.5px;
 }
 
 .card--accent-cyan {
@@ -2051,7 +2147,7 @@ svg {
 
 .table-wrap {
   overflow-x: auto;
-  border: 1.5px solid var(--hairline);
+  border: 2px solid var(--hairline);
   border-radius: var(--radius);
 }
 
@@ -2069,7 +2165,7 @@ svg {
 .brief-table td {
   text-align: left;
   padding: 14px 18px;
-  border-bottom: 1.5px solid var(--hairline);
+  border-bottom: 2px solid var(--hairline);
   line-height: 1.4;
   vertical-align: top;
 }
@@ -2120,7 +2216,7 @@ svg {
   flex: 1 1 0;
   min-width: 0;
   background: var(--surface-1);
-  border: 1.5px solid var(--hairline);
+  border: 2px solid var(--hairline);
   border-radius: var(--radius);
   padding: 20px 22px;
   display: flex;
@@ -2189,7 +2285,7 @@ svg {
 .arch-arrow {
   position: relative;
   width: 100%;
-  height: 3px;
+  height: 4px;
   background: linear-gradient(
     to right,
     color-mix(in srgb, var(--series-temp) 55%, transparent),
@@ -2202,11 +2298,11 @@ svg {
   position: absolute;
   right: -1px;
   top: 50%;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   transform: translateY(-50%) rotate(45deg);
-  border-right: 3px solid var(--good);
-  border-top: 3px solid var(--good);
+  border-right: 4px solid var(--good);
+  border-top: 4px solid var(--good);
 }
 
 .arch-link--stacked {
@@ -2226,16 +2322,16 @@ svg {
   position: absolute;
   left: -1px;
   top: 50%;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   transform: translateY(-50%) rotate(-135deg);
-  border-right: 3px solid var(--series-temp);
-  border-top: 3px solid var(--series-temp);
+  border-right: 4px solid var(--series-temp);
+  border-top: 4px solid var(--series-temp);
 }
 
 .arch-link--stacked .arch-link-label--dashed {
   padding-top: 8px;
-  border-top: 1.5px dashed var(--rule);
+  border-top: 2px dashed var(--rule);
   margin-top: 4px;
 }
 
@@ -2306,8 +2402,8 @@ svg {
 .flow-stage {
   position: relative;
   background: var(--surface-1);
-  border: 1.5px solid var(--hairline);
-  border-top: 4px solid var(--rule);
+  border: 2px solid var(--hairline);
+  border-top: 5px solid var(--rule);
   border-radius: var(--radius);
   padding: 17px 19px 18px;
   display: flex;
@@ -2322,11 +2418,11 @@ svg {
   position: absolute;
   top: 22px;
   right: -16px;
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   transform: rotate(45deg);
-  border-right: 2.5px solid var(--rule);
-  border-top: 2.5px solid var(--rule);
+  border-right: 3px solid var(--rule);
+  border-top: 3px solid var(--rule);
 }
 
 .flow-stage:last-child::after {
@@ -2394,7 +2490,7 @@ svg {
 .flow-out {
   margin-top: auto;
   padding-top: 9px;
-  border-top: 1.5px dashed var(--rule);
+  border-top: 2px dashed var(--rule);
   font-size: 15px;
   line-height: 1.4;
   color: var(--ink-2);
@@ -2454,7 +2550,7 @@ svg {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1.5px solid var(--rule);
+  border: 2px solid var(--rule);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
@@ -2463,7 +2559,7 @@ svg {
 .flow-note {
   margin-top: 12px;
   padding-top: 11px;
-  border-top: 1.5px solid var(--hairline);
+  border-top: 2px solid var(--hairline);
   font-size: 16px;
   line-height: 1.45;
   color: var(--ink-3);
@@ -2495,8 +2591,13 @@ svg {
 @media (max-width: 980px) {
   .brief-grid,
   .arch-cards,
-  .overview-split {
+  .overview-split,
+  .live-split {
     grid-template-columns: 1fr;
+  }
+
+  .live-split-right .phone-frame {
+    height: 460px;
   }
 
   .brief-head {

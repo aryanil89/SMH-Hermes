@@ -586,12 +586,13 @@
     <!-- ══════════════════════════════════════════════════════════════════
          Tab 4 — Live system. The at-a-glance summary, sized for a room
          reading it off a projector: the risk verdict, the four channel
-         states, and the access verdict, all driven by the same
-         /api/stream snapshot as the detailed dashboard. Full drill-down
-         (sparklines, evidence, signal sources, the phone thread) lives on
-         Live details -- kept separate on purpose, since a room six feet
-         from the wall neither needs nor can read a three-column technical
-         dashboard.
+         states, the network/storage/compute families, and the access
+         verdict on the left 60%, the phone thread on the right 40% -- the
+         two things a room actually watches during a demo, the sensor
+         picture and the page landing on the phone, side by side. All of it
+         driven by the same /api/stream snapshot as the detailed dashboard.
+         Full drill-down (sparklines, evidence, per-device feeders, the
+         processing log) lives on Live details.
          ══════════════════════════════════════════════════════════════════ -->
     <section class="tab-panel" id="panel-live" role="tabpanel" aria-labelledby="tab-btn-live" tabindex="0">
       <div class="brief">
@@ -602,81 +603,114 @@
           </div>
           <p class="brief-lede">
             One live feed, read by both this wall and the on-call's phone. Full detail — evidence,
-            signal sources, the phone thread — is one tab over on Live details.
+            per-device feeders, the processing log — is one tab over on Live details.
           </p>
         </div>
 
-        <article class="card card--inference">
-          <header class="card-head">
-            <h3>Risk assessment</h3>
-          </header>
-          <div class="hero">
-            <p class="hero-value" id="sum-risk-score">–</p>
-            <div class="hero-meta">
-              <p class="hero-label">Risk index <span class="muted">/100</span></p>
-              <p class="hero-level" id="sum-risk-level" data-status="unknown">–</p>
-              <div class="meter" role="img" id="sum-risk-meter-wrap" aria-label="risk index">
-                <div class="meter-fill" id="sum-risk-meter"></div>
+        <div class="live-split">
+          <div class="live-split-left">
+            <article class="card card--inference">
+              <header class="card-head">
+                <h3>Risk assessment</h3>
+              </header>
+              <div class="hero">
+                <p class="hero-value" id="sum-risk-score">–</p>
+                <div class="hero-meta">
+                  <p class="hero-label">Risk index <span class="muted">/100</span></p>
+                  <p class="hero-level" id="sum-risk-level" data-status="unknown">–</p>
+                  <div class="meter" role="img" id="sum-risk-meter-wrap" aria-label="risk index">
+                    <div class="meter-fill" id="sum-risk-meter"></div>
+                  </div>
+                </div>
+              </div>
+              <dl class="verdict">
+                <dt>Likely cause</dt>
+                <dd id="sum-likely-cause">–</dd>
+                <dt>Recommended action</dt>
+                <dd id="sum-recommended">–</dd>
+              </dl>
+            </article>
+
+            <div class="summary-tiles">
+              <article class="state-tile state-tile--lg" data-channel="door" data-status="unknown">
+                <svg class="tile-icon" aria-hidden="true"><use href="#i-door" /></svg>
+                <p class="tile-label">Door</p>
+                <p class="tile-value" id="sum-door-value">unknown</p>
+                <p class="tile-sub" id="sum-door-sub">no edge in window</p>
+              </article>
+              <article class="state-tile state-tile--lg" data-channel="light" data-status="unknown">
+                <svg class="tile-icon" aria-hidden="true"><use href="#i-light" /></svg>
+                <p class="tile-label">Lighting</p>
+                <p class="tile-value" id="sum-light-value">unknown</p>
+                <p class="tile-sub" id="sum-light-sub">no edge in window</p>
+              </article>
+              <article class="state-tile state-tile--lg" data-channel="leak" data-status="unknown">
+                <svg class="tile-icon" aria-hidden="true"><use href="#i-leak" /></svg>
+                <p class="tile-label">Leak</p>
+                <p class="tile-value" id="sum-leak-value">unknown</p>
+                <p class="tile-sub" id="sum-leak-sub">–</p>
+              </article>
+              <article class="state-tile state-tile--lg" data-channel="presence" data-status="unknown">
+                <svg class="tile-icon" aria-hidden="true"><use href="#i-presence" /></svg>
+                <p class="tile-label">Presence</p>
+                <p class="tile-value" id="sum-presence-value">unknown</p>
+                <p class="tile-sub" id="sum-presence-sub">ToF distance –</p>
+              </article>
+            </div>
+
+            <div class="summary-row">
+              <article class="card">
+                <header class="card-head">
+                  <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
+                  <span class="chip" id="sum-temp-chip" data-status="unknown">–</span>
+                </header>
+                <p class="stat-value"><span id="sum-temp-value">–</span><span class="unit">°C</span></p>
+              </article>
+              <article class="card">
+                <header class="card-head">
+                  <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
+                  <span class="chip" id="sum-hum-chip" data-status="unknown">–</span>
+                </header>
+                <p class="stat-value"><span id="sum-hum-value">–</span><span class="unit">%&nbsp;RH</span></p>
+              </article>
+              <article class="card access-summary" id="sum-access-card" data-status="unknown">
+                <header class="card-head">
+                  <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access</h3>
+                  <span class="chip" id="sum-access-chip" data-status="unknown">–</span>
+                </header>
+                <p class="access-verdict" id="sum-access-verdict">–</p>
+              </article>
+            </div>
+
+            <article class="card">
+              <header class="card-head">
+                <h3><svg class="head-icon" aria-hidden="true"><use href="#i-cpu" /></svg>Infrastructure</h3>
+                <span class="muted" id="sum-infra-count">–</span>
+              </header>
+              <div class="infra-row" id="sum-families"></div>
+            </article>
+          </div>
+
+          <div class="live-split-right">
+            <div class="live-split-head">
+              <p class="kicker">On-call phone</p>
+              <h2>Telegram</h2>
+              <p class="live-split-sub">the one cloud hop · chat text only</p>
+            </div>
+            <div class="phone">
+              <div class="phone-frame">
+                <span class="phone-notch" aria-hidden="true"></span>
+                <div class="tg-head">
+                  <span class="tg-avatar" aria-hidden="true">H</span>
+                  <div>
+                    <p class="tg-title" id="sum-tg-bot">–</p>
+                    <p class="tg-sub" id="sum-tg-sub">–</p>
+                  </div>
+                </div>
+                <ol class="tg-thread" id="sum-tg-thread"></ol>
               </div>
             </div>
           </div>
-          <dl class="verdict">
-            <dt>Likely cause</dt>
-            <dd id="sum-likely-cause">–</dd>
-            <dt>Recommended action</dt>
-            <dd id="sum-recommended">–</dd>
-          </dl>
-        </article>
-
-        <div class="summary-tiles">
-          <article class="state-tile state-tile--lg" data-channel="door" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-door" /></svg>
-            <p class="tile-label">Door</p>
-            <p class="tile-value" id="sum-door-value">unknown</p>
-            <p class="tile-sub" id="sum-door-sub">no edge in window</p>
-          </article>
-          <article class="state-tile state-tile--lg" data-channel="light" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-light" /></svg>
-            <p class="tile-label">Lighting</p>
-            <p class="tile-value" id="sum-light-value">unknown</p>
-            <p class="tile-sub" id="sum-light-sub">no edge in window</p>
-          </article>
-          <article class="state-tile state-tile--lg" data-channel="leak" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-leak" /></svg>
-            <p class="tile-label">Leak</p>
-            <p class="tile-value" id="sum-leak-value">unknown</p>
-            <p class="tile-sub" id="sum-leak-sub">–</p>
-          </article>
-          <article class="state-tile state-tile--lg" data-channel="presence" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-presence" /></svg>
-            <p class="tile-label">Presence</p>
-            <p class="tile-value" id="sum-presence-value">unknown</p>
-            <p class="tile-sub" id="sum-presence-sub">ToF distance –</p>
-          </article>
-        </div>
-
-        <div class="summary-row">
-          <article class="card">
-            <header class="card-head">
-              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
-              <span class="chip" id="sum-temp-chip" data-status="unknown">–</span>
-            </header>
-            <p class="stat-value"><span id="sum-temp-value">–</span><span class="unit">°C</span></p>
-          </article>
-          <article class="card">
-            <header class="card-head">
-              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
-              <span class="chip" id="sum-hum-chip" data-status="unknown">–</span>
-            </header>
-            <p class="stat-value"><span id="sum-hum-value">–</span><span class="unit">%&nbsp;RH</span></p>
-          </article>
-          <article class="card access-summary" id="sum-access-card" data-status="unknown">
-            <header class="card-head">
-              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access</h3>
-              <span class="chip" id="sum-access-chip" data-status="unknown">–</span>
-            </header>
-            <p class="access-verdict" id="sum-access-verdict">–</p>
-          </article>
         </div>
       </div>
     </section>

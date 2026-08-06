@@ -101,6 +101,11 @@ const els = {
   sumAccessCard: $("sum-access-card"),
   sumAccessChip: $("sum-access-chip"),
   sumAccessVerdict: $("sum-access-verdict"),
+  sumFamilies: $("sum-families"),
+  sumInfraCount: $("sum-infra-count"),
+  sumTgBot: $("sum-tg-bot"),
+  sumTgSub: $("sum-tg-sub"),
+  sumTgThread: $("sum-tg-thread"),
 };
 
 /** The board's raw event vocabulary, in words a judge can read off the wall. */
@@ -758,6 +763,35 @@ function renderServer(snap) {
     },
   );
 
+  // Live system summary: network / storage / compute only -- environmental
+  // is already the door/temp/humidity tiles above, so repeating it here
+  // would just be the same fact twice under a different heading.
+  const infraFamilies = s.families.filter((family) => family.family !== "physical");
+  renderList(
+    els.sumFamilies,
+    infraFamilies,
+    (family) => family.family,
+    () => {
+      const div = document.createElement("div");
+      div.className = "infra-card";
+      div.innerHTML =
+        '<div class="fam-top"><span class="dot"></span><span class="fam-name"></span></div><p class="fam-sub"></p>';
+      return div;
+    },
+    (div, family) => {
+      div.dataset.status = family.status;
+      setText(div.querySelector(".fam-name"), family.label);
+      setText(
+        div.querySelector(".fam-sub"),
+        `${family.deviceCount} ${family.deviceCount === 1 ? "source" : "sources"} · ${family.simulated ? "simulated" : "real"}`,
+      );
+    },
+  );
+  setText(
+    els.sumInfraCount,
+    `${infraFamilies.reduce((sum, family) => sum + family.deviceCount, 0)} devices reporting`,
+  );
+
   setText(els.sourcesCount, `${s.feeders.length} devices reporting`);
   renderList(
     els.feeders,
@@ -856,9 +890,9 @@ function bubbleTag(message) {
  * which. This was the actual complaint: the panel looked dead because no traffic
  * source was wired to it, and nothing on screen admitted that.
  */
-function renderThreadPlaceholder(t) {
+function renderThreadPlaceholder(t, container) {
   const real = t.messages.filter((m) => m.kind !== "system").length;
-  let node = els.tgThread.querySelector(".tg-placeholder");
+  let node = container.querySelector(".tg-placeholder");
   if (real > 0) {
     if (node) node.remove();
     return;
@@ -866,9 +900,9 @@ function renderThreadPlaceholder(t) {
   if (!node) {
     node = document.createElement("li");
     node.className = "tg-placeholder";
-    els.tgThread.append(node);
+    container.append(node);
   } else {
-    els.tgThread.append(node);
+    container.append(node);
   }
   const inboundOff = t.inbound?.mode !== "live";
   setText(
@@ -879,22 +913,11 @@ function renderThreadPlaceholder(t) {
   );
 }
 
-function renderPhone(snap) {
-  const t = snap.telegram;
-  // Before the thread renders: bubbleTag reads this for the queued-bubble tag.
-  watchRunner = t.watchdog.runner ?? { mode: "unknown" };
-  const inbound = t.inbound ?? { mode: "off", detail: "", bot: "none" };
-  const label = INBOUND_LABEL[inbound.mode] ?? INBOUND_LABEL.off;
-  setText(els.tgBot, t.botLabel);
-  setText(els.tgSub, `${t.chatTitle} · ${label.text}`);
-  setAttr(els.tgSub, "data-status", label.status);
-  els.tgSub.title = inbound.detail || t.chatTitle;
-
-  const messages = [...t.messages];
-  if (t.pending) messages.push(t.pending);
-
+/** Shared by the detailed dashboard's thread and the Live system summary's
+ * mirror of it -- same bubbles, same tags, two containers. */
+function renderBubbles(container, messages) {
   renderList(
-    els.tgThread,
+    container,
     messages,
     (message) => message.id,
     (message) => {
@@ -920,8 +943,24 @@ function renderPhone(snap) {
       setText(li.querySelector(".bubble-tag"), bubbleTag(message));
     },
   );
+}
 
-  renderThreadPlaceholder(t);
+function renderPhone(snap) {
+  const t = snap.telegram;
+  // Before the thread renders: bubbleTag reads this for the queued-bubble tag.
+  watchRunner = t.watchdog.runner ?? { mode: "unknown" };
+  const inbound = t.inbound ?? { mode: "off", detail: "", bot: "none" };
+  const label = INBOUND_LABEL[inbound.mode] ?? INBOUND_LABEL.off;
+  setText(els.tgBot, t.botLabel);
+  setText(els.tgSub, `${t.chatTitle} · ${label.text}`);
+  setAttr(els.tgSub, "data-status", label.status);
+  els.tgSub.title = inbound.detail || t.chatTitle;
+
+  const messages = [...t.messages];
+  if (t.pending) messages.push(t.pending);
+
+  renderBubbles(els.tgThread, messages);
+  renderThreadPlaceholder(t, els.tgThread);
 
   // Keep the anchor the last child through the diff above, same trick
   // renderThreadPlaceholder uses -- append() moves an already-attached node
@@ -940,6 +979,18 @@ function renderPhone(snap) {
   if (phoneAtBottom || justBecameVisible) {
     tgAnchor.scrollIntoView({ behavior: "auto", block: "end" });
   }
+
+  // Live system's phone mirror -- same messages, same bot header, no anchor
+  // tracking: it's a secondary view, so a plain scrollTop-to-bottom on every
+  // tick is enough, without the visibility bookkeeping the primary thread
+  // above needs to survive being hidden mid-tick.
+  setText(els.sumTgBot, t.botLabel);
+  setText(els.sumTgSub, `${t.chatTitle} · ${label.text}`);
+  setAttr(els.sumTgSub, "data-status", label.status);
+  els.sumTgSub.title = inbound.detail || t.chatTitle;
+  renderBubbles(els.sumTgThread, messages);
+  renderThreadPlaceholder(t, els.sumTgThread);
+  els.sumTgThread.scrollTop = els.sumTgThread.scrollHeight;
 
   const newestInbound = [...t.messages].reverse().find((m) => m.direction === "inbound");
   if (newestInbound) {
