@@ -67,33 +67,34 @@ before this issue, not a new one: `python bench.py --modes gpu` per RESULTS.md's
 Nothing about today's audit changes that follow-up; it just confirms it hasn't happened yet and
 explains why acting on it now would be premature.
 
-## The one candidate for the GPU tier — not built yet
+## The one candidate for the GPU tier — built, but on CPU, not GPU
 
-The policy's "less demanding AI/LLM workload → GPU" tier has an obvious future occupant: face
-identification. `ACCESS_IDENTITY_METHOD` already lists `face-npu` and `face-cpu` as rungs in the
+The policy's "less demanding AI/LLM workload → GPU" tier has an obvious occupant: face
+identification. `ACCESS_IDENTITY_METHOD` lists `face-npu` and `face-cpu` as rungs in the
 [identity ladder](../phone/README.md#the-identity-ladder) — a small embedding model, run
 per-capture rather than per-token-of-conversation, async to the interactive chat path. That's a
-materially lighter and less latency-critical job than driving the primary agent, and CPU
-(`face-cpu`) already exists in the design as the non-NPU fallback — GPU would slot in the same
-place.
+materially lighter and less latency-critical job than driving the primary agent.
 
-It isn't built: **no `ACCESS_VISION_SCRIPT` ships in this repo**, so both face rungs are
-architected but inert, and the terminal falls back to `stub` (detection-only) — the only identity
-rung actually claimed today. There is nothing running that a GPU placement decision could apply
-to yet. Building it is a separate, much larger piece of work than a placement decision, and out of
-scope for this audit.
+**As of 2026-08-06, it's built** — `face-cpu` (InsightFace buffalo_s: SCRFD-500MF detector +
+ArcFace MobileFaceNet recognizer via onnxruntime) is live, verified against known matches scoring
+0.85/0.79. It runs on **CPU**, not GPU: Phase A deliberately chose CPU for something deterministic
+and stable inside a 24-hour ship window — the same non-NPU fallback this doc already anticipated.
+`face-npu` (the Hexagon NPU rung) and a GPU-executing rung are both still unbuilt, so this audit's
+conclusion is unchanged: nothing has actually landed on the GPU tier. Building an NPU or GPU
+variant is a separate, larger piece of work than a placement decision, and out of scope for this
+audit.
 
 ## Verdict
 
 | Policy tier | What should be there | What's there today |
 |---|---|---|
 | NPU — demanding AI/LLM | The primary model | GenieX / Qwen3-4B — ✅ |
-| GPU — lighter AI/LLM | A secondary, less latency-critical model | Nothing built yet; GPU is also currently broken for this project's tool-calling workload regardless |
-| CPU — everything else | Mocked telemetry, real sensor I/O, rules, the wall, the watchdog | Already there — these were never accelerator candidates |
+| GPU — lighter AI/LLM | A secondary, less latency-critical model | Nothing built on GPU; GPU is also currently broken for this project's tool-calling workload regardless |
+| CPU — everything else | Mocked telemetry, real sensor I/O, rules, the wall, the watchdog, **and now face-cpu identification** | Already there — these were never accelerator candidates, and face-cpu (built 2026-08-06) slotted into the same CPU tier |
 
 **Current placement already matches the stated policy for everything that exists.** There is no
-rebalancing action available today: the one real workload is correctly on the NPU with numbers to
-back it, the "everything else" tier was never in question, and the GPU tier has no occupant
-because its only realistic candidate (face identification) hasn't been built. The two concrete,
-already-known triggers for revisiting this are unchanged by this audit: a GenieX release that
-fixes GPU + tool-calling, or `ACCESS_VISION_SCRIPT` landing.
+rebalancing action available today: the one real NPU-class workload is correctly on the NPU with
+numbers to back it, face identification landed on CPU exactly where this doc already expected the
+non-NPU fallback to sit, and the GPU tier still has no occupant. The two concrete, already-known
+triggers for revisiting this are unchanged by this audit: a GenieX release that fixes GPU +
+tool-calling, or an NPU-executing `ACCESS_VISION_SCRIPT` landing.
