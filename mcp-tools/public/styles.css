@@ -1041,11 +1041,21 @@ svg {
   flex: 0 0 auto;
 }
 
+.family[data-status="ok"] {
+  border-color: color-mix(in srgb, var(--good) 45%, var(--hairline));
+}
 .family[data-status="ok"] .dot {
   background: var(--good);
 }
+.family[data-status="warning"] {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--hairline));
+}
 .family[data-status="warning"] .dot {
   background: var(--warning);
+}
+.family[data-status="critical"] {
+  border-color: color-mix(in srgb, var(--critical) 65%, var(--hairline));
+  background: color-mix(in srgb, var(--critical) 12%, var(--surface-2));
 }
 .family[data-status="critical"] .dot {
   background: var(--critical);
@@ -2322,11 +2332,21 @@ svg {
   flex: 0 0 auto;
 }
 
+.infra-card[data-status="ok"] {
+  border-color: color-mix(in srgb, var(--good) 45%, var(--hairline));
+}
 .infra-card[data-status="ok"] .dot {
   background: var(--good);
 }
+.infra-card[data-status="warning"] {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--rule));
+}
 .infra-card[data-status="warning"] .dot {
   background: var(--warning);
+}
+.infra-card[data-status="critical"] {
+  border-color: color-mix(in srgb, var(--critical) 65%, var(--rule));
+  background: color-mix(in srgb, var(--critical) 12%, var(--surface-2));
 }
 .infra-card[data-status="critical"] .dot {
   background: var(--critical);

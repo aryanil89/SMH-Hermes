@@ -1361,10 +1361,19 @@ function demoDoorTick(progress) {
 }
 
 /** Pure -- see demoEnvCompute. */
+// The drop (100% -> 3%) takes the first 62.5% of the window; the recovery
+// (3% -> 92%) takes the remaining 37.5% -- 25% longer than the original
+// 30%/70% split (0.3 * 1.25 = 0.375), so the climb back up reads less like
+// a snap and more like a system actually doing the work.
+const DEMO_STORAGE_SPLIT = 0.625;
+
 function demoStorageCompute(progress) {
-  const pct = progress <= 0.7 ? 100 - (progress / 0.7) * 97 : 3 + ((progress - 0.7) / 0.3) * 89;
+  const pct =
+    progress <= DEMO_STORAGE_SPLIT
+      ? 100 - (progress / DEMO_STORAGE_SPLIT) * 97
+      : 3 + ((progress - DEMO_STORAGE_SPLIT) / (1 - DEMO_STORAGE_SPLIT)) * 89;
   const status = pct <= 5 ? "critical" : pct <= 20 ? "warning" : "ok";
-  const remediating = progress > 0.7;
+  const remediating = progress > DEMO_STORAGE_SPLIT;
   const score = status === "critical" ? 74 : status === "warning" ? 38 : remediating ? 12 : 0;
   const level = status === "critical" ? "critical" : status === "warning" ? "medium" : "low";
   const cause =
