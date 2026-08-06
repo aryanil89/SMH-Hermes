@@ -349,3 +349,121 @@ describe("AccessSentry lifecycle", () => {
     expect(back.pending?.verdict).toBe("challenge");
   });
 });
+
+describe("AccessSentry pendingPhoto", () => {
+  it("is absent when nothing is pending", async () => {
+    const s = await sentry();
+    expect(s.pendingPhoto()).toBeUndefined();
+  });
+
+  it("is absent before a capture, even with a challenge open", async () => {
+    const s = await sentry();
+    const log = logView({ presence: presentSince(T0.toISOString(), 5) });
+    await s.update(log, assessment("low"), at(5));
+    expect(s.pendingPhoto()).toBeUndefined();
+  });
+
+  it("is retrievable while approval is pending", async () => {
+    const s = await sentry();
+    const log = logView({
+      presence: presentSince(T0.toISOString(), 5),
+      doorOpenAt: [T0.toISOString()],
+    });
+    await s.update(log, assessment("low"), at(5));
+    await s.capture({ imageBase64: "ZmFrZQ==", now: at(6) });
+    const challenged = await s.update(log, assessment("low"), at(7));
+    expect(challenged.verdict).toBe("challenge");
+    expect(challenged.pending?.approval.state).toBe("pending");
+
+    const photo = s.pendingPhoto();
+    expect(photo?.imageBase64).toBe("ZmFrZQ==");
+    expect(photo?.mime).toBe("image/jpeg");
+  });
+
+  it("carries the caller-supplied mime through to pendingPhoto", async () => {
+    const s = await sentry();
+    const log = logView({
+      presence: presentSince(T0.toISOString(), 5),
+      doorOpenAt: [T0.toISOString()],
+    });
+    await s.update(log, assessment("low"), at(5));
+    await s.capture({ imageBase64: "ZmFrZQ==", imageMime: "image/png", now: at(6) });
+    await s.update(log, assessment("low"), at(7));
+    expect(s.pendingPhoto()?.mime).toBe("image/png");
+  });
+
+  it("is absent once approval is resolved, even though the challenge is still open", async () => {
+    const s = await sentry();
+    const log = logView({
+      presence: presentSince(T0.toISOString(), 5),
+      doorOpenAt: [T0.toISOString()],
+    });
+    const opened = await s.update(log, assessment("low"), at(5));
+    await s.capture({ imageBase64: "ZmFrZQ==", now: at(6) });
+    await s.update(log, assessment("low"), at(7));
+    expect(s.pendingPhoto()).toBeDefined();
+
+    const id = opened.pending?.id as string;
+    const approved = await s.approve({ id, decision: "approved", decidedBy: "on-call", now: at(8) });
+    expect(approved.ok).toBe(true);
+
+    // The visit is not over -- the person is still standing there -- but the
+    // decision is made, so the photo must be gone regardless.
+    expect(s.pendingPhoto()).toBeUndefined();
+    const after = await s.update(log, assessment("low"), at(9));
+    expect(after.pending?.id).toBe(id);
+    expect(s.pendingPhoto()).toBeUndefined();
+  });
+
+  it("is absent after a denial too, not only an approval", async () => {
+    const s = await sentry();
+    const log = logView({
+      presence: presentSince(T0.toISOString(), 5),
+      doorOpenAt: [T0.toISOString()],
+    });
+    const opened = await s.update(log, assessment("low"), at(5));
+    await s.capture({ imageBase64: "ZmFrZQ==", now: at(6) });
+    await s.update(log, assessment("low"), at(7));
+    await s.approve({
+      id: opened.pending?.id as string,
+      decision: "denied",
+      decidedBy: "on-call",
+      now: at(8),
+    });
+    expect(s.pendingPhoto()).toBeUndefined();
+  });
+
+  it("is dropped when the challenge closes without a decision", async () => {
+    const s = await sentry();
+    const present = logView({ presence: presentSince(T0.toISOString(), 5) });
+    await s.update(present, assessment("low"), at(5));
+    await s.capture({ imageBase64: "ZmFrZQ==", now: at(6) });
+    await s.update(present, assessment("low"), at(7));
+    expect(s.pendingPhoto()).toBeDefined();
+
+    const gone = await s.update(logView(), assessment("low"), at(60));
+    expect(gone.pending).toBeUndefined();
+    expect(s.pendingPhoto()).toBeUndefined();
+  });
+
+  it("never appears on the retired audit entry", async () => {
+    const s = await sentry();
+    const log = logView({
+      presence: presentSince(T0.toISOString(), 5),
+      doorOpenAt: [T0.toISOString()],
+    });
+    const opened = await s.update(log, assessment("low"), at(5));
+    await s.capture({ imageBase64: "ZmFrZQ==", now: at(6) });
+    await s.update(log, assessment("low"), at(7));
+    const id = opened.pending?.id as string;
+    await s.approve({ id, decision: "approved", decidedBy: "on-call", now: at(8) });
+
+    const goneAt = at(120);
+    const gone = await s.update(logView(), assessment("low"), goneAt);
+    const entry = gone.log[0];
+    expect(entry).toBeDefined();
+    expect(Object.keys(entry ?? {})).not.toContain("photo");
+    expect(Object.keys(entry ?? {})).not.toContain("imageBase64");
+    expect(JSON.stringify(entry)).not.toMatch(/imageBase64|"photo"|"image"/i);
+  });
+});
