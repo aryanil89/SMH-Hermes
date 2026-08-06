@@ -141,8 +141,9 @@
   <label class="filebtn primary" for="shot">📷 &nbsp;Photograph the person at the rack</label>
   <input type="file" id="shot" accept="image/*" capture="environment">
   <p class="note">
-    The photo is resolved to a match and then discarded. Only a numeric embedding
-    is ever stored — never the image.
+    The photo is shown to the approver on the wall while a decision is pending, then
+    discarded the moment it is made. It is never written to disk — only a numeric
+    embedding is ever stored, never the image.
   </p>
 </section>
 
@@ -167,14 +168,16 @@
 <section>
   <details>
     <summary>Enrol someone</summary>
-    <input type="text" id="enrolName" placeholder="Name on the roster" autocomplete="off">
-    <button id="enrol">Add to roster</button>
+    <input type="text" id="enrolName" placeholder="Name on the roster" autocomplete="off" disabled>
+    <button id="enrol" disabled>Add to roster (disabled for demo)</button>
     <p class="note" id="enrolled"></p>
     <p class="note">
-      Adding a name here does not use a badge, QR code, or face scan — it just adds that
-      name to the roster so the decision log can refer to it. The only physical-security
-      signal is the rack's distance sensor detecting presence; every access decision is
-      made by a human reviewing the captured photo.
+      Disabled for this demo: a hand-typed name here has no real embedding behind it --
+      posting one from a phone at the rack is a live demo risk, not a credential. Adding a
+      name would not use a badge, QR code, or face scan either way -- it would just add
+      that name to the roster so the decision log can refer to it. The only
+      physical-security signal is the rack's distance sensor detecting presence; every
+      access decision is made by a human reviewing the captured photo.
     </p>
   </details>
 </section>
