@@ -259,7 +259,10 @@ elseif (-not (Test-Path $WallEntry)) {
   # Task Scheduler cannot redirect output, and the task runs hidden -- so wrap in
   # PowerShell purely to capture a log. Without this the only failure signal is
   # "7788 isn't listening", with no reason attached.
-  $inner = '& "{0}" "{1}" *>> "{2}"' -f $node, $WallEntry, $WallLog
+  # Quoting is load-bearing: powershell.exe's command-line tokenizer strips bare
+  # double quotes before -Command reassembles the text, so paths with spaces
+  # must ride as single quotes inside ONE double-quoted payload.
+  $inner = '"& ''{0}'' ''{1}'' *>> ''{2}''"' -f $node, $WallEntry, $WallLog
 
   Invoke-Step "register scheduled task '$WallTask'" {
     $action = New-ScheduledTaskAction -Execute $PsExe `
@@ -342,7 +345,8 @@ elseif (-not (Test-Path $WatchEntry)) {
     Say 'WARN' 'Set them as MACHINE or USER environment variables so the scheduled task inherits them.'
   }
 
-  $innerWatch = '& "{0}" "{1}" *>> "{2}"' -f $node, $WatchEntry, $WatchLog
+  # Same quoting constraint as the wall display's $inner above.
+  $innerWatch = '"& ''{0}'' ''{1}'' *>> ''{2}''"' -f $node, $WatchEntry, $WatchLog
 
   Invoke-Step "register scheduled task '$WatchTask'" {
     $action = New-ScheduledTaskAction -Execute $PsExe `
