@@ -67,7 +67,7 @@ must demo to be eligible for a prize.**
 
 | Criterion | Where the evidence lives |
 |---|---|
-| Technical Implementation (40) — resource utilization, optimization, latency, energy | [docs/EVIDENCE.md](docs/EVIDENCE.md) — the one-stop index: NPU 382 tok/s vs CPU 35 prefill, 471 J/query NPU vs ~8.7× CPU energy/token, per-op Hexagon profiling, prompt-composition optimization |
+| Technical Implementation (40) — resource utilization, optimization, latency, energy | [docs/EVIDENCE.md](docs/EVIDENCE.md) — the one-stop index: NPU 382 tok/s vs CPU 35 prefill, 471 J/query NPU vs ~8.7× CPU energy/token, per-op Hexagon profiling, prompt-composition optimization, and the same model measured on a **second Hexagon NPU** (S25 Ultra 8 Elite: 1,918 tok/s prefill / 23.1 decode, w4a16 via `genie-t2t-run` over `adb` — labeled as a different config) |
 | Use-Case and Innovation (25) | README intro + [docs/POSITIONING.md](docs/POSITIONING.md); the access sentry (presence → face-cpu → human approval → audit trail; known responder suppresses the page) |
 | Deployment and Accessibility (20) | [README § Judge quickstart](README.md#judge-quickstart--three-rungs-pick-your-hardware) — rung 1 runs on any Node 18+ machine in ~5 min |
 | Presentation and Documentation (15) | Candid built-vs-planned line ([README § Today vs. planned](README.md#today-vs-planned)), 327 passing tests, [docs/RUNBOOK.md](docs/RUNBOOK.md), troubleshooting tables from real incidents |

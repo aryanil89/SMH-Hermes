@@ -192,12 +192,18 @@ what it can do rather than claiming a match it never made. `face-cpu` is opt-in 
 2026-08-06, ~5s, process-scope env only) — `stub` stays the process default. If that changes,
 this table is the place to update.
 
-## Still not implemented
+## On-phone inference — benchmarked 2026-08-06; serving still not implemented
 
-**On-phone inference** — a second GenieX/Qwen3-4B instance on the 8 Elite for a
-phone-vs-laptop NPU benchmark. `qualcomm/ai-hub-apps` publishes pre-compiled Genie bundles for
-the 8 Elite row with Qwen3-4B as the worked example, and there is a CLI path over `adb`, so
-this needs no Android app. The open risk is memory: the tutorial states 12 GB as the minimum
-for 3B+ models and this device has exactly 12 GB. An OOM is a publishable result — *4B fits the
-X Elite's 31.6 GB and not a 12 GB phone, which is why the laptop keeps the brain* — not a
-failure. See [../docs/HARDWARE_UTILIZATION.md](../docs/HARDWARE_UTILIZATION.md).
+The CLI-over-`adb` path predicted above worked: the `qualcomm/Qwen3-4B-Instruct-2507`
+pre-compiled AI Hub Genie bundle (w4a16, ctx 4096) ran on this phone's Hexagon via
+`genie-t2t-run` (QAIRT 2.45, hexagon-v79) — **prefill 1,918.0 ± 16.9 tok/s, decode
+23.1 ± 1.3 tok/s, TTFT 0.65 s**, warmup + 5 reps, numbers and every config caveat in
+[../llm-serving-bench/RESULTS.md](../llm-serving-bench/RESULTS.md#phone-benchmark-snapdragon-8-elite--2026-08-06).
+The 12 GB memory risk did not bite at ctx 4096 (~5.4 GB free before load, no OOM); the
+phone stayed a working approval terminal throughout and all bench artifacts were deleted
+after. Setup gotcha worth recording: Samsung's **Auto Blocker** silently blocks USB
+debugging — it must be off before `adb` can see the device.
+
+**Still not implemented:** an on-phone *serving* endpoint (the bench is a one-shot CLI —
+no tool-calling, no sustained load tested), the "failover brain" demo beat, and phone-side
+energy measurement. See [../docs/HARDWARE_UTILIZATION.md](../docs/HARDWARE_UTILIZATION.md).

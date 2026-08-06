@@ -171,3 +171,51 @@ python energy.py --run --label npu     # J/query (needs HWiNFO shared memory ON)
 
 Raw data: `results.json` + `archive/` (per-run JSONs and tables, timestamped),
 `prefill-long-results.json`, `serve-*.log` (crash signatures).
+
+## Phone benchmark (Snapdragon 8 Elite) — 2026-08-06
+
+Device: Samsung Galaxy S25 Ultra (SM-S938U1, SM8750, Hexagon `dsp_arch v79`, 11.4 GB
+MemTotal / 5.4 GB available at start, Android 15), on USB power, serving as the live
+approval terminal before and after the run. Model: `qualcomm/Qwen3-4B-Instruct-2507`
+pre-compiled AI Hub Genie bundle — **w4a16**, ctx **4096**, compiled with QAIRT 2.45
+(bundle SHA-256 in `phone/phone-results.json`). Runner: `genie-t2t-run` from the QAIRT
+2.45.0.260326 Community SDK (aarch64-android, libGenie 1.17.0) over `adb` — a **one-shot
+CLI, not a serving endpoint**. Prompt: fixed 1,248-token ops summary, nonce-prefixed per
+rep. One warmup rep + 5 measured, back-to-back deliberately (rep-over-rep decay is the
+thermal signal).
+
+| metric | value | note |
+|---|---|---|
+| prefill | **1,918.0 ± 16.9 tok/s** | n=5, 1,248-token prompt |
+| decode | **23.1 ± 1.3 tok/s** | n=5, 119–136 generated tokens per rep |
+| TTFT | **0.65 ± 0.01 s** | from `--profile` (excludes model load) |
+| model load | 4.1 ± 0.2 s warm, 4.27 s cold | 3.2 GB context binaries, mmap |
+| thermal | battery 29.5 → 31.8 °C over 6 reps | decode reps 1–3 ≈ 24.1, reps 4–5 ≈ 21.7 tok/s (~10% dip); prefill flat |
+
+**Not the laptop's config** — different quantization (w4a16 QNN context binaries vs Q4_0
+GGUF), context (4,096 vs 65,536), runner (one-shot CLI vs GenieX OpenAI serving), prompt
+length (1,248 vs 3,867 tokens), and a phone chassis. This table answers "does the same
+model run on the second Hexagon, and how fast there" — not "which NPU wins under
+identical conditions". The 12 GB memory risk flagged in `phone/README.md` did not bite at
+ctx 4096: ~5.4 GB available before load, no OOM, the phone stayed usable throughout.
+
+**Not tested on the phone:** tool-calling, an OpenAI-serving endpoint, sustained load,
+energy per query, context beyond 4096. The bundle is HTP-only context binaries, so there
+is no on-phone CPU comparison to run. The laptop remains the only claimed serving path.
+
+Reproduce (PowerShell host; phone needs USB debugging on and Samsung **Auto Blocker OFF**):
+
+```powershell
+# Both downloads are public, no login. Bundle URL is in phone/phone-results.json.
+curl.exe -LO <bundle-url>          # 2.4 GB, w4a16 8 Elite Genie bundle
+curl.exe -LO https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/2.45.0.260326/v2.45.0.260326.zip
+# Extract both; adb push to /data/local/tmp/hermes-npu-bench/: bundle -> bundle/,
+#   SDK lib/aarch64-android -> qairt/lib, bin/aarch64-android/genie-t2t-run -> qairt/bin,
+#   lib/hexagon-v79 -> qairt/hexagon-v79, plus phone/run.sh from this repo.
+adb shell "sh /data/local/tmp/hermes-npu-bench/run.sh 1 v79"   # one rep; KPIs land in profile-rep1.json
+```
+
+Raw: `phone/` — per-rep logs, `--profile` JSONs, the `run.sh` harness, `phone-results.json`
+(per-rep table + bundle hash + URLs). Prompt passed via `--prompt_file` — `-p` over
+`adb shell` loses its quoting and splits the prompt into bogus argv (first smoke log shows
+the failure mode).

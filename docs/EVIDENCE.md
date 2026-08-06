@@ -18,8 +18,10 @@ disqualifies configs that cannot tool-call, regardless of speed.
 | Prompt-composition optimization | 78% of a request is fixed overhead; cutting the skills catalogue saved a measured **1,535 tok/call** (~7.5–10 s per call) | 2026-08-05 | RESULTS.md § Prompt composition |
 | Sensor-edge-to-phone latency | ~15–30 s via the 15 s watchdog loop, from a measured 102 s worst case on the cron path | 2026-08-05 | [WATCHDOG.md](WATCHDOG.md) |
 | Energy methodology precedent | arXiv 2606.11257 reports 315 vs 1,251 J/query (4.0×) on this SoC with a decode-heavier mix | — | cited in RESULTS.md § Energy |
+| Phone (8 Elite) NPU — same model on the second Hexagon | **prefill 1,918.0 ± 16.9 tok/s, decode 23.1 ± 1.3** (w4a16, ctx 4096, 1,248-tok prompt, TTFT 0.65 s) | 2026-08-06, 5 reps + warmup, nonce-prefixed, `genie-t2t-run` over `adb` — config differs from the laptop row (quant/context/runner), not a 1:1 comparison | [llm-serving-bench/RESULTS.md](../llm-serving-bench/RESULTS.md#phone-benchmark-snapdragon-8-elite--2026-08-06) |
 
 Raw artifacts: `llm-serving-bench/energy-results.json`, `llm-serving-bench/cache-probe-results.json`,
+`llm-serving-bench/phone/` (per-rep logs + `--profile` JSONs + `phone-results.json`),
 `bench/` harness output. Reproduction commands are at the end of each RESULTS.md section.
 
 ## Screenshots — to capture (owner: team, before Friday demo)
