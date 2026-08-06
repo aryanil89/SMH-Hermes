@@ -1998,7 +1998,17 @@ svg {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
-  align-items: start;
+  align-items: stretch;
+}
+
+.summary-row .access-summary {
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-row .access-summary .access-verdict {
+  margin-top: auto;
+  margin-bottom: auto;
 }
 
 /* Live system: sensor picture on the left (60%), the phone thread on the
@@ -2056,7 +2066,7 @@ svg {
    40% column's content, not a small mockup floating in empty space. */
 .live-split-right .phone-frame {
   max-width: 460px;
-  height: 760px;
+  height: 770px;
 }
 
 .live-split-right .phone-notch {
