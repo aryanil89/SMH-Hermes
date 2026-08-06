@@ -112,17 +112,6 @@
       </button>
       <button
         class="tab-btn"
-        id="tab-btn-detailed"
-        role="tab"
-        aria-selected="false"
-        aria-controls="panel-detailed"
-        data-tab="detailed"
-        tabindex="-1"
-      >
-        Detailed architecture
-      </button>
-      <button
-        class="tab-btn"
         id="tab-btn-live"
         role="tab"
         aria-selected="false"
@@ -131,6 +120,17 @@
         tabindex="-1"
       >
         Live system
+      </button>
+      <button
+        class="tab-btn tab-btn--right"
+        id="tab-btn-detailed"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-detailed"
+        data-tab="detailed"
+        tabindex="-1"
+      >
+        Detailed architecture
       </button>
     </nav>
 
@@ -573,8 +573,224 @@
       </div>
     </section>
 
+
     <!-- ══════════════════════════════════════════════════════════════════
-         Tab 4 — Detailed architecture. The conceptual and logical tabs back
+         Tab 4 — Live system. Unchanged: the original wall display, driven
+         by app.js over the /api/stream SSE feed.
+         ══════════════════════════════════════════════════════════════════ -->
+    <main class="wall tab-panel" id="panel-live" role="tabpanel" aria-labelledby="tab-btn-live" tabindex="0">
+      <!-- ── Left: the environmental device ─────────────────────────────── -->
+      <section class="column" aria-labelledby="device-title">
+        <div class="column-head">
+          <p class="kicker">Edge device</p>
+          <h2 id="device-title">Arduino UNO Q</h2>
+          <p class="column-sub" id="device-sub">Rack environmental monitor</p>
+        </div>
+
+        <article class="card card--tight">
+          <div class="badge-row">
+            <span class="badge" id="device-source">source –</span>
+            <span class="badge" id="device-transport">transport –</span>
+            <span class="badge" id="device-age">age –</span>
+          </div>
+          <p class="note note--warn" id="device-fallback" hidden></p>
+        </article>
+
+        <div class="state-grid" id="state-grid">
+          <article class="state-tile" data-channel="door" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-door" /></svg>
+            <p class="tile-label">Door</p>
+            <p class="tile-value" id="door-value">unknown</p>
+            <p class="tile-sub" id="door-sub">no edge in window</p>
+          </article>
+          <article class="state-tile" data-channel="light" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-light" /></svg>
+            <p class="tile-label">Lighting</p>
+            <p class="tile-value" id="light-value">unknown</p>
+            <p class="tile-sub" id="light-sub">no edge in window</p>
+          </article>
+          <article class="state-tile" data-channel="leak" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-leak" /></svg>
+            <p class="tile-label">Leak</p>
+            <p class="tile-value" id="leak-value">unknown</p>
+            <p class="tile-sub" id="leak-sub">–</p>
+          </article>
+          <article class="state-tile" data-channel="presence" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-presence" /></svg>
+            <p class="tile-label">Presence</p>
+            <p class="tile-value" id="presence-value">unknown</p>
+            <p class="tile-sub" id="presence-sub">ToF distance –</p>
+          </article>
+        </div>
+
+        <!--
+          Placed directly under the door/presence tiles on purpose: this card is
+          derived from them. The adjacency is the argument -- two channels that
+          were previously only drawn now produce a verdict.
+        -->
+        <article class="card" id="access-card" data-status="unknown">
+          <header class="card-head">
+            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access</h3>
+            <span class="chip" id="access-chip" data-status="unknown">–</span>
+          </header>
+          <p class="access-verdict" id="access-verdict">–</p>
+          <p class="tile-sub" id="access-identity">identity –</p>
+          <ul class="access-faces" id="access-faces"></ul>
+          <ul class="access-reasons" id="access-reasons"></ul>
+          <p class="note note--warn" id="access-approval" hidden></p>
+          <ol class="access-log" id="access-log"></ol>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
+            <span class="chip" id="temp-chip" data-status="unknown">–</span>
+          </header>
+          <p class="stat-value"><span id="temp-value">–</span><span class="unit">°C</span></p>
+          <figure class="spark" id="temp-spark" data-series="temperature"></figure>
+          <p class="chart-note" id="temp-note"></p>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
+            <span class="chip" id="hum-chip" data-status="unknown">–</span>
+          </header>
+          <p class="stat-value"><span id="hum-value">–</span><span class="unit">%&nbsp;RH</span></p>
+          <figure class="spark" id="hum-spark" data-series="humidity"></figure>
+          <p class="chart-note" id="hum-note"></p>
+        </article>
+
+        <details class="table-view">
+          <summary>Readings table</summary>
+          <div class="table-scroll"><table id="climate-table"></table></div>
+        </details>
+
+        <article class="card card--grow">
+          <header class="card-head">
+            <h3>Sensor log</h3>
+            <span class="muted" id="device-log-count">–</span>
+          </header>
+          <ol class="feed" id="device-events"></ol>
+        </article>
+      </section>
+
+      <!-- ── Conduit: device → server ───────────────────────────────────── -->
+      <div class="conduit" id="conduit-in" data-state="idle">
+        <p class="conduit-label">sensor feed</p>
+        <div class="rail" aria-hidden="true">
+          <span class="pulse"></span><span class="pulse"></span><span class="pulse"></span>
+        </div>
+        <p class="conduit-foot" id="conduit-in-foot">–</p>
+      </div>
+
+      <!-- ── Middle: the server ─────────────────────────────────────────── -->
+      <section class="column column--wide" aria-labelledby="server-title">
+        <div class="column-head">
+          <p class="kicker">Server · on-device reasoning</p>
+          <h2 id="server-title">–</h2>
+          <p class="column-sub" id="server-sub">–</p>
+        </div>
+
+        <article class="card card--tight">
+          <header class="card-head">
+            <h3>Ingest</h3>
+            <span class="chip" id="feed-chip" data-status="unknown">–</span>
+          </header>
+          <dl class="kv" id="feed-kv"></dl>
+          <p class="note note--warn" id="feed-reason" hidden></p>
+        </article>
+
+        <article class="card card--inference">
+          <header class="card-head">
+            <h3>Inference</h3>
+            <span class="chip" id="confidence-chip" data-status="unknown">–</span>
+          </header>
+          <div class="hero">
+            <p class="hero-value" id="risk-score">–</p>
+            <div class="hero-meta">
+              <p class="hero-label">Risk index <span class="muted">/100</span></p>
+              <p class="hero-level" id="risk-level" data-status="unknown">–</p>
+              <div class="meter" role="img" id="risk-meter-wrap" aria-label="risk index">
+                <div class="meter-fill" id="risk-meter"></div>
+              </div>
+              <p class="muted" id="risk-families">–</p>
+            </div>
+          </div>
+          <dl class="verdict">
+            <dt>Likely cause</dt>
+            <dd id="likely-cause">–</dd>
+            <dt>Recommended action</dt>
+            <dd id="recommended">–</dd>
+          </dl>
+          <h4 class="sub-head">Evidence <span class="muted" id="evidence-count"></span></h4>
+          <ul class="evidence" id="evidence"></ul>
+          <p class="note" id="provenance">–</p>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <h3>Signal sources</h3>
+            <span class="muted" id="sources-count">–</span>
+          </header>
+          <div class="family-row" id="families"></div>
+          <div class="feeder-grid" id="feeders"></div>
+        </article>
+
+        <article class="card card--grow">
+          <header class="card-head">
+            <h3>Processing stream</h3>
+            <span class="muted">newest first</span>
+          </header>
+          <ol class="feed feed--pipeline" id="pipeline"></ol>
+        </article>
+      </section>
+
+      <!-- ── Conduit: server → phone ────────────────────────────────────── -->
+      <div class="conduit" id="conduit-out" data-state="idle">
+        <p class="conduit-label">telegram relay</p>
+        <div class="rail" aria-hidden="true">
+          <span class="pulse"></span><span class="pulse"></span><span class="pulse"></span>
+          <span class="pulse pulse--up"></span>
+        </div>
+        <p class="conduit-foot" id="conduit-out-foot">–</p>
+      </div>
+
+      <!-- ── Right: the on-call phone ───────────────────────────────────── -->
+      <section class="column" aria-labelledby="phone-title">
+        <div class="column-head">
+          <p class="kicker">On-call phone</p>
+          <h2 id="phone-title">Telegram</h2>
+          <p class="column-sub">the one cloud hop · chat text only</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-frame">
+            <span class="phone-notch" aria-hidden="true"></span>
+            <div class="tg-head">
+              <span class="tg-avatar" aria-hidden="true">H</span>
+              <div>
+                <p class="tg-title" id="tg-bot">–</p>
+                <p class="tg-sub" id="tg-sub">–</p>
+              </div>
+            </div>
+            <ol class="tg-thread" id="tg-thread"></ol>
+          </div>
+        </div>
+
+        <article class="card card--tight">
+          <header class="card-head">
+            <h3>Watchdog</h3>
+            <span class="chip" id="watchdog-chip" data-status="unknown">–</span>
+          </header>
+          <dl class="kv" id="watchdog-kv"></dl>
+          <p class="note" id="watchdog-note"></p>
+        </article>
+      </section>
+    </main>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         Tab 5 — Detailed architecture. The conceptual and logical tabs back
          to back on one scrolling panel, for a judge Q&A that wants both
          without flipping tabs. Content is duplicated from panels 2 and 3 on
          purpose, not shared via JS: these are static prose, and a single
@@ -888,221 +1104,6 @@
         </div>
       </div>
     </section>
-
-    <!-- ══════════════════════════════════════════════════════════════════
-         Tab 5 — Live system. Unchanged: the original wall display, driven
-         by app.js over the /api/stream SSE feed.
-         ══════════════════════════════════════════════════════════════════ -->
-    <main class="wall tab-panel" id="panel-live" role="tabpanel" aria-labelledby="tab-btn-live" tabindex="0">
-      <!-- ── Left: the environmental device ─────────────────────────────── -->
-      <section class="column" aria-labelledby="device-title">
-        <div class="column-head">
-          <p class="kicker">Edge device</p>
-          <h2 id="device-title">Arduino UNO Q</h2>
-          <p class="column-sub" id="device-sub">Rack environmental monitor</p>
-        </div>
-
-        <article class="card card--tight">
-          <div class="badge-row">
-            <span class="badge" id="device-source">source –</span>
-            <span class="badge" id="device-transport">transport –</span>
-            <span class="badge" id="device-age">age –</span>
-          </div>
-          <p class="note note--warn" id="device-fallback" hidden></p>
-        </article>
-
-        <div class="state-grid" id="state-grid">
-          <article class="state-tile" data-channel="door" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-door" /></svg>
-            <p class="tile-label">Door</p>
-            <p class="tile-value" id="door-value">unknown</p>
-            <p class="tile-sub" id="door-sub">no edge in window</p>
-          </article>
-          <article class="state-tile" data-channel="light" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-light" /></svg>
-            <p class="tile-label">Lighting</p>
-            <p class="tile-value" id="light-value">unknown</p>
-            <p class="tile-sub" id="light-sub">no edge in window</p>
-          </article>
-          <article class="state-tile" data-channel="leak" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-leak" /></svg>
-            <p class="tile-label">Leak</p>
-            <p class="tile-value" id="leak-value">unknown</p>
-            <p class="tile-sub" id="leak-sub">–</p>
-          </article>
-          <article class="state-tile" data-channel="presence" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-presence" /></svg>
-            <p class="tile-label">Presence</p>
-            <p class="tile-value" id="presence-value">unknown</p>
-            <p class="tile-sub" id="presence-sub">ToF distance –</p>
-          </article>
-        </div>
-
-        <!--
-          Placed directly under the door/presence tiles on purpose: this card is
-          derived from them. The adjacency is the argument -- two channels that
-          were previously only drawn now produce a verdict.
-        -->
-        <article class="card" id="access-card" data-status="unknown">
-          <header class="card-head">
-            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access</h3>
-            <span class="chip" id="access-chip" data-status="unknown">–</span>
-          </header>
-          <p class="access-verdict" id="access-verdict">–</p>
-          <p class="tile-sub" id="access-identity">identity –</p>
-          <ul class="access-faces" id="access-faces"></ul>
-          <ul class="access-reasons" id="access-reasons"></ul>
-          <p class="note note--warn" id="access-approval" hidden></p>
-          <ol class="access-log" id="access-log"></ol>
-        </article>
-
-        <article class="card">
-          <header class="card-head">
-            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
-            <span class="chip" id="temp-chip" data-status="unknown">–</span>
-          </header>
-          <p class="stat-value"><span id="temp-value">–</span><span class="unit">°C</span></p>
-          <figure class="spark" id="temp-spark" data-series="temperature"></figure>
-          <p class="chart-note" id="temp-note"></p>
-        </article>
-
-        <article class="card">
-          <header class="card-head">
-            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
-            <span class="chip" id="hum-chip" data-status="unknown">–</span>
-          </header>
-          <p class="stat-value"><span id="hum-value">–</span><span class="unit">%&nbsp;RH</span></p>
-          <figure class="spark" id="hum-spark" data-series="humidity"></figure>
-          <p class="chart-note" id="hum-note"></p>
-        </article>
-
-        <details class="table-view">
-          <summary>Readings table</summary>
-          <div class="table-scroll"><table id="climate-table"></table></div>
-        </details>
-
-        <article class="card card--grow">
-          <header class="card-head">
-            <h3>Sensor log</h3>
-            <span class="muted" id="device-log-count">–</span>
-          </header>
-          <ol class="feed" id="device-events"></ol>
-        </article>
-      </section>
-
-      <!-- ── Conduit: device → server ───────────────────────────────────── -->
-      <div class="conduit" id="conduit-in" data-state="idle">
-        <p class="conduit-label">sensor feed</p>
-        <div class="rail" aria-hidden="true">
-          <span class="pulse"></span><span class="pulse"></span><span class="pulse"></span>
-        </div>
-        <p class="conduit-foot" id="conduit-in-foot">–</p>
-      </div>
-
-      <!-- ── Middle: the server ─────────────────────────────────────────── -->
-      <section class="column column--wide" aria-labelledby="server-title">
-        <div class="column-head">
-          <p class="kicker">Server · on-device reasoning</p>
-          <h2 id="server-title">–</h2>
-          <p class="column-sub" id="server-sub">–</p>
-        </div>
-
-        <article class="card card--tight">
-          <header class="card-head">
-            <h3>Ingest</h3>
-            <span class="chip" id="feed-chip" data-status="unknown">–</span>
-          </header>
-          <dl class="kv" id="feed-kv"></dl>
-          <p class="note note--warn" id="feed-reason" hidden></p>
-        </article>
-
-        <article class="card card--inference">
-          <header class="card-head">
-            <h3>Inference</h3>
-            <span class="chip" id="confidence-chip" data-status="unknown">–</span>
-          </header>
-          <div class="hero">
-            <p class="hero-value" id="risk-score">–</p>
-            <div class="hero-meta">
-              <p class="hero-label">Risk index <span class="muted">/100</span></p>
-              <p class="hero-level" id="risk-level" data-status="unknown">–</p>
-              <div class="meter" role="img" id="risk-meter-wrap" aria-label="risk index">
-                <div class="meter-fill" id="risk-meter"></div>
-              </div>
-              <p class="muted" id="risk-families">–</p>
-            </div>
-          </div>
-          <dl class="verdict">
-            <dt>Likely cause</dt>
-            <dd id="likely-cause">–</dd>
-            <dt>Recommended action</dt>
-            <dd id="recommended">–</dd>
-          </dl>
-          <h4 class="sub-head">Evidence <span class="muted" id="evidence-count"></span></h4>
-          <ul class="evidence" id="evidence"></ul>
-          <p class="note" id="provenance">–</p>
-        </article>
-
-        <article class="card">
-          <header class="card-head">
-            <h3>Signal sources</h3>
-            <span class="muted" id="sources-count">–</span>
-          </header>
-          <div class="family-row" id="families"></div>
-          <div class="feeder-grid" id="feeders"></div>
-        </article>
-
-        <article class="card card--grow">
-          <header class="card-head">
-            <h3>Processing stream</h3>
-            <span class="muted">newest first</span>
-          </header>
-          <ol class="feed feed--pipeline" id="pipeline"></ol>
-        </article>
-      </section>
-
-      <!-- ── Conduit: server → phone ────────────────────────────────────── -->
-      <div class="conduit" id="conduit-out" data-state="idle">
-        <p class="conduit-label">telegram relay</p>
-        <div class="rail" aria-hidden="true">
-          <span class="pulse"></span><span class="pulse"></span><span class="pulse"></span>
-          <span class="pulse pulse--up"></span>
-        </div>
-        <p class="conduit-foot" id="conduit-out-foot">–</p>
-      </div>
-
-      <!-- ── Right: the on-call phone ───────────────────────────────────── -->
-      <section class="column" aria-labelledby="phone-title">
-        <div class="column-head">
-          <p class="kicker">On-call phone</p>
-          <h2 id="phone-title">Telegram</h2>
-          <p class="column-sub">the one cloud hop · chat text only</p>
-        </div>
-
-        <div class="phone">
-          <div class="phone-frame">
-            <span class="phone-notch" aria-hidden="true"></span>
-            <div class="tg-head">
-              <span class="tg-avatar" aria-hidden="true">H</span>
-              <div>
-                <p class="tg-title" id="tg-bot">–</p>
-                <p class="tg-sub" id="tg-sub">–</p>
-              </div>
-            </div>
-            <ol class="tg-thread" id="tg-thread"></ol>
-          </div>
-        </div>
-
-        <article class="card card--tight">
-          <header class="card-head">
-            <h3>Watchdog</h3>
-            <span class="chip" id="watchdog-chip" data-status="unknown">–</span>
-          </header>
-          <dl class="kv" id="watchdog-kv"></dl>
-          <p class="note" id="watchdog-note"></p>
-        </article>
-      </section>
-    </main>
 
     <div class="tooltip" id="tooltip" role="status" aria-live="off" hidden></div>
     <script src="/app.js" type="module"></script>
