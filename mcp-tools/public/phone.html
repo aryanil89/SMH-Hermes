@@ -186,6 +186,8 @@
 
 const $ = (id) => document.getElementById(id);
 let current = null;
+let hadCapturePrompt = false;
+let hadDecisionPrompt = false;
 
 const VERDICT_TEXT = {
   "idle": "Rack clear",
@@ -314,6 +316,18 @@ function render(access) {
     $("approveWhat").textContent =
       `${VERDICT_TEXT[pending.verdict] || pending.verdict} · challenge ${pending.id}`;
   }
+
+  // A challenge that just appeared is the most important thing on the page --
+  // someone could be scrolled down at the enrol section and never see it pop
+  // in above the fold. Scroll it into view the moment it newly needs a human,
+  // not on every tick (that would fight a person mid-scroll on their own phone).
+  if (needsCapture && !hadCapturePrompt) {
+    $("captureCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  } else if (needsDecision && !hadDecisionPrompt) {
+    $("approveCard").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  hadCapturePrompt = needsCapture;
+  hadDecisionPrompt = needsDecision;
 
   // Built with textContent, never innerHTML.
   //

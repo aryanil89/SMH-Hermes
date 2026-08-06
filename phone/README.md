@@ -102,6 +102,10 @@ startup if you bind to a network without one. It is one lock on one door, not an
 **Worked when:** the page shows a green `live` dot, the rack verdict tracks the wall, and
 pressing Approve on a challenge changes the laptop wall within a second.
 
+A new capture or approval prompt scrolls itself into view the moment it appears, so a person
+scrolled down at the enrol section still sees it. It only fires on that transition — not on
+every SSE tick — so it never fights someone mid-scroll on their own phone.
+
 ## Capture works over plain HTTP, on purpose
 
 The camera is opened with `<input type="file" accept="image/*" capture="environment">`, not
