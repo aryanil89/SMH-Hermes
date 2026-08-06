@@ -116,6 +116,28 @@ function Invoke-Step([string]$Description, [scriptblock]$Action) {
   & $Action
 }
 
+# Same contract as mcp-tools/src/common/telegram.ts: silent no-op when unset
+# (the default for a judge who just cloned the repo), fire-and-forget, bounded
+# by a timeout, and any failure is logged and swallowed rather than thrown --
+# a dead network at startup must not fail an otherwise-successful install.
+function Send-TelegramNotice([string]$Text) {
+  $token = $env:TELEGRAM_BOT_TOKEN
+  $chatId = $env:TELEGRAM_CHAT_ID
+  if (-not $token -or -not $chatId) {
+    Say 'INFO' 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set -- no startup notification sent'
+    return
+  }
+  if ($DryRun) { Say 'DRY' "would notify telegram: $Text"; return }
+  try {
+    $body = @{ chat_id = $chatId; text = $Text } | ConvertTo-Json
+    Invoke-RestMethod -Method Post -Uri "https://api.telegram.org/bot$token/sendMessage" `
+      -ContentType 'application/json' -Body $body -TimeoutSec 5 | Out-Null
+    Say 'OK' 'telegram notified'
+  } catch {
+    Say 'WARN' "telegram notify failed (ignored): $($_.Exception.Message)"
+  }
+}
+
 # ── Preconditions ────────────────────────────────────────────────────────────
 
 if (-not (Test-Path $HermesExe))     { throw "hermes.exe not found at $HermesExe" }
@@ -359,11 +381,29 @@ Get-ScheduledTask -TaskName 'Hermes_Gateway*', $SupervisorTask, $WallTask, $Watc
 
 & $HermesExe gateway status
 
+$componentStatus = @()
 foreach ($p in @(@{Port=18181; What='geniex'}, @{Port=7788; What='wall display'}, @{Port=$WatchPort; What='watchdog loop'})) {
   $l = @(Get-NetTCPConnection -LocalPort $p.Port -State Listen -ErrorAction SilentlyContinue)
-  if ($l) { Say 'OK'   "$($p.What) listening on $($p.Port) (pid $($l[0].OwningProcess))" }
-  else    { Say 'WARN' "nothing listening on $($p.Port) yet" }
+  if ($l) {
+    Say 'OK' "$($p.What) listening on $($p.Port) (pid $($l[0].OwningProcess))"
+    $componentStatus += "$($p.What): up"
+  } else {
+    Say 'WARN' "nothing listening on $($p.Port) yet"
+    $componentStatus += "$($p.What): DOWN"
+  }
 }
+# Reported verbatim from Hermes' own state file rather than mapped to up/down:
+# this repo does not own hermes.exe and does not know its full state vocabulary,
+# so guessing at a boolean risks a false "DOWN" for a state string that just
+# was not anticipated.
+try {
+  $gwState = Get-Content "$HermesHome\gateway_state.json" -Raw -ErrorAction Stop | ConvertFrom-Json
+  $componentStatus += "gateway: $($gwState.gateway_state)"
+} catch {
+  $componentStatus += "gateway: state unknown (no gateway_state.json)"
+}
+
+Send-TelegramNotice ("Hermes stack started on $env:COMPUTERNAME`n" + ($componentStatus -join "`n"))
 
 Say 'INFO' 'supervisor log tail:'
 Get-Content "$HermesHome\geniex-supervisor.log" -Tail 5 -ErrorAction SilentlyContinue

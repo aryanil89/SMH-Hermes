@@ -89,6 +89,27 @@ function Invoke-Step([string]$Description, [scriptblock]$Action) {
   & $Action
 }
 
+# Same contract as mcp-tools/src/common/telegram.ts and install-autostart.ps1's
+# copy: silent no-op when unset, fire-and-forget, bounded by a timeout, any
+# failure logged and swallowed -- a dead network must not block a shutdown.
+function Send-TelegramNotice([string]$Text) {
+  $token = $env:TELEGRAM_BOT_TOKEN
+  $chatId = $env:TELEGRAM_CHAT_ID
+  if (-not $token -or -not $chatId) {
+    Say 'INFO' 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set -- no shutdown notification sent'
+    return
+  }
+  if ($DryRun) { Say 'DRY' "would notify telegram: $Text"; return }
+  try {
+    $body = @{ chat_id = $chatId; text = $Text } | ConvertTo-Json
+    Invoke-RestMethod -Method Post -Uri "https://api.telegram.org/bot$token/sendMessage" `
+      -ContentType 'application/json' -Body $body -TimeoutSec 5 | Out-Null
+    Say 'OK' 'telegram notified'
+  } catch {
+    Say 'WARN' "telegram notify failed (ignored): $($_.Exception.Message)"
+  }
+}
+
 # Stop a scheduled task if it exists and is running, then confirm the port it
 # owns is actually free -- force-killing whatever still holds it. Same
 # owner-pid pattern geniex-supervisor.ps1 uses to tell "listening" from "dead".
@@ -115,6 +136,8 @@ function Stop-TaskAndPort([string]$TaskName, [int]$Port) {
     }
   }
 }
+
+Send-TelegramNotice "Hermes stack on $env:COMPUTERNAME is being shut down (by $env:USERNAME)."
 
 # ── 1. Watchdog ───────────────────────────────────────────────────────────────
 Say 'INFO' '--- 1/4 watchdog loop ---'

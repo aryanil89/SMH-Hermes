@@ -420,3 +420,11 @@ preview.
 At the end it offers to pull `main`, rebuild `mcp-tools`, and bring the stack back up via
 `install-autostart.ps1` — interactively, or unconditionally with `-PullAndRestart` for
 unattended use. It refuses to pull over a dirty working tree.
+
+### Start/stop notifications
+
+`install-autostart.ps1` (after its verification step) and `stop-all.ps1` (before it stops
+anything) each post one line to Telegram — up/down status per component for the former, who
+initiated it for the latter. Same `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` the watchdog uses,
+same contract: silent no-op when unset, fire-and-forget, a failed send is logged and
+swallowed rather than failing the script.
