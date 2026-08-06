@@ -14,6 +14,9 @@ const INBOUND_GLOW_MS = 30_000;
 const $ = (id) => document.getElementById(id);
 
 const els = {
+  livePanel: $("panel-live"),
+  liveDetailsPanel: $("panel-live-details"),
+
   brandSub: $("brand-sub"),
   headTick: $("head-tick"),
   headBuild: $("head-build"),
@@ -970,6 +973,28 @@ function renderConduits(snap) {
 
 /* ── stream ──────────────────────────────────────────────────────────────── */
 
+/**
+ * "Live details" is a mirror of the "Live system" tab, not a second
+ * independently-rendered view: re-running every render* function against a
+ * second `els` scope would double the diffing cost every 2s tick for a tab
+ * that is, by request, identical to the one next to it. A structural clone
+ * of the already-rendered panel is cheaper and can't drift from it.
+ *
+ * The clone duplicates element ids (door-value, temp-chip, ...) into the
+ * document. That's safe here only because panel-live-details is placed
+ * after panel-live in the DOM: `getElementById` and the `$(...)` lookups
+ * above always resolve to the first match in document order, so every
+ * existing `els.*` reference keeps pointing at the original, live-bound
+ * elements -- the clone is inert, display-only. Interactions wired via
+ * `addEventListener` on specific nodes (sparkline hover tooltips, the
+ * phone-thread auto-scroll observer) aren't cloned, so this tab shows the
+ * same data without those hover/scroll behaviors.
+ */
+function syncLiveDetails() {
+  if (!els.liveDetailsPanel) return;
+  els.liveDetailsPanel.replaceChildren(...els.livePanel.cloneNode(true).childNodes);
+}
+
 function render(snap) {
   latest = snap;
   renderHeader(snap);
@@ -978,6 +1003,7 @@ function render(snap) {
   renderServer(snap);
   renderPhone(snap);
   renderConduits(snap);
+  syncLiveDetails();
 }
 
 function setConnection(state, label) {
@@ -1021,8 +1047,9 @@ const tabPanels = {
   overview: $("panel-overview"),
   architecture: $("panel-architecture"),
   logical: $("panel-logical"),
-  detailed: $("panel-detailed"),
   live: $("panel-live"),
+  "live-details": $("panel-live-details"),
+  detailed: $("panel-detailed"),
 };
 
 function activateTab(name) {
@@ -1038,7 +1065,9 @@ function activateTab(name) {
   }
   // Sparklines size themselves from their container, which is 0px wide while
   // the live tab is hidden -- force a redraw now that it has real width.
-  if (name === "live" && latest) {
+  // Live details mirrors panel-live's own sparklines (see `syncLiveDetails`),
+  // so it needs the same forced redraw whenever it's the one being switched to.
+  if ((name === "live" || name === "live-details") && latest) {
     els.tempSpark.dataset.sig = "";
     els.humSpark.dataset.sig = "";
     render(latest);

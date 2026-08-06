@@ -1705,8 +1705,11 @@ svg {
 }
 
 /* Higher specificity than `.tab-panel.active` on purpose: the live wall keeps
-   its own grid layout instead of the generic flex column the other tabs use. */
-#panel-live.active {
+   its own grid layout instead of the generic flex column the other tabs use.
+   panel-live-details is the mirrored copy of panel-live (see app.js
+   `syncLiveDetails`) and needs the same override. */
+#panel-live.active,
+#panel-live-details.active {
   display: grid;
 }
 

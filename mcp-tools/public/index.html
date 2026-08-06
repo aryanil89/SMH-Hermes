@@ -123,6 +123,17 @@
       </button>
       <button
         class="tab-btn tab-btn--right"
+        id="tab-btn-live-details"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-live-details"
+        data-tab="live-details"
+        tabindex="-1"
+      >
+        Live details
+      </button>
+      <button
+        class="tab-btn"
         id="tab-btn-detailed"
         role="tab"
         aria-selected="false"
@@ -790,7 +801,7 @@
     </main>
 
     <!-- ══════════════════════════════════════════════════════════════════
-         Tab 5 — Detailed architecture. The conceptual and logical tabs back
+         Tab 6 — Detailed architecture. The conceptual and logical tabs back
          to back on one scrolling panel, for a judge Q&A that wants both
          without flipping tabs. Content is duplicated from panels 2 and 3 on
          purpose, not shared via JS: these are static prose, and a single
@@ -1104,6 +1115,23 @@
         </div>
       </div>
     </section>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         Tab 5 — Live details. A live mirror of the "Live system" tab, not a
+         second independent render: app.js clones panel-live's DOM into this
+         container on every tick (see `syncLiveDetails` near the tab wiring),
+         so it is always exactly what the wall shows, one tick of lag at
+         most. Left empty here on purpose -- hand-authoring a second copy of
+         the wall markup would drift from the original the first time either
+         one changed.
+         ══════════════════════════════════════════════════════════════════ -->
+    <section
+      class="wall tab-panel"
+      id="panel-live-details"
+      role="tabpanel"
+      aria-labelledby="tab-btn-live-details"
+      tabindex="0"
+    ></section>
 
     <div class="tooltip" id="tooltip" role="status" aria-live="off" hidden></div>
     <script src="/app.js" type="module"></script>
