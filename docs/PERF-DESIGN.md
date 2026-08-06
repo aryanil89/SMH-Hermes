@@ -3,8 +3,10 @@
 Author: benchmark session (Claude), 2026-08-05 PM.
 Status: **REVIEWED** 2026-08-05 by the repo-owning agent session. Verdicts are
 inline under each proposal. Outcome: P1 MODIFY (right diagnosis, wrong target),
-P2 REJECT for the demo, P3 REJECT-as-new-work / verify instead, P4 ACCEPT,
-P5 DEFER upstream. Shipped: the P1 skills-catalogue cut (see P1's verdict).
+P2 REJECT for the demo, P3 REJECT-as-new-work / verify instead — **later
+reopened and superseded, see P3's follow-up**, P4 ACCEPT, P5 DEFER upstream.
+Shipped: the P1 skills-catalogue cut (see P1's verdict), and the P3 follow-up
+(message receipts).
 Composition measurements that drove these calls are in §0; demo-day steps in §6.
 Evidence base: `llm-serving-bench/RESULTS.md` (all numbers measured 2026-08-05).
 
@@ -172,6 +174,49 @@ bubble), not a feature. If the bubble is missing, that is a bug hunt.
 
 Agreed on the streaming `finish_reason` synthesis: that is the exact bug that
 forced `HERMES_FORCE_NONSTREAM=1`. Post-Friday, not this week.
+
+#### Follow-up 2026-08-05 (evening): the verdict was right, the fix was not enough
+
+Reported from the phone: *"it is not clear the server has received the message
+and is processing the request. Sometimes it responds a few minutes later,
+sometimes it does not."* The typing indicator was verified present and working
+— and it does not solve that. Three reasons, none visible from the laptop:
+
+1. It expires ~5 s between refreshes, so it flickers rather than persists.
+2. It never reaches the **notification shade**, which is where a phone in a
+   pocket is actually read.
+3. It is identical whether the gateway is thinking, wedged, or dead — so the
+   healthy path and every failure mode present as the same thing.
+
+(3) is the real defect and it is not a latency problem at all: the user could
+not tell *received-and-working* from *dropped*. Perceived latency was the
+symptom; **unobservability** was the cause.
+
+**Shipped: a message receipt.** `hermes-hooks/ack/` — a gateway hook on
+`agent:start` that replies within ~2 s with one model-written line naming what
+was asked, carrying a wait estimate learned from that session's own measured
+turns. Design, configuration and limits:
+[../hermes-hooks/README.md](../hermes-hooks/README.md).
+
+Two things this proposal's framing would have got wrong:
+
+- **It must block the turn it announces.** GenieX serializes every request
+  (§ RESULTS.md), so a receipt generated in a background task queues *behind*
+  the turn and lands after the answer. `agent:start` is awaited immediately
+  before `_run_agent`, which is the only ordering that works. Cost: ~2.3 s
+  measured warm on a 60–300 s turn, and ~0 on a cold-model turn, where the
+  receipt pays a reload the turn was going to pay anyway.
+- **The receipt must assert nothing.** It is written before any tool has run,
+  so a witty line that invents *"no alerts on rack B1"* would be the same
+  failure class as an alert with plausible invented numbers — which this
+  project already treats as a first-class risk. Not theoretical: an earlier
+  prompt produced *"…no signs of entry yet"* — a status nothing had looked up.
+  Fixed with a hardened prompt (8/8 clean on the same question set) plus a regex
+  backstop that drops any asserting line and falls back to canned.
+
+This does not retire P3's streaming work — synthesizing the missing
+`finish_reason` is still the deeper fix and still post-Friday. A receipt makes
+the silence *legible*; streaming would make it shorter.
 
 One risk this proposal surfaced that is **higher severity than the latency it
 addresses**: on 2026-08-04 the gateway lost DNS for `api.telegram.org`

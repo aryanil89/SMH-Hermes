@@ -12,6 +12,7 @@
  * incrementally. At ~2k lines that costs single-digit milliseconds, and it
  * cannot drift out of sync with the log the way a running total can.
  */
+import { round1 } from "../common/round.js";
 import { parseSensorLogLine, type SensorLogLine } from "../environmental/file-source.js";
 import { NUMERIC_CHANNELS } from "./channels.js";
 import type { Baselines, NumericBaseline, NumericChannel } from "./types.js";
@@ -31,17 +32,16 @@ function summarize(values: number[]): NumericBaseline | undefined {
   const n = values.length;
   const mean = values.reduce((a, b) => a + b, 0) / n;
   const variance = values.reduce((a, b) => a + (b - mean) ** 2, 0) / n;
+  // Same one decimal place as every other measurement that leaves this system
+  // (common/round.ts) -- these get quoted back at the operator as facts about
+  // the room ("never passed 35.7 in 31 hours"), so they read as measurements.
   return {
     n,
-    mean: round(mean),
-    stddev: round(Math.sqrt(variance)),
-    min: round(Math.min(...values)),
-    max: round(Math.max(...values)),
+    mean: round1(mean),
+    stddev: round1(Math.sqrt(variance)),
+    min: round1(Math.min(...values)),
+    max: round1(Math.max(...values)),
   };
-}
-
-function round(x: number): number {
-  return Math.round(x * 100) / 100;
 }
 
 export function computeBaselines(lines: SensorLogLine[], now = new Date()): Baselines {
@@ -81,12 +81,12 @@ export function computeBaselines(lines: SensorLogLine[], now = new Date()): Base
   for (const key of Object.keys(events)) {
     const e = events[key];
     if (!e) continue;
-    e.perHour = spanHours > 0 ? round(e.count / spanHours) : 0;
+    e.perHour = spanHours > 0 ? round1(e.count / spanHours) : 0;
   }
 
   return {
     computedAt: now.toISOString(),
-    windowHours: round(spanHours),
+    windowHours: round1(spanHours),
     lines: lines.length,
     numeric,
     events,

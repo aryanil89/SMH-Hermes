@@ -70,7 +70,9 @@ flowchart TD
 > Telegram round-trip caveats (found during wiring — details in [../PROGRESS.md](../PROGRESS.md)
 > NEXT 4): Hermes must run **non-streaming** against GenieX (`HERMES_FORCE_NONSTREAM=1`; a local
 > patch that `hermes update` would revert), and a phone reply takes **2–4 minutes** — scope demo
-> questions to one tool call.
+> questions to one tool call. Non-streaming means the phone sees nothing for those minutes, so
+> the gateway sends a model-written **receipt** within ~2 s first (the `ack` hook,
+> [../hermes-hooks/README.md](../hermes-hooks/README.md)); §2 shows where it sits in the turn.
 
 Everything inside the laptop box survives a WiFi cut — that is the scoped offline demo beat.
 Telegram (and only Telegram) needs the internet.
@@ -94,6 +96,10 @@ sequenceDiagram
     participant F as sensor log file
 
     P->>H: "what's the temperature in rack B1?"  (cloud hop)
+    H->>G: ack hook: 200-token receipt prompt (before the agent's first call)
+    G-->>H: "Pulling the temperature data from rack B1 now - about a minute."
+    H-->>P: receipt, italic (~2s)
+    Note over H,G: Ordering is the design: GenieX serializes, so a receipt<br/>generated after the turn starts would queue behind it
     H->>G: POST /v1/chat/completions + tool definitions
     G-->>H: finish_reason tool_calls (model asks for the tool)
     H->>E: get_environmental_status (stdio)

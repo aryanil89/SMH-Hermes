@@ -102,9 +102,9 @@ Each line in `sensor_log.jsonl` / `arduino_uno_q-sensor_log.json` is one JSON ob
 periodic tick (every 10s), one per button transition, and one per presence crossing:
 
 ```json
-{"timestamp": "2026-08-05T00:36:00.154124+00:00", "event": "sensor_tick", "temperature_c": 24.67, "humidity_pct": 57.51}
-{"timestamp": "2026-08-05T00:27:47.104254+00:00", "event": "object_left", "temperature_c": 24.84, "humidity_pct": 57.35, "distance_mm": -1.0}
-{"timestamp": "2026-08-03T23:26:11.207827+00:00", "event": "leak_detected", "temperature_c": 24.18, "humidity_pct": 56.61, "distance_mm": 133.0}
+{"timestamp": "2026-08-06T00:18:50.948516+00:00", "event": "sensor_tick", "temperature_c": 25.081483840942383, "humidity_pct": 56.80912780761719}
+{"timestamp": "2026-08-05T00:27:47.104254+00:00", "event": "object_left", "temperature_c": 24.84765625, "humidity_pct": 57.35107421875, "distance_mm": -1.0}
+{"timestamp": "2026-08-03T23:26:11.207827+00:00", "event": "leak_detected", "temperature_c": 24.18212890625, "humidity_pct": 56.61376953125, "distance_mm": 133.04999923706055}
 ```
 
 - `event` is one of:
@@ -120,6 +120,13 @@ periodic tick (every 10s), one per button transition, and one per presence cross
   never a measurement, and the laptop side already guards `distance_mm >= 0` before reporting it or
   testing it against the leak threshold ([file-source.ts:155](../../mcp-tools/src/environmental/file-source.ts#L155)),
   so a `-1.0` can never be mistaken for a very close object.
+- **Numbers are logged raw, at full float precision, on purpose.** The Modulino returns
+  `25.081483840942383`; the board writes exactly that. Rounding is the *laptop's* job — every
+  reading is cut to one decimal at ingestion, once, so the agent, the thresholds, the alert text and
+  the wall all quote one number (see
+  [mcp-tools/README.md](../../mcp-tools/README.md#one-decimal-place-applied-on-the-way-in)). Doing
+  it board-side instead would bake a display decision into the permanent record and destroy
+  precision the baselines are computed from, on a device that is awkward to reflash mid-demo.
 - File is JSON Lines (one object per line), not a single JSON array — that makes both the
   in-container append and the host-side overwrite-on-push trivial and crash-safe.
 - The laptop side (`mcp-tools/src/environmental/file-source.ts`) reads the newest line for

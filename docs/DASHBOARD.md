@@ -227,6 +227,16 @@ log. When the tool has fallen back to mock, those two are different sources, so
 the page dims the trace, captions it "last logged trend · N old", and adds
 "value above is mock". They are not one measurement and are not drawn as one.
 
+### Every number on the wall is one decimal
+
+The wall reads the sensor log directly rather than going through the environmental MCP tool, so it
+applies the **same rounding at the same point** — `round1()` from `common/round.ts`, on the way in.
+Without that, the sparkline and the agent would quote the same sample to different precision, and a
+judge comparing the screen to the phone would find them disagreeing in the last digit.
+
+Whole numbers stay whole in the data (`25`, not `25.0`); only alert *text* pads to a fixed decimal.
+Contract and rationale: [mcp-tools/README.md](../mcp-tools/README.md#one-decimal-place-applied-on-the-way-in).
+
 ### The world holds still for 60 seconds
 
 The simulated families seed their PRNG from a 60-second time bucket

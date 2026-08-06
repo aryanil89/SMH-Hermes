@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readFileWithRetry } from "../common/read-retry.js";
+import { round1 } from "../common/round.js";
 import type { EnvironmentalReading } from "./types.js";
 
 /**
@@ -101,7 +102,10 @@ export async function readSensorLogReading(opts: ReadSensorLogOptions): Promise<
 
   let raw: string;
   try {
-    raw = await readFile(opts.path, "utf8");
+    // Retrying, not plain readFile: the push replaces this file wholesale every
+    // ~10s, and losing that race used to hand the caller a mock reading that
+    // paged a false all-clear. See common/read-retry.ts.
+    raw = await readFileWithRetry(opts.path);
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
     return { ok: false, reason: `sensor log not readable at ${opts.path}: ${reason}` };
@@ -158,29 +162,34 @@ export async function readSensorLogReading(opts: ReadSensorLogOptions): Promise<
     if (event.includes("leak")) eventLeak = true;
   }
 
+  // Round before comparing, not after. The reported distance and the distance
+  // the leak decision was made on have to be the same number, or the wall can
+  // read "150.0mm, no leak" against a 150mm threshold because the raw 150.04
+  // never crossed it. See common/round.ts.
+  // sketch reports -1 when no distance sample is available.
+  const distanceMm =
+    typeof latest.distance_mm === "number" && latest.distance_mm >= 0
+      ? round1(latest.distance_mm)
+      : undefined;
+
   // Leak via level = the ToF float has risen: newest distance reading is below
   // the calibrated threshold. Water in the tray lifts the float -> distance
   // shrinks. Recovers on its own once the level drops (no time window needed --
   // the sensor keeps saying "high" for as long as the water is actually there).
   const levelLeak =
-    leakDistanceMm !== undefined &&
-    typeof latest.distance_mm === "number" &&
-    latest.distance_mm >= 0 && // sketch reports -1 when no distance sample is available
-    latest.distance_mm < leakDistanceMm;
+    leakDistanceMm !== undefined && distanceMm !== undefined && distanceMm < leakDistanceMm;
 
   const leakDetected = eventLeak || levelLeak;
 
   return {
     ok: true,
     reading: {
-      temperatureC: latest.temperature_c,
-      humidityPct: latest.humidity_pct,
+      temperatureC: round1(latest.temperature_c),
+      humidityPct: round1(latest.humidity_pct),
       leakDetected,
       // Level is the measured signal; report it as the cause when both fire.
       ...(leakDetected ? { leakVia: (levelLeak ? "level" : "event") as "level" | "event" } : {}),
-      ...(typeof latest.distance_mm === "number" && latest.distance_mm >= 0
-        ? { distanceMm: latest.distance_mm }
-        : {}),
+      ...(distanceMm !== undefined ? { distanceMm } : {}),
       lastEventAt: latest.timestamp,
       ageSeconds: Math.round(ageSeconds),
       lastEvent: latest.event,

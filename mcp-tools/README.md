@@ -119,6 +119,34 @@ level detection means putting `distance_mm` back on the tick, board-side.
 Background on the push pipeline:
 [../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md).
 
+### One decimal place, applied on the way in
+
+Every measurement that leaves this package — temperature, humidity, distance, and the mock
+network / storage / compute telemetry — carries **at most one decimal place**. The board logs raw
+Modulino floats (`"temperature_c": 25.081483840942383`); the operator hears `25.1C`. Helpers:
+[src/common/round.ts](src/common/round.ts) — `round1()` for values, `fixed1()` for display text.
+
+The rounding happens where a reading is **read**, not where it is printed. That ordering is the
+whole point:
+
+- The agent, the threshold comparison, the alert text and the wall all quote **one number**. Round
+  at each display instead and the alert can read `Temperature 30.0C` next to an `ok` badge, because
+  the raw 29.96 never crossed the 30 threshold the badge was computed from.
+- The live case is the level leak. [file-source.ts](src/environmental/file-source.ts) rounds
+  `distance_mm` **before** comparing it to `UNOQ_LEAK_DISTANCE_MM`, so a raw 149.96 against a 150mm
+  threshold reports `150` **and** `leakDetected: false` — agreeing with itself — instead of paging a
+  leak while displaying a distance that reads as exactly at the line. Pinned by test in
+  [src/common/round.test.ts](src/common/round.test.ts).
+
+One decimal is an order of magnitude finer than any decision the data drives: every threshold in the
+system is an integer (temperature warns at 30, packet loss at 1), and the learned baselines
+(`rules/baseline.ts`) are rounded too, because they get quoted back at the operator as facts about
+the room. Deliberately **not** rounded: face embeddings in `access/roster.ts`, which keep 3 decimals
+— those are compared to each other, never shown to anyone.
+
+`round1()` leaves whole numbers whole (`25`, not `25.0`) so JSON stays honest about precision;
+`fixed1()` pads for text, so a 22 and a 22.4 in consecutive alerts don't read as two instruments.
+
 **Wired into Hermes and verified end to end** (2026-08-03) — the four status servers are registered in
 `%LOCALAPPDATA%\hermes\config.yaml` and have been exercised over the NPU-served endpoint with real
 tool calls. See [../PROGRESS.md](../PROGRESS.md) NEXT item 3.

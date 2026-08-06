@@ -86,6 +86,15 @@ weights, no training, no model call — but it is what lets the agent say *"this
 room has never gone past 35.7 °C in 31 hours, so that rule may never fire"*,
 which nobody typed in.
 
+Baselines are computed from the **raw** log values and rounded to one decimal on
+the way out, like every other measurement the system reports
+([common/round.ts](../mcp-tools/src/common/round.ts)) — that sentence is quoted
+at an operator as a fact about the room, and `35.68359375 °C` reads as a dump,
+not a measurement. Rule *thresholds* are unaffected: they are compared against
+the reading the environmental tool returns, which is already rounded, and every
+built-in threshold is an integer — an order of magnitude coarser than the
+precision retained.
+
 ## Storage
 
 ```

@@ -1,4 +1,5 @@
 import { open, stat } from "node:fs/promises";
+import { round1 } from "../common/round.js";
 import { parseSensorLogLine, type SensorLogLine } from "../environmental/file-source.js";
 import { EVENT_CHANNELS } from "../rules/channels.js";
 import type { ChannelState, ChannelView, ClimatePoint, SensorEvent } from "./types.js";
@@ -213,10 +214,13 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
     eventCounts[line.event] = (eventCounts[line.event] ?? 0) + 1;
   }
 
+  // The wall reads the log itself rather than going through the environmental
+  // tool, so it has to apply the same rounding the tool does -- otherwise the
+  // sparkline and the agent quote the same sample to different precision.
   const climate: ClimatePoint[] = lines.slice(-CLIMATE_POINTS).map((line) => ({
     at: line.timestamp,
-    temperatureC: line.temperature_c,
-    humidityPct: line.humidity_pct,
+    temperatureC: round1(line.temperature_c),
+    humidityPct: round1(line.humidity_pct),
   }));
 
   // Newest first: the feed reads top-down like a console.
@@ -230,10 +234,10 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
       id: `${line.timestamp}|${line.event}`,
       at: line.timestamp,
       event: line.event,
-      temperatureC: line.temperature_c,
-      humidityPct: line.humidity_pct,
+      temperatureC: round1(line.temperature_c),
+      humidityPct: round1(line.humidity_pct),
       ...(typeof line.distance_mm === "number" && line.distance_mm >= 0
-        ? { distanceMm: line.distance_mm }
+        ? { distanceMm: round1(line.distance_mm) }
         : {}),
     }))
     .reverse();
@@ -259,7 +263,7 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
     lastLineAt: latest.timestamp,
     ...(Number.isNaN(latestMs) ? {} : { ageSeconds: Math.max(0, Math.round((nowMs - latestMs) / 1000)) }),
     ...(distanceLine
-      ? { distanceMm: distanceLine.distance_mm, distanceAt: distanceLine.timestamp }
+      ? { distanceMm: round1(distanceLine.distance_mm as number), distanceAt: distanceLine.timestamp }
       : {}),
     // From every line in the window, deliberately -- not from `events`, which is
     // capped for the display.

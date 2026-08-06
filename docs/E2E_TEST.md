@@ -75,6 +75,12 @@ node "$R\mcp-tools\dist\alert-skill\check-environmental.js" --json
 says which. Fix layer 1; do not proceed. A mock reading will still produce a perfectly convincing
 Telegram alert, which is exactly why this check exists.
 
+**Also expect one decimal at most** on `temperatureC` / `humidityPct` / `distanceMm` — `25.1`, not
+`25.081483840942383`. The raw log line behind it (layer 1) will show the long float; that's correct,
+the cut happens on this side. Seeing a long float *here* means the tool servers are running stale
+`dist/` — rebuild (`npm run build` in `mcp-tools`) and restart the gateway, or the wall and the
+agent can end up quoting the same sample differently.
+
 ## Layer 3 — GenieX is serving the model on the NPU
 
 **Test** (start the server if it isn't up)
@@ -150,8 +156,30 @@ user ID is allowlisted and set as the home channel (`/sethome`).
 
 **Test** From the phone, message the bot: *"what's the temperature in rack B1?"*
 
-**Expect** tool-call progress lines, then a real answer. **2–4 minutes** is normal. Scope demo
-questions to a single tool call.
+**Expect two replies.** First an *italic* receipt within ~2 s naming what you asked and giving a
+wait estimate — *"Pulling the temperature data from rack B1 now — about a minute."* Then
+tool-call progress lines and a real answer. **2–4 minutes** is normal. Scope demo questions to a
+single tool call.
+
+**The receipt splits this layer's failure mode in two, which is the point of testing for it:**
+
+| What you see | What it means |
+|---|---|
+| Receipt, then answer | Everything works. |
+| Receipt, no answer | The gateway received you and reached the model server; the **turn** failed. Go to layer 3. |
+| No receipt, no answer | It never got that far — gateway down, allowlist, or Telegram. Layers 5 and below. |
+| Answer with no receipt | The hook isn't loaded. Everything else is fine. |
+
+Verify the hook first, offline, so a missing receipt is unambiguous when it happens:
+
+```powershell
+$py = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe"
+Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.log"
+& $py "$R\hermes-hooks\ack\handler.py" --try "what's the temperature in rack B1?"
+```
+
+`--try` prints the receipt it would send and its latency without touching Telegram. Missing hook
+→ `scripts\install-hermes-hooks.ps1`.
 
 **If it fails** but layers 4 and 5 pass, the gateway is the problem:
 ```powershell
@@ -334,8 +362,11 @@ $l = Get-Content "$R\arduino_uno_q-sensor_log.json" -Tail 1 | ConvertFrom-Json
 # 2. reading real, not mock?
 (node "$R\mcp-tools\dist\alert-skill\check-environmental.js" --json | ConvertFrom-Json).reading.source
 
-# 3. model serving?
-(curl -s http://127.0.0.1:18181/v1/models) -ne $null
+# 3. model serving? NOT `curl /v1/models` -- that probe queues behind an in-flight
+#    completion and hangs for minutes. This sends a request GenieX will actually serve,
+#    and doubles as a check that message receipts work.
+& "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe" `
+    "$R\hermes-hooks\ack\handler.py" --try "pre-stage check"
 
 # 4. gateway + cron healthy?
 & $H cron status

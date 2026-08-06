@@ -1,3 +1,4 @@
+import { fixed1 } from "../common/round.js";
 import type { EnvironmentalResult } from "../environmental/types.js";
 
 /**
@@ -16,10 +17,14 @@ export function summarizeReading(reading: EnvironmentalResult): string {
       ? "LEAK DETECTED (water level rising)"
       : "LEAK DETECTED (leak event)"
     : "no leak";
-  const dist = reading.distanceMm !== undefined ? `, water-level distance ${reading.distanceMm}mm` : "";
+  const dist =
+    reading.distanceMm !== undefined ? `, water-level distance ${fixed1(reading.distanceMm)}mm` : "";
   const src =
     reading.source === "mock"
       ? ` (mock data: ${reading.fallbackReason ?? "no board configured"})`
       : " (real sensor)";
-  return `Temperature ${reading.temperatureC}C, humidity ${reading.humidityPct}%${dist}, ${leak}${src}.`;
+  // Padded to one decimal rather than interpolated raw: readings arrive already
+  // rounded (common/round.ts), but a whole-number 22 beside a 22.4 in the next
+  // alert reads as two different instruments. The wall pads the same way.
+  return `Temperature ${fixed1(reading.temperatureC)}C, humidity ${fixed1(reading.humidityPct)}%${dist}, ${leak}${src}.`;
 }

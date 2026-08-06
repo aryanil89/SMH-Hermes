@@ -27,6 +27,7 @@ Analogy, used once and then dropped: **Hermes** is the employee. **Qwen3** is th
 | **MCP tool servers** | Expose datacenter health as callable tools: network, storage, compute (mocked) and environmental (real) — plus **assessment**, which correlates all four into one verdict in a single call, because on the NPU every extra tool call costs 2–4 minutes. | us | [../mcp-tools/src/servers/](../mcp-tools/src/servers/) |
 | **`environmental-watch`** | The *proactive* path: a Hermes cron job every 5 min. Runs in **`--no-agent` script mode** — a small Python wrapper that prints a message only when an alert or recovery is due, and prints nothing otherwise (empty stdout ⇒ Hermes stays silent), so a tick costs **zero LLM tokens**. The same-named *skill* still exists, but only for manual/agent-narrated runs. | us | [../mcp-tools/cron/environmental-watch.py](../mcp-tools/cron/environmental-watch.py) · [skill](../mcp-tools/skills/environmental-watch/) |
 | **`decide-alert`** | Edge-triggered alert logic with cooldown/recovery, so one hot rack doesn't spam you every 5 minutes. | us | [../mcp-tools/src/alert-skill/](../mcp-tools/src/alert-skill/) |
+| **Message receipt** / **the `ack` hook** | The italic one-liner the phone gets ~2 s after asking, before the 60–300 s wait for the answer. Written by the same local model, so it names what you asked; carries a wait estimate learned from that session's own turns; states no findings, because nothing has been looked up yet. A **gateway hook** — Hermes' extension point, loaded from `%LOCALAPPDATA%\hermes\hooks\` at startup — not a fork of Hermes. | us | [../hermes-hooks/](../hermes-hooks/) |
 | **Wall display** | The demo-table web page: device on the left, server and its inference in the middle, phone on the right. A **read-only observer** — it re-derives its numbers by calling the same functions the tools call, so it can't disagree with the agent, and removing it changes nothing. Local-only, no dependencies. | us | [../mcp-tools/src/dashboard/](../mcp-tools/src/dashboard/) · [DASHBOARD.md](DASHBOARD.md) |
 | **`hermes-sensor-logger`** | App Lab app on the board: reads the Modulinos and appends JSON lines over three channels — a periodic climate `sensor_tick` (~every 10 s, temperature + humidity only), an event line per **button transition** in both directions (`door_open`/`door_closed`, `light_on`/`light_off`, `leak_detected`/`leak_cleared`), and `object_entered`/`object_left` on ToF presence crossings. Also drives the LED-matrix boot/connection display. A push loop `scp`-overwrites the log onto the laptop every 10 s. | us | [../uno-q/hermes-sensor-logger/](../uno-q/hermes-sensor-logger/) |
 
@@ -241,6 +242,14 @@ it means the work left Hexagon for Oryon.
 
 **QRB2210 vs QCS2210** — the UNO Q's Linux SoC. QUAD's own `quad-unoq` skill calls it QCS2210;
 Arduino and Qualcomm call it QRB2210. A vendor naming mismatch, not two different boards.
+
+**Logged precision vs reported precision** — the board's log holds raw Modulino floats
+(`25.081483840942383`); everything the system *sends* is cut to **one decimal** (`25.1`). The cut
+happens once, at ingestion, in [`mcp-tools/src/common/round.ts`](../mcp-tools/src/common/round.ts) —
+so the number the agent reasons on, the number a threshold is compared against, the number in the
+Telegram alert and the number on the wall are all the same number. Rounding per-display instead
+would let a `Temperature 30.0C` alert carry an `ok` badge computed from a raw 29.96. Full detail:
+[mcp-tools/README.md](../mcp-tools/README.md#one-decimal-place-applied-on-the-way-in).
 
 ---
 

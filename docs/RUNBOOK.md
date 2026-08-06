@@ -35,10 +35,14 @@ adb shell "systemctl is-active hermes-sensor-logger hermes-sensor-logger-push"
 & "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\hermes.exe" cron list
 Get-Content .\mcp-tools\.state\rule-state.json -Raw | ConvertFrom-Json |
   Select-Object -ExpandProperty levelsEvaluatedAt
+
+# Message receipts: is the hook loaded?
+Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.log"
 ```
 
 Healthy looks like: GenieX listening; log `LastWriteTime` within ~20s of now; both board
-units `active`; cron `Last run … ok` within the last minute.
+units `active`; cron `Last run … ok` within the last minute; one `Loaded hook 'ack'` line
+per gateway start.
 
 ### ⚠️ Never health-check GenieX over HTTP
 
@@ -194,6 +198,42 @@ MCP servers need no separate start — Hermes spawns them over stdio. But they r
 `mcp-tools\dist\`, so **after any TypeScript change**: `npm run build`, then restart the
 gateway.
 
+### Message receipts (the `ack` hook)
+
+Every inbound Telegram message gets an italic one-line receipt within ~2 s, before the
+60–300 s wait for the real answer. It is a gateway hook, so it is subject to the same rule
+as `config.yaml`: **loaded at gateway startup only.**
+
+```powershell
+$py = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe"
+
+# Is it loaded?
+Select-String "Loaded hook 'ack'" "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.log"
+
+# Does it work, without messaging the bot? (prints the receipt and its latency)
+& $py hermes-hooks\ack\handler.py --try "is rack B1 hot?"
+
+# Reinstall from the repo — after editing the hook, and after any `hermes update`
+powershell -ExecutionPolicy Bypass -File scripts\install-hermes-hooks.ps1
+
+# Turn receipts off without uninstalling: HERMES_ACK_ENABLED=0 in .env, then restart
+```
+
+Two things to know when something looks wrong:
+
+- **The receipt is generated before the agent's first model call**, on purpose — GenieX
+  serializes requests (§1), so a receipt generated afterwards would queue behind the very
+  turn it announces. It therefore adds ~2.3 s to each turn, capped by
+  `HERMES_ACK_TIMEOUT_S` (default 12 s), past which it goes out canned.
+- **A receipt with no answer behind it is diagnostic, not a bug.** It proves the gateway
+  received the message and reached the model server; what failed afterwards is the turn.
+  Before receipts existed, both cases looked identical from the phone.
+
+`--try` doubles as the GenieX liveness check that `curl` cannot do: it is a request GenieX
+will actually serve, so it returns rather than hanging behind an in-flight completion.
+
+Full design, configuration and limits: [../hermes-hooks/README.md](../hermes-hooks/README.md).
+
 ---
 
 ## 4. Board (Arduino UNO Q)
@@ -328,6 +368,10 @@ The real prefill drivers, in order:
 | Symptom | Likely cause |
 |---|---|
 | Telegram silent, rules still firing | GenieX down. The cron is `--no-agent`, so alerts survive the model dying. |
+| No receipt, then no answer either | Gateway not running, or the message never reached it. The receipt fires before any model call, so its absence points upstream of GenieX. |
+| Receipt arrives, answer never does | The gateway heard you and the turn failed — check GenieX. This is the case that used to be indistinguishable from the one above. |
+| Receipts are canned every time | The model call behind them is failing or timing out. `handler.py --try` prints the real error. |
+| No receipts at all, answers fine | Hook not loaded (gateway restarted without it, or `hermes update` rewrote `HERMES_HOME`), or `HERMES_ACK_ENABLED=0`. |
 | First reply of the session takes minutes | Model reload after `--keepalive 300` idle. |
 | `/v1/models` hangs | Normal — queued behind a completion. Not a fault. |
 | Model replies in prose, calls no tools | `tool_search` re-enabled, or gateway not restarted after a config edit. |
