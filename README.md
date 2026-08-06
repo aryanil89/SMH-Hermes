@@ -28,7 +28,7 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 | Name | Email |
 |---|---|
 | Indranil Acharya | indranil@qualcomm.com |
-| John Koch | jkoch@qualcomm.com |
+| John Koch | ghostboarder193.gmail.com|
 | Christopher Gould | cgould@qualcomm.com |
 
 
