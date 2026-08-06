@@ -218,72 +218,78 @@
           </article>
         </div>
 
-        <h2 class="brief-h2">Team</h2>
-        <div class="team-grid">
-          <article class="card team-card">
-            <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
-            <div>
-              <p class="team-name">Indranil Acharya</p>
-              <p class="team-org">Qualcomm</p>
+        <div class="overview-split">
+          <div class="overview-team">
+            <h2 class="brief-h2">Team</h2>
+            <div class="team-grid team-grid--stacked">
+              <article class="card team-card">
+                <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
+                <div>
+                  <p class="team-name">Indranil Acharya</p>
+                  <p class="team-org">Qualcomm</p>
+                </div>
+              </article>
+              <article class="card team-card">
+                <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
+                <div>
+                  <p class="team-name">John Koch</p>
+                  <p class="team-org">Qualcomm</p>
+                </div>
+              </article>
+              <article class="card team-card">
+                <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
+                <div>
+                  <p class="team-name">Christopher Gould</p>
+                  <p class="team-org">Qualcomm</p>
+                </div>
+              </article>
             </div>
-          </article>
-          <article class="card team-card">
-            <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
-            <div>
-              <p class="team-name">John Koch</p>
-              <p class="team-org">Qualcomm</p>
-            </div>
-          </article>
-          <article class="card team-card">
-            <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
-            <div>
-              <p class="team-name">Christopher Gould</p>
-              <p class="team-org">Qualcomm</p>
-            </div>
-          </article>
-        </div>
+          </div>
 
-        <h2 class="brief-h2">What we built</h2>
-        <div class="table-wrap">
-          <table class="brief-table">
-            <thead>
-              <tr>
-                <th>Area</th>
-                <th>Today — built &amp; verified</th>
-                <th>Planned — not built</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Infrastructure</td>
-                <td>
-                  Synthetic logs generated via an MCP server, with a dedicated skill per
-                  infrastructure type — network, server, storage and more
-                </td>
-                <td>Real-time event and log feeds from infrastructure deployed in the environment</td>
-              </tr>
-              <tr>
-                <td>LLM inference</td>
-                <td>Qwen3-4B-Instruct-2507 (Q4_0) on the laptop's X Elite NPU via GenieX</td>
-                <td>Same model on the phone's 8 Elite NPU, over adb</td>
-              </tr>
-              <tr>
-                <td>Physical access</td>
-                <td>Presence detected → challenge → photo → human approves or denies on the phone → audit trail</td>
-                <td>Automated identity resolution (badge / QR / face)</td>
-              </tr>
-              <tr>
-                <td>Phone's role</td>
-                <td>Approval terminal, Telegram client, and challenge notifications</td>
-                <td>On-phone LLM benchmark, "failover brain" demo</td>
-              </tr>
-              <tr>
-                <td>Energy</td>
-                <td>—</td>
-                <td>Joules-per-token, measured on both NPUs</td>
-              </tr>
-            </tbody>
-          </table>
+          <div class="overview-built">
+            <h2 class="brief-h2">What we built</h2>
+            <div class="table-wrap">
+              <table class="brief-table">
+                <thead>
+                  <tr>
+                    <th>Area</th>
+                    <th>Today — built &amp; verified</th>
+                    <th>Planned — not built</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Infrastructure</td>
+                    <td>
+                      Synthetic logs generated via an MCP server, with a dedicated skill per
+                      infrastructure type — network, server, storage and more
+                    </td>
+                    <td>Real-time event and log feeds from infrastructure deployed in the environment</td>
+                  </tr>
+                  <tr>
+                    <td>LLM inference</td>
+                    <td>Qwen3-4B-Instruct-2507 (Q4_0) on the laptop's X Elite NPU via GenieX</td>
+                    <td>Same model on the phone's 8 Elite NPU, over adb</td>
+                  </tr>
+                  <tr>
+                    <td>Physical access</td>
+                    <td>Presence detected → challenge → photo → human approves or denies on the phone → audit trail</td>
+                    <td>Automated identity resolution (badge / QR / face)</td>
+                  </tr>
+                  <tr>
+                    <td>Phone's role</td>
+                    <td>Approval terminal, Telegram client, and challenge notifications</td>
+                    <td>On-phone LLM benchmark, "failover brain" demo</td>
+                  </tr>
+                  <tr>
+                    <td>Energy</td>
+                    <td>—</td>
+                    <td>Joules-per-token, measured on both NPUs</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </section>
