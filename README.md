@@ -567,6 +567,10 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 - [Hardware utilization plan](docs/HARDWARE_UTILIZATION.md) — **the finalized architecture**: where
   the LLM runs, which model, and how the Snapdragon X Elite laptop, Samsung Galaxy S25 Ultra, Arduino
   UNO Q, and the QUAD SDK are each actually used
+- [Workload placement — NPU/GPU/CPU (2026-08-05)](docs/WORKLOAD_PLACEMENT.md) — audits current
+  placement against "demanding AI/LLM → NPU, lighter AI/LLM → GPU, everything else → CPU": why
+  QUAD can't be the one to profile it, why GPU is currently disqualified rather than merely
+  deprioritized, and the one built-but-inert candidate (face identification) for the GPU tier
 - [Technical claims audit (2026-08-03)](docs/AUDIT_2026-08-03.md) — independent review of every
   technical claim in the docs above against primary sources; **read the P0/P1 risks before Day 1**
   (Hermes's 64K-context minimum vs the 4K NPU-bundle cap, and unverified tool-calling through
