@@ -108,6 +108,46 @@ const STATUS_ICON = { ok: "#i-check", warning: "#i-warn", critical: "#i-crit", u
 let latest = null;
 let lastInboundAt = 0;
 
+/**
+ * Whether the newest phone message is actually on screen right now.
+ *
+ * Not derived from `els.tgThread`'s own scrollTop/scrollHeight: above 940px
+ * wide the phone panel scrolls internally (styles.css `.tg-thread{overflow-y:
+ * auto}`), but the `@media (max-width: 940px)` fallback sets `.column{overflow:
+ * visible}` and lets the whole page scroll instead -- at that width `tg-thread`
+ * never has its own overflow, so its scrollHeight always equals its
+ * clientHeight and a scrollTop assignment aimed at it is a silent no-op. The
+ * newest message keeps landing off-screen with nothing to bring it back.
+ *
+ * An IntersectionObserver on a zero-height anchor pinned to the end of the
+ * thread sidesteps the question of which ancestor is actually scrolling: it
+ * reports whether the anchor is visible through every clipping/scrolling
+ * ancestor between it and the viewport, root:null and all.
+ */
+let phoneAtBottom = true;
+/**
+ * Breaks a real deadlock, not a hypothetical one (reproduced live): the phone
+ * panel lives on the "Live system" tab, and a `display:none` tab's contents
+ * report scrollHeight/clientHeight/scrollTop as 0 no matter how much text is
+ * in them. A tick that lands while the tab is still hidden can render the
+ * entire backlog into a 0-sized box, so the scroll-to-bottom it attempts is a
+ * no-op -- and once the tab becomes visible on a later tick, scrollTop is
+ * stuck at 0 against a now-real scrollHeight, which the observer correctly
+ * reads as "scrolled away" forever, because nothing has moved it since.
+ * `phoneAtBottom` alone can never recover from that: it only ever reports
+ * what IS visible, never forces anything into view. The first tick that
+ * measures the panel with real geometry gets one unconditional scroll so
+ * there is always at least one attempt made while it can actually land.
+ */
+let phoneEverVisible = false;
+const tgAnchor = document.createElement("li");
+tgAnchor.className = "tg-anchor";
+tgAnchor.setAttribute("aria-hidden", "true");
+els.tgThread.append(tgAnchor);
+new IntersectionObserver(([entry]) => { phoneAtBottom = entry.isIntersecting; }, {
+  threshold: 0,
+}).observe(tgAnchor);
+
 /* ── formatting ──────────────────────────────────────────────────────────── */
 
 function clock(iso) {
@@ -808,9 +848,6 @@ function renderPhone(snap) {
   const messages = [...t.messages];
   if (t.pending) messages.push(t.pending);
 
-  const atBottom =
-    els.tgThread.scrollHeight - els.tgThread.scrollTop - els.tgThread.clientHeight < 40;
-
   renderList(
     els.tgThread,
     messages,
@@ -841,7 +878,23 @@ function renderPhone(snap) {
 
   renderThreadPlaceholder(t);
 
-  if (atBottom) els.tgThread.scrollTop = els.tgThread.scrollHeight;
+  // Keep the anchor the last child through the diff above, same trick
+  // renderThreadPlaceholder uses -- append() moves an already-attached node
+  // rather than duplicating it.
+  els.tgThread.append(tgAnchor);
+
+  const justBecameVisible = !phoneEverVisible && els.tgThread.clientHeight > 0;
+  if (justBecameVisible) phoneEverVisible = true;
+  // "auto" (instant), not "smooth": a burst of several messages in one tick --
+  // a batch of watchdog alerts, a reconnect replaying backlog -- fires this on
+  // every one of them, and each smooth scroll restarts the animation from
+  // wherever the last one had gotten to, so the view visibly chases the
+  // bottom for seconds after the messages themselves have stopped arriving.
+  // Instant positioning has no animation to interrupt, so it is always
+  // exactly caught up by the next tick.
+  if (phoneAtBottom || justBecameVisible) {
+    tgAnchor.scrollIntoView({ behavior: "auto", block: "end" });
+  }
 
   const newestInbound = [...t.messages].reverse().find((m) => m.direction === "inbound");
   if (newestInbound) {

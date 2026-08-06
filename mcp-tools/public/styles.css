@@ -1323,6 +1323,16 @@ svg {
   border-radius: 3px;
 }
 
+/* The auto-scroll anchor: zero footprint, just a target for
+   IntersectionObserver + scrollIntoView (app.js). `flex: 0 0 auto` so it
+   never grows into the `gap` the thread's flex layout gives it. */
+.tg-anchor {
+  flex: 0 0 auto;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
 /* Direction is the layout: server → phone hangs off the left rail, phone →
    server off the right, the way every chat client on the demo phone already
    behaves. The tag under each bubble spells it out too, because a screenshot of

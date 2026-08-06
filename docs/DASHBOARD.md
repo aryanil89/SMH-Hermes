@@ -400,6 +400,13 @@ immediately rather than waiting for the next tick.
 - **Rendering is a keyed diff, not `innerHTML`.** At a 2s cadence a wholesale
   rewrite would reset scroll position in the two log panes, restart every enter
   animation, and drop a tooltip the moment anyone hovered a chart.
+- **The phone panel stays pinned to the newest message**, and scrolling up to
+  read older ones holds still rather than getting yanked back down on the next
+  tick. Tracked with an `IntersectionObserver` on an anchor at the end of the
+  thread rather than the panel's own `scrollTop`/`scrollHeight` — those read
+  as `0` while the "Live system" tab is hidden, which otherwise locks the
+  panel into believing it's already at the bottom the first time it measures
+  a real backlog, and it never recovers on its own.
 - **Every chart has a table view.** "Readings table" under the climate charts is
   the WCAG-clean twin; the tooltip enhances, it never gates a value.
 - **Reduced motion is respected.** The flowing conduits become static dots under
