@@ -88,25 +88,72 @@ while the wall still shows a live feed, and the two will contradict each other.
 | `POST /api/access/approve` | `{id, decision, decidedBy}` — authorise or refuse a challenge |
 | `POST /api/access/enroll` | `{name, embedding, method}` — add to the roster |
 
-## The four tabs
+## The six tabs
 
 | Tab | Answers | Live? |
 |---|---|---|
-| **Executive overview** | What Hermes is, what it is not, what was built and what was not | Static |
+| **Executive overview** | What Hermes is, what it is not, what was built and what was not, the team, why on-device | Static |
 | **Conceptual architecture** | What the parts *are* — three devices, the links between them, the components on each | Static |
 | **Logical architecture** | What *moves* — the six stages from a bus read to a page on the phone, and the three branches that are allowed to act | Static |
-| **Live system** | The wall itself, driven by `/api/stream` | Every 2s |
+| **Live system** | The projector-scale summary — risk verdict, four channel tiles, network/storage/compute, and the phone thread, 60/40 split. Defaults into **demo mode** (below) the moment you navigate to it | Every 2s, or scripted in demo mode |
+| **Live details** | The full technical dashboard this used to be alone: sparklines, evidence, per-device feeders, the processing log. Always the real feed — demo mode never touches it | Every 2s |
+| **Detailed architecture** | Conceptual + logical, stacked on one scrolling panel, for a judge Q&A that wants both without flipping tabs | Static |
 
-The three static tabs are laid out to fit **one screen without scrolling** at the
-demo laptop's own resolution — 2560×1600 at 150%, so roughly 1700×950 CSS px.
-That is a constraint, not a preference: a scrollbar on a display standing in
-front of an audience is a paragraph nobody reads. They fall back to stacked
-columns and a normal scrollbar on anything narrower, so nothing is ever clipped
-out of reach.
+The four prose/summary tabs (Executive overview, Conceptual architecture,
+Logical architecture, Live system) are sized for a projector — read from the
+back of a room, not a laptop in someone's lap. Live details and Detailed
+architecture are the reference tabs and are expected to scroll.
 
 Conceptual and logical are deliberately separate. "What did you build" and "how
 does a reading become a page" are different questions, and one diagram trying to
-answer both answers neither.
+answer both answers neither. Live system and Live details are separate for the
+same reason, one level down: a room six feet from the wall needs the verdict and
+the phone, not a three-column technical dashboard.
+
+### Demo mode
+
+Real demos depend on a real leak, a real door, a real disk filling up —
+conditions nobody can guarantee will happen on cue in front of a room. **Live
+system** carries a Live/Demo toggle (top right of the tab) for exactly that
+risk. Toggle state is entirely client-side in `app.js`; nothing about it
+touches the server, the sensor log, or any file `/api/stream` reads from.
+
+- **Defaults on.** Navigating to the Live system tab starts demo mode if it
+  isn't already running — a no-op if it is, so it never restarts a loop in
+  progress. Toggle it back to Live to watch the real feed on this tab instead;
+  a global amber **"DEMO MODE · SIMULATED DATA"** badge in the header stays
+  visible on every tab for as long as it's running, specifically so switching
+  tabs mid-demo can't be mistaken for a change back to real data.
+- **Live details is never affected.** Every summary element demo mode writes
+  to (`setTile`, `renderServer`, `renderAccess`, `renderPhone` in `app.js`) is
+  guarded by `if (!demoMode)` on the Live details side of each write and
+  unconditional on the Live system side — Live details keeps rendering
+  `/api/stream` untouched throughout, on the same 2s cadence as always.
+- **Three scripted scenarios**, each a full inbound-instruction →
+  simulated-deviation → outbound-alert story, 10s of animation apiece, with a
+  10s quiet gap between them, a 30s pause after the third, then repeat:
+  1. **Environmental** — "notify me if temperature or humidity deviates ±20%
+     from baseline"; temperature climbs and humidity drops to a ~20%
+     deviation, then an alert reports both readings against baseline.
+  2. **Door + presence** — "notify me when the door opens and an object is
+     detected"; the door tile opens, presence goes from clear to present,
+     then an alert reports the door open and an object detected passing
+     through.
+  3. **Storage remediation** — "if available storage drops below 5%, clear
+     log files and restart services, then tell me what happened"; the
+     storage card drops to a simulated 3%, recovers to ~92% within the same
+     10s window, then an alert reports the drop, the remediation taken, and
+     the recovered figure.
+  Only the active scenario's channel deviates — the other tiles hold a calm
+  baseline throughout, so the tab never shows more than one thing happening
+  at once. A one-time 10s quiet beat runs before scenario 1 the first time
+  demo mode starts, so opening the tab doesn't launch straight into an alert.
+- **The phone thread is demo mode's own thread**, not a filtered view of the
+  real one — built from the same bubble renderer Live details uses, so the
+  two directions, alignment and tags read identically, but the messages
+  themselves are scripted. The frame's height is measured from the left
+  column (`syncPhoneHeight` in `app.js`) rather than CSS stretch, specifically
+  so a long scenario history scrolls inside the frame instead of growing it.
 
 ## What each panel is reading
 

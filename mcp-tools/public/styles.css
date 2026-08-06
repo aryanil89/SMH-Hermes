@@ -224,6 +224,51 @@ svg {
   background: color-mix(in srgb, var(--critical) 14%, var(--surface-2));
 }
 
+/* Global, not scoped to the Live system tab: demo mode overrides the same
+   summary elements Live Details would otherwise share, so anyone who
+   switches tabs mid-demo needs this visible regardless of which tab they
+   land on -- the entire point of a dedicated badge instead of folding the
+   state into the tab's own header. */
+.demo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 6px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--warning) 20%, var(--surface-2));
+  border: 1px solid color-mix(in srgb, var(--warning) 60%, transparent);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--warning);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  animation: demo-badge-pulse 2s ease-in-out infinite;
+}
+
+.demo-badge svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  color: var(--warning);
+}
+
+@keyframes demo-badge-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--warning) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--warning) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .demo-badge {
+    animation: none;
+  }
+}
+
 .conn {
   display: inline-flex;
   align-items: center;
@@ -248,6 +293,11 @@ svg {
 
 .conn[data-state="lost"] .conn-dot {
   background: var(--critical);
+}
+
+.conn[data-state="demo"] .conn-dot {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 22%, transparent);
 }
 
 /* ── Wall layout ─────────────────────────────────────────────────────────── */
@@ -478,18 +528,23 @@ svg {
   min-width: 0;
 }
 
+/* border-color, not border-left-color: the whole outline tracks the status
+   now, not just the accent bar -- a tile crossing risk levels should read
+   as a change to the box, visible even at a glance from across a room. The
+   left edge stays thicker (border-left-width, set above) so the accent bar
+   is still the strongest signal; it's just no longer the only one. */
 .state-tile[data-status="ok"] {
-  border-left-color: var(--good);
+  border-color: var(--good);
 }
 .state-tile[data-status="warning"] {
-  border-left-color: var(--warning);
+  border-color: var(--warning);
 }
 .state-tile[data-status="critical"] {
-  border-left-color: var(--critical);
+  border-color: var(--critical);
   background: color-mix(in srgb, var(--critical) 10%, var(--surface-1));
 }
 .state-tile[data-status="unknown"] {
-  border-left-color: var(--rule);
+  border-color: var(--rule);
 }
 
 .tile-icon {
@@ -1347,13 +1402,21 @@ svg {
    server off the right, the way every chat client on the demo phone already
    behaves. The tag under each bubble spells it out too, because a screenshot of
    one bubble has no other side to compare against. */
+/* Three colours, one meaning each, everywhere a bubble renders (the real
+   thread on Live details and the demo/summary mirror on Live system share
+   this CSS, so a fix here is a fix in both places): grey for inbound (phone
+   → server), red for an outbound critical alert, blue for everything else
+   outbound. Nothing here reads direction from colour alone -- the tag text
+   and bubble alignment already say "phone → server" / "server → phone". */
 .bubble {
   max-width: 88%;
   padding: 7px 10px 6px;
   border-radius: 12px;
   font-size: 12px;
   line-height: 1.4;
-  background: var(--surface-3);
+  /* Outbound default: informational, blue. */
+  background: color-mix(in srgb, var(--series-temp) 18%, var(--surface-3));
+  border-left: 3px solid var(--series-temp);
   color: var(--ink-1);
   align-self: flex-start;
   text-align: left;
@@ -1363,7 +1426,8 @@ svg {
 
 .bubble--inbound {
   align-self: flex-end;
-  background: #1d4f3c;
+  background: var(--surface-3);
+  border-left: none;
   border-bottom-left-radius: 12px;
   border-bottom-right-radius: 4px;
 }
@@ -1379,10 +1443,9 @@ svg {
   border-left: 3px solid var(--critical);
 }
 
-.bubble--recovery {
-  background: color-mix(in srgb, var(--good) 22%, var(--surface-3));
-  border-left: 3px solid var(--good);
-}
+/* No override: a "recovery" outbound message (storage remediation, etc.) is
+   still informational, not critical, so it stays the same blue as the base
+   .bubble rather than carrying its own colour. */
 
 .bubble--system {
   align-self: center;
@@ -1606,6 +1669,17 @@ svg {
    but needs the same status-driven colour. */
 .access-summary[data-status="warning"] { border-color: color-mix(in srgb, var(--warning) 55%, var(--rule)); }
 .access-summary[data-status="critical"] { border-color: color-mix(in srgb, var(--critical) 65%, var(--rule)); }
+
+/* Temperature / humidity, both tabs: same pattern again -- the card's own
+   data-status (set alongside its chip in app.js, see writeSummaryTemp and
+   renderDevice) recolours the outline the moment the reading crosses a
+   threshold, not just the small chip dot in the corner. */
+.sensor-card[data-status="ok"] { border-color: color-mix(in srgb, var(--good) 45%, var(--hairline)); }
+.sensor-card[data-status="warning"] { border-color: color-mix(in srgb, var(--warning) 55%, var(--rule)); }
+.sensor-card[data-status="critical"] {
+  border-color: color-mix(in srgb, var(--critical) 65%, var(--rule));
+  background: color-mix(in srgb, var(--critical) 10%, var(--surface-1));
+}
 
 .access-verdict {
   margin: 0 0 4px;
@@ -2017,12 +2091,14 @@ svg {
   display: grid;
   grid-template-columns: 3fr 2fr;
   gap: 22px;
-  /* stretch, not start: the right column (head + phone) matches whatever
-     height the left column's content actually comes out to, so the phone's
-     bottom edge lands on the same line as the last row of sensor boxes
-     instead of a hand-picked height that drifts the moment either side's
-     content changes. */
-  align-items: stretch;
+  /* start, not the grid default (stretch): JS measures the left column and
+     sets the phone-frame's height directly (see syncPhoneHeight in app.js)
+     to make the phone's bottom edge land on the left column's bottom.
+     Stretch would fight that -- forcing the right column to fill an
+     auto-sized row it also has a hand in sizing is exactly the feedback
+     loop this tab used to have when the phone's own content pushed it
+     taller than the left column. */
+  align-items: start;
 }
 
 .live-split-left {
@@ -2037,6 +2113,97 @@ svg {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* Lede + the live/demo switch share a row: the switch is the single most
+   important control on this tab, so it sits at reading-eye-level next to
+   the sentence that explains what it's switching. */
+.live-lede-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.live-lede-row .brief-lede {
+  flex: 1 1 auto;
+}
+
+.mode-toggle {
+  appearance: none;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px 9px 9px;
+  background: var(--surface-1);
+  border: 2px solid var(--hairline);
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink-1);
+}
+
+.mode-toggle:hover {
+  border-color: var(--rule);
+}
+
+.mode-toggle:focus-visible {
+  outline: 2px solid var(--series-temp);
+  outline-offset: 2px;
+}
+
+.mode-toggle-track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1.5px solid var(--rule);
+  flex: 0 0 auto;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.mode-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--good);
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.mode-toggle[data-mode="demo"] .mode-toggle-track {
+  background: color-mix(in srgb, var(--accent-violet) 30%, var(--surface-3));
+  border-color: var(--accent-violet);
+}
+
+.mode-toggle[data-mode="demo"] .mode-toggle-thumb {
+  transform: translateX(20px);
+  background: var(--accent-violet);
+}
+
+.mode-toggle-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+}
+
+.mode-toggle-label {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.mode-toggle[data-mode="demo"] .mode-toggle-label {
+  color: var(--accent-violet);
+}
+
+.mode-toggle-sub {
+  font-size: 12px;
+  color: var(--ink-3);
 }
 
 /* One row, not three -- the kicker/title/sub stack ate three lines above the
@@ -2071,11 +2238,14 @@ svg {
    40% column's content, not a small mockup floating in empty space. */
 .live-split-right .phone-frame {
   max-width: 460px;
-  /* No explicit height: .live-split-right now stretches to match the left
-     column (see .live-split), .phone fills that column via flex: 1 1 auto
-     below, and .phone-frame -- a flex item in .phone's row axis -- stretches
-     to fill it in turn by the flex default, so the frame's bottom always
-     lands on the left column's bottom regardless of how tall either gets. */
+  /* Height is set inline by JS (see syncPhoneHeight in app.js), not by CSS
+     stretch: a grid row's auto height is computed from every item's natural
+     content size, phone included, so once the message thread grows past
+     what the left column needs, a stretch-only phone-frame grows the whole
+     row to match instead of clipping and scrolling internally. Measuring
+     the left column directly and setting this element's height explicitly
+     sidesteps that circularity -- .tg-thread's own overflow-y:auto then
+     does the actual clipping. */
   min-height: 0;
 }
 

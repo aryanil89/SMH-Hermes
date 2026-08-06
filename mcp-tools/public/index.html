@@ -83,6 +83,10 @@
           <div><dt>Uptime</dt><dd id="head-uptime">–</dd></div>
           <div><dt>Clock</dt><dd id="head-clock">–</dd></div>
         </dl>
+        <p class="demo-badge" id="demo-badge" hidden>
+          <svg aria-hidden="true"><use href="#i-warn" /></svg>
+          <span>Demo mode · simulated data</span>
+        </p>
         <p class="status-pill" id="overall-pill" data-status="unknown">
           <svg aria-hidden="true"><use href="#i-unknown" /></svg>
           <span>Waiting for data</span>
@@ -601,10 +605,19 @@
             <p class="kicker">Live system · real-time</p>
             <h1 class="brief-title">Room status, right now</h1>
           </div>
-          <p class="brief-lede">
-            One live feed, read by both this wall and the on-call's phone. Full detail — evidence,
-            per-device feeders, the processing log — is one tab over on Live details.
-          </p>
+          <div class="live-lede-row">
+            <p class="brief-lede">
+              One live feed, read by both this wall and the on-call's phone. Full detail — evidence,
+              per-device feeders, the processing log — is one tab over on Live details.
+            </p>
+            <button class="mode-toggle" id="demo-toggle" type="button" aria-pressed="false" data-mode="live">
+              <span class="mode-toggle-track" aria-hidden="true"><span class="mode-toggle-thumb"></span></span>
+              <span class="mode-toggle-text">
+                <span class="mode-toggle-label" id="demo-toggle-label">Live</span>
+                <span class="mode-toggle-sub">tap for demo mode</span>
+              </span>
+            </button>
+          </div>
         </div>
 
         <div class="live-split">
@@ -659,14 +672,14 @@
             </div>
 
             <div class="summary-row">
-              <article class="card">
+              <article class="card sensor-card" id="sum-temp-card" data-status="unknown">
                 <header class="card-head">
                   <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
                   <span class="chip" id="sum-temp-chip" data-status="unknown">–</span>
                 </header>
                 <p class="stat-value"><span id="sum-temp-value">–</span><span class="unit">°C</span></p>
               </article>
-              <article class="card">
+              <article class="card sensor-card" id="sum-hum-card" data-status="unknown">
                 <header class="card-head">
                   <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
                   <span class="chip" id="sum-hum-chip" data-status="unknown">–</span>
@@ -1102,7 +1115,7 @@
           <ol class="access-log" id="access-log"></ol>
         </article>
 
-        <article class="card">
+        <article class="card sensor-card" id="temp-card" data-status="unknown">
           <header class="card-head">
             <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
             <span class="chip" id="temp-chip" data-status="unknown">–</span>
@@ -1112,7 +1125,7 @@
           <p class="chart-note" id="temp-note"></p>
         </article>
 
-        <article class="card">
+        <article class="card sensor-card" id="hum-card" data-status="unknown">
           <header class="card-head">
             <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
             <span class="chip" id="hum-chip" data-status="unknown">–</span>
