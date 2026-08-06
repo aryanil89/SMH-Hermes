@@ -64,10 +64,8 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 ## Today vs. planned
 
 Everything in the left column is built and verified on this rig; everything in the right
-column is **designed but NOT built** — the full design, with feasibility research and
-verified download paths, is [docs/PHONE_PLAN_2026-08-05.md](docs/PHONE_PLAN_2026-08-05.md).
-The two columns are kept side by side on purpose: unbacked claims score zero, so the line
-between them is part of the submission, not a footnote.
+column is **designed but NOT built**. The two columns are kept side by side on purpose: unbacked
+claims score zero, so the line between them is part of the submission, not a footnote.
 
 | Area | Today (built, verified) | Planned (not built) |
 |---|---|---|
@@ -604,12 +602,13 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
   structural reasons Hermes cron cannot tick faster than ~2 min, why 15s and not faster, the false
   *"recovered to OK"* of 2026-08-05 and the two defences against it, and the two staleness
   thresholds that look like a bug and are not
-- **[Phone compute plan (2026-08-05)](docs/PHONE_PLAN_2026-08-05.md)** — **planned, not
-  built**: the designed next step for the Galaxy S25 Ultra — on-phone Qwen3 NPU benchmark
-  over `adb` (no app), the face-embedding identity rung, and measured joules-per-token on
-  both NPUs — with the feasibility research and verified download paths behind each piece.
-  (Its challenge-notification item has since **landed** in its basic form: text to Telegram,
-  no photo.) The built-vs-designed line lives in [Today vs. planned](#today-vs-planned)
+- **Phone compute plan (2026-08-05, superseded)** — planned an on-phone Qwen3 NPU benchmark over
+  `adb` (no app) and a face-embedding identity rung on a Hexagon NPU. The on-phone LLM benchmark
+  remains **not built**, a stretch goal. The identity rung shipped instead as `face-cpu` — CPU
+  inference on the laptop, not the phone NPU this plan described — built and verified live
+  2026-08-06, see [phone/README.md](phone/README.md#the-identity-ladder). Its
+  challenge-notification item landed separately, in basic form: text to Telegram, no photo. The
+  built-vs-planned line lives in [Today vs. planned](#today-vs-planned)
 - **[The access terminal — the phone](phone/README.md)** — what the phone actually does: the
   authorisation surface, why the *notification* may be cloud but the *decision* may not, the
   four-rung identity ladder and which rungs work today, why capture uses `<input capture>`
@@ -629,9 +628,6 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 - **[End-to-end test procedure](docs/E2E_TEST.md)** — board → phone, layer by layer, with a
   "Test / Expect / If it fails" per layer, the traps that produce a false pass, and a 60-second
   pre-stage smoke check
-- [Response to the GPT review](docs/FEEDBACK_RESPONSE_2026-08-04.md) — accept/reject verdict on all
-  30 proposed improvements, the four that don't survive scrutiny (latency budget, uncoupled
-  simulators, additive risk double-counting, uncalibrated confidence), and the remaining build list
 - [Requirements](docs/REQUIREMENTS.md) — the original pitch (see the note at the top — architecture has since changed)
 - [Feasibility analysis](docs/FEASIBILITY.md) — reality check against the pitch's technical claims
 - [Hardware utilization plan](docs/HARDWARE_UTILIZATION.md) — **the finalized architecture**: where
@@ -675,4 +671,4 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 - `phone/` — Samsung Galaxy S25 Ultra (Snapdragon 8 Elite). **No app to build**: the phone runs
   Telegram plus the access terminal served from the laptop at `/phone.html` — the authorisation
   surface, the rack camera, and roster enrolment. Its NPU is **not** in use yet; the on-phone
-  Qwen3-4B benchmark remains the stretch goal ([docs/PHONE_PLAN_2026-08-05.md](docs/PHONE_PLAN_2026-08-05.md))
+  Qwen3-4B benchmark remains the stretch goal ([phone/README.md](phone/README.md#still-not-implemented))

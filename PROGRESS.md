@@ -284,7 +284,8 @@ starts here"** below it.
 - **The phone's 8 Elite NPU is idle.** The phone is the authorisation surface, the rack camera and
   the identity store — but no inference runs on it. This is a real gap against the 40-point
   resource-utilisation bucket and the honest answer if a judge asks. The measurement (not the
-  feature) is a ~4h `adb` timebox where both outcomes are publishable; deferred to Thursday
-  behind rehearsal. See [docs/PHONE_PLAN_2026-08-05.md](docs/PHONE_PLAN_2026-08-05.md).
+  feature) is a ~4h `adb` timebox where both outcomes are publishable; still deferred. (The
+  identity rung that plan also proposed shipped separately, as `face-cpu` on the laptop's CPU,
+  not the phone's NPU — see [phone/README.md](phone/README.md#the-identity-ladder).)
 - **Nothing is committed.** Two sessions have been building all week and the working tree is the
   only copy. A checkpoint commit + push, with a secret sweep, is overdue.
