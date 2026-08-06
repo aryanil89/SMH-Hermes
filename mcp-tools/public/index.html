@@ -50,6 +50,22 @@
         <path d="M9.6 9.6a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .9-1 1.6v.4" />
         <circle cx="12" cy="16.8" r=".9" fill="currentColor" stroke="none" />
       </symbol>
+      <symbol id="i-cpu" viewBox="0 0 24 24">
+        <rect x="7" y="7" width="10" height="10" rx="1.4" />
+        <path d="M9 3v2.6M15 3v2.6M9 18.4V21M15 18.4V21M3 9h2.6M3 15h2.6M18.4 9H21M18.4 15H21" />
+      </symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24">
+        <rect x="6.5" y="2.5" width="11" height="19" rx="2.2" />
+        <path d="M10.5 18.2h3" />
+      </symbol>
+      <symbol id="i-user" viewBox="0 0 24 24">
+        <circle cx="12" cy="8.2" r="3.4" />
+        <path d="M5 20.5c1-4.1 4-6.1 7-6.1s6 2 7 6.1" />
+      </symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24">
+        <path d="M12 3 19 6v5.2c0 4.8-3 8.2-7 9.8-4-1.6-7-5-7-9.8V6l7-3Z" />
+        <path d="m8.8 12 2.3 2.3L15.4 9.6" />
+      </symbol>
     </svg>
 
     <header class="wall-head">
@@ -163,47 +179,67 @@
             <h1 class="brief-title">Hermes: On-Device AI Operations Engineer</h1>
           </div>
           <p class="brief-lede">
-            Hermes is an AI operations engineer that runs entirely on a Snapdragon X Elite —
-            no cloud AI, no data leaving the laptop. It correlates real physical sensor signals with
-            infrastructure telemetry to tell an on-call engineer what is wrong, why it matters, and
-            what to do next.
+            An AI operations engineer that runs entirely on a Snapdragon X Elite — no cloud AI, no
+            data leaving the laptop. It correlates physical sensor signals with infrastructure
+            telemetry to tell an on-call engineer what's wrong, why it matters, and what to do next.
           </p>
         </div>
 
         <div class="brief-cards">
           <article class="card">
-            <header class="card-head"><h3>What Hermes is</h3></header>
+            <header class="card-head"><h3><svg class="head-icon" aria-hidden="true"><use href="#i-check" /></svg>What Hermes is</h3></header>
             <p>
-              A local reasoning layer over signals an ops team already has. It correlates,
-              prioritises, explains and recommends — and it reasons about who is physically at the
-              rack, asking a human before anything proceeds.
+              A local reasoning layer over signals an ops team already has — it correlates,
+              explains, recommends, and always asks a human before acting on physical access.
             </p>
           </article>
           <article class="card">
-            <header class="card-head"><h3>What Hermes is not</h3></header>
+            <header class="card-head"><h3><svg class="head-icon" aria-hidden="true"><use href="#i-warn" /></svg>What Hermes is not</h3></header>
             <p>
-              A replacement for monitoring, DCIM or sensors. Datacenters already have those. Hermes
-              does not collect the signals — it judges them.
+              Not a replacement for monitoring, DCIM or sensors. Datacenters already have those —
+              Hermes judges the signals, it doesn't collect them.
             </p>
           </article>
           <article class="card card--accent">
-            <header class="card-head"><h3>The offline claim</h3></header>
+            <header class="card-head"><h3><svg class="head-icon" aria-hidden="true"><use href="#i-shield" /></svg>The offline claim</h3></header>
             <p>
-              The intelligence is offline: the model, the reasoning, the tool calls and the sensor
-              path all run on the Snapdragon — provable by cutting the WiFi mid-demo. The one
-              internet hop is the phone notification, a message relay, not intelligence, and a
-              swappable adapter — Slack, Teams, Discord, WhatsApp and Signal share the same
-              gateway; we demo on Telegram.
+              The model, reasoning, tool calls and sensor path all run on the Snapdragon — provable
+              by cutting the WiFi mid-demo. The only internet hop is a swappable phone notification;
+              we demo on Telegram.
             </p>
           </article>
           <article class="card note-card">
-            <header class="card-head"><h3>Disclosure</h3></header>
+            <header class="card-head"><h3><svg class="head-icon" aria-hidden="true"><use href="#i-unknown" /></svg>Disclosure</h3></header>
             <p>
-              Network, storage and compute telemetry are <strong>simulated</strong> with realistic
-              data patterns; the environmental path is <strong>live</strong> from an Arduino UNO Q.
-              The MCP adapters are the seam — the same tools can be pointed at real DCIM/BMS/SNMP
-              without touching the reasoning layer.
+              Network, storage and compute telemetry are <strong>simulated</strong>; the
+              environmental path is <strong>live</strong> from an Arduino UNO Q. The MCP adapters are
+              the seam to real DCIM/BMS/SNMP.
             </p>
+          </article>
+        </div>
+
+        <h2 class="brief-h2">Team</h2>
+        <div class="team-grid">
+          <article class="card team-card">
+            <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
+            <div>
+              <p class="team-name">Indranil Acharya</p>
+              <p class="team-org">Qualcomm</p>
+            </div>
+          </article>
+          <article class="card team-card">
+            <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
+            <div>
+              <p class="team-name">John Koch</p>
+              <p class="team-org">Qualcomm</p>
+            </div>
+          </article>
+          <article class="card team-card">
+            <svg class="team-icon" aria-hidden="true"><use href="#i-user" /></svg>
+            <div>
+              <p class="team-name">Christopher Gould</p>
+              <p class="team-org">Qualcomm</p>
+            </div>
           </article>
         </div>
 
@@ -219,28 +255,32 @@
             </thead>
             <tbody>
               <tr>
+                <td>Infrastructure</td>
+                <td>
+                  Synthetic logs generated via an MCP server, with a dedicated skill per
+                  infrastructure type — network, server, storage and more
+                </td>
+                <td>Real-time event and log feeds from infrastructure deployed in the environment</td>
+              </tr>
+              <tr>
                 <td>LLM inference</td>
-                <td>Qwen3-4B-Instruct-2507 Q4_0 on the laptop's X Elite NPU via GenieX</td>
-                <td>Same model on the phone's 8 Elite NPU over adb</td>
+                <td>Qwen3-4B-Instruct-2507 (Q4_0) on the laptop's X Elite NPU via GenieX</td>
+                <td>Same model on the phone's 8 Elite NPU, over adb</td>
               </tr>
               <tr>
                 <td>Physical access</td>
-                <td>
-                  Presence (ToF, &lt;1000mm) → challenge → photo captured → human approve/deny on
-                  the phone → append-only audit trail. No automated identity match — a person
-                  makes the call
-                </td>
-                <td>Automated identity resolution (badge / QR / face) — not supported today</td>
+                <td>Presence detected → challenge → photo → human approves or denies on the phone → audit trail</td>
+                <td>Automated identity resolution (badge / QR / face)</td>
               </tr>
               <tr>
                 <td>Phone's role</td>
-                <td>Approval terminal + Telegram client + challenge notification (text only)</td>
-                <td>On-phone LLM benchmark, "failover brain" demo beat</td>
+                <td>Approval terminal, Telegram client, and challenge notifications</td>
+                <td>On-phone LLM benchmark, "failover brain" demo</td>
               </tr>
               <tr>
                 <td>Energy</td>
                 <td>—</td>
-                <td>Measured joules-per-token on both NPUs</td>
+                <td>Joules-per-token, measured on both NPUs</td>
               </tr>
             </tbody>
           </table>
@@ -279,28 +319,35 @@
 
         <div class="arch-flow">
           <div class="arch-node" data-tier="sense">
-            <p class="kicker">Sensing tier</p>
+            <div class="arch-node-head">
+              <svg class="arch-node-icon" aria-hidden="true"><use href="#i-temp" /></svg>
+              <p class="kicker">Sensing tier</p>
+            </div>
             <h3>Arduino UNO Q</h3>
             <p class="arch-node-sub">Rack environmental monitor</p>
           </div>
           <div class="arch-link">
-            <span class="arch-link-label">sensor feed · WiFi + Tailscale VPN · scp, every 10s</span>
+            <span class="arch-link-label">sensor feed · WiFi + Tailscale VPN</span>
             <span class="arch-arrow" aria-hidden="true"></span>
           </div>
           <div class="arch-node" data-tier="reason">
-            <p class="kicker">Reasoning tier</p>
+            <div class="arch-node-head">
+              <svg class="arch-node-icon" aria-hidden="true"><use href="#i-cpu" /></svg>
+              <p class="kicker">Reasoning tier</p>
+            </div>
             <h3>Snapdragon X Elite laptop</h3>
             <p class="arch-node-sub">Ingest · MCP tools · NPU inference · wall + access terminal</p>
           </div>
           <div class="arch-link arch-link--stacked">
-            <span class="arch-link-label">Telegram Bot API · the one cloud hop · text only</span>
+            <span class="arch-link-label">Telegram · the one cloud hop · text only</span>
             <span class="arch-arrow arch-arrow--bidi" aria-hidden="true"></span>
-            <span class="arch-link-label arch-link-label--dashed"
-              >access terminal · local · tailnet only · approvals never leave the laptop</span
-            >
+            <span class="arch-link-label arch-link-label--dashed">access terminal · local tailnet only</span>
           </div>
           <div class="arch-node" data-tier="mobile">
-            <p class="kicker">Mobility tier</p>
+            <div class="arch-node-head">
+              <svg class="arch-node-icon" aria-hidden="true"><use href="#i-phone" /></svg>
+              <p class="kicker">Mobility tier</p>
+            </div>
             <h3>Galaxy S25 Ultra</h3>
             <p class="arch-node-sub">Telegram client + access terminal</p>
           </div>
@@ -313,86 +360,66 @@
               <span class="badge">sensing</span>
             </header>
             <p class="arch-does">
-              Samples temperature, humidity, ToF distance and button state over I2C, and pushes a
-              periodic climate tick (~10s) plus edge-triggered button and presence events to the
-              laptop over its WiFi + Tailscale link. It has no RTC battery, so every cold boot
-              needs its clock set before its data is trusted. USB-C is used only to flash and
-              configure the board — it carries no sensor traffic.
+              Samples temperature, humidity, distance and button state, and pushes readings to the
+              laptop over WiFi + Tailscale every 10 seconds.
             </p>
             <h4 class="sub-head">Components on this device</h4>
             <ul class="arch-components">
-              <li><span class="arch-comp-name">Modulino Thermo</span> — temperature + humidity, Qwiic/I2C</li>
-              <li><span class="arch-comp-name">Modulino Distance</span> — ToF mm, presence gate at 1000mm; the only physical-security signal in the system</li>
-              <li><span class="arch-comp-name">Modulino Buttons</span> — A / B / C, both-edge events</li>
-              <li><span class="arch-comp-name">STM32 sketch.ino</span> — reads the bus, bridges to the Linux side</li>
-              <li><span class="arch-comp-name">main.py</span> — App Lab container, writes <code>sensor_log.jsonl</code></li>
-              <li><span class="arch-comp-name">push_sensor_log.sh</span> — scp's the log to the laptop over Tailscale every 10s</li>
+              <li><span class="arch-comp-name">Modulino Thermo + Distance + Buttons</span> — temperature, humidity, presence, edge events</li>
+              <li><span class="arch-comp-name">sketch.ino → main.py</span> — reads the bus, writes <code>sensor_log.jsonl</code></li>
+              <li><span class="arch-comp-name">push_sensor_log.sh</span> — ships the log to the laptop every 10s</li>
             </ul>
             <dl class="kv">
-              <dt>Sends to</dt><dd>Laptop, via WiFi + Tailscale VPN</dd>
-              <dt>Receives</dt><dd>Nothing — one-way telemetry</dd>
-              <dt>USB-C</dt><dd>Configuration only — flashing, provisioning, debug shell</dd>
+              <dt>Sends to</dt><dd>Laptop, one-way telemetry</dd>
             </dl>
           </article>
 
           <article class="card">
             <header class="card-head">
-              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Snapdragon X Elite laptop</h3>
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-cpu" /></svg>Snapdragon X Elite laptop</h3>
               <span class="badge">reasoning</span>
             </header>
             <p class="arch-does">
-              Ingests the sensor log; runs four MCP tool servers (environmental is real, network /
-              storage / compute are realistic mocks) that the Hermes Agent calls over stdio; sends
-              tool-augmented prompts to a local Qwen3-4B model served by GenieX on the Hexagon NPU;
-              runs a 15-second watchdog loop for proactive paging; and serves the wall display and
-              the access terminal, both from one Node process on port 7788.
+              Ingests the sensor log, runs the MCP tool servers, and feeds a local Qwen3-4B model on
+              the Hexagon NPU — then serves the wall display and the access terminal.
             </p>
             <h4 class="sub-head">Components on this device</h4>
             <ul class="arch-components">
-              <li><span class="arch-comp-name">environmental / network / storage / compute servers</span> — MCP tools, stdio</li>
-              <li><span class="arch-comp-name">Hermes Agent</span> — MCP client, skills, memory, cron</li>
-              <li><span class="arch-comp-name">Watchdog loop</span> — 15s tick, health on 127.0.0.1:7789</li>
-              <li><span class="arch-comp-name">GenieX serve</span> — OpenAI-compatible endpoint, 127.0.0.1:18181</li>
-              <li><span class="arch-comp-name">Qwen3-4B-Instruct-2507</span> — GGUF Q4_0, 64K context</li>
-              <li><span class="arch-comp-name">Hexagon NPU v73</span> — CPU stays at 12–17% during inference</li>
-              <li><span class="arch-comp-name">Wall + access terminal server</span> — 127.0.0.1:7788, SSE every 2s</li>
+              <li><span class="arch-comp-name">MCP tool servers</span> — environmental (real), network / storage / compute (mocked)</li>
+              <li><span class="arch-comp-name">Hermes Agent + GenieX</span> — Qwen3-4B-Instruct-2507 on the Hexagon NPU</li>
+              <li><span class="arch-comp-name">Watchdog loop</span> — proactive paging every 15s</li>
             </ul>
             <dl class="kv">
-              <dt>Receives</dt><dd>Sensor log (UNO Q)</dd>
-              <dt>Sends to</dt><dd>Phone, via Telegram Bot API</dd>
+              <dt>Receives</dt><dd>Sensor log</dd>
+              <dt>Sends to</dt><dd>Phone, via Telegram</dd>
             </dl>
           </article>
 
           <article class="card">
             <header class="card-head">
-              <h3>Galaxy S25 Ultra</h3>
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-phone" /></svg>Galaxy S25 Ultra</h3>
               <span class="badge">mobility</span>
             </header>
             <p class="arch-does">
-              Runs the Telegram app as the on-call's notification and reactive-question client, and
-              opens the laptop-served access terminal page to review and approve/deny physical
-              access — the only surface in the whole system a human writes to. Its own NPU is not
-              in use today.
+              The on-call's notification client, and the one screen a human uses to approve or deny
+              physical access.
             </p>
             <h4 class="sub-head">Components on this device</h4>
             <ul class="arch-components">
-              <li><span class="arch-comp-name">Telegram app</span> — receives pages, answers reactive questions</li>
-              <li><span class="arch-comp-name">phone.html</span> — access terminal: camera capture, approve/deny, served from the laptop</li>
+              <li><span class="arch-comp-name">Telegram app</span> — pages and reactive questions</li>
+              <li><span class="arch-comp-name">phone.html</span> — access terminal: camera, approve/deny</li>
             </ul>
             <dl class="kv">
-              <dt>Receives</dt><dd>Telegram messages; the terminal page over the tailnet</dd>
-              <dt>Sends to</dt><dd>Laptop — approve/deny decisions, local network only</dd>
+              <dt>Sends to</dt><dd>Laptop, approve/deny decisions</dd>
             </dl>
           </article>
         </div>
 
         <article class="card note-card">
-          <header class="card-head"><h3>Why the authorisation layer sits below notification</h3></header>
+          <header class="card-head"><h3><svg class="head-icon" aria-hidden="true"><use href="#i-shield" /></svg>Why authorisation sits below notification</h3></header>
           <p>
-            Telegram carries the question and the page; it never carries the answer. A physical
-            access decision is made on the phone's local page over the tailnet, straight to the
-            laptop — not through a third-party relay. Approvals are the one write path in the
-            system; everything else here is read-only telemetry.
+            Telegram carries the question and the page — never the answer. Access decisions are made
+            on the phone's local page over the tailnet, straight to the laptop, not through Telegram.
           </p>
         </article>
       </div>
@@ -433,9 +460,7 @@
             <p class="flow-step">1 · Acquire</p>
             <h3>Physical signal → log line</h3>
             <ul class="flow-items">
-              <li>I2C sample: thermo, ToF distance, button edges</li>
-              <li><code>sketch.ino</code> → <code>main.py</code> appends <code>sensor_log.jsonl</code></li>
-              <li>scp to the laptop over Tailscale, every 10s</li>
+              <li>Thermo, distance and button edges, written to <code>sensor_log.jsonl</code> every 10s</li>
             </ul>
             <p class="flow-out"><span>carries</span> climate tick ~10s · edge events on change</p>
           </li>
@@ -444,20 +469,16 @@
             <p class="flow-step">2 · Ingest</p>
             <h3>Log line → trusted reading</h3>
             <ul class="flow-items">
-              <li><code>sensor-log.ts</code> tails the file: size, lines, newest timestamp</li>
-              <li>Freshness gate <code>UNOQ_LOG_MAX_AGE_S</code> decides real vs stale</li>
-              <li>Stale or unreadable → mock reading, <strong>labelled as mock</strong></li>
+              <li>A freshness gate decides real vs. stale — stale falls back to a clearly labelled mock</li>
             </ul>
-            <p class="flow-out"><span>carries</span> one <code>EnvironmentalResult</code> + its provenance</p>
+            <p class="flow-out"><span>carries</span> one reading, plus its provenance</p>
           </li>
 
           <li class="flow-stage" data-tier="derive">
             <p class="flow-step">3 · Derive</p>
             <h3>Events → state</h3>
             <ul class="flow-items">
-              <li>Paired edges → door / lighting / presence; newest edge wins</li>
-              <li>No edge in the window → <strong>unknown</strong>, never "closed"</li>
-              <li>Network / storage / compute drawn from a 60s seeded world</li>
+              <li>Paired edges become door / lighting / presence; no edge means <strong>unknown</strong>, never closed</li>
             </ul>
             <p class="flow-out"><span>carries</span> channel states · climate trend · four families</p>
           </li>
@@ -466,9 +487,7 @@
             <p class="flow-step">4 · Correlate</p>
             <h3>State → verdict</h3>
             <ul class="flow-items">
-              <li><code>assessIncident()</code> — the call behind <code>get_incident_assessment</code></li>
-              <li>Risk index /100, confidence, evidence, likely cause, action</li>
-              <li>One tick = one world seed, so no panel disagrees with another</li>
+              <li>One scoring pass produces risk, confidence, likely cause and recommended action</li>
             </ul>
             <p class="flow-out"><span>carries</span> an assessment every side of the system shares</p>
           </li>
@@ -477,9 +496,7 @@
             <p class="flow-step">5 · Decide</p>
             <h3>Verdict → who is told</h3>
             <ul class="flow-items">
-              <li>Alerting, access and conversation branch here</li>
-              <li>Only these paths may write or send anything</li>
-              <li>Every send records whether it was actually delivered</li>
+              <li>Alerting, access and conversation branch here — the only paths allowed to write or send</li>
             </ul>
             <p class="flow-out"><span>carries</span> a page, a challenge, a reply — or deliberate silence</p>
           </li>
@@ -488,9 +505,7 @@
             <p class="flow-step">6 · Surface</p>
             <h3>Everything → one frame</h3>
             <ul class="flow-items">
-              <li><code>snapshot.ts</code> assembles one <code>DashboardSnapshot</code> per 2s tick</li>
-              <li>SSE <code>/api/stream</code> → this wall, rendered as a keyed diff</li>
-              <li><code>gateway-bridge.ts</code> mirrors the phone thread, both directions</li>
+              <li>One snapshot per 2s tick, streamed to the wall and the phone thread</li>
             </ul>
             <p class="flow-out"><span>carries</span> the wall · the phone terminal · <code>/api/state</code></p>
           </li>
@@ -503,16 +518,13 @@
               <span class="badge">may stay silent</span>
             </header>
             <ol class="flow-chain">
-              <li><code>decideAlert()</code> — threshold crossing, cooldown, escalation</li>
-              <li><code>suppress.ts</code> reads <code>.state/access.json</code></li>
-              <li>Verdict <code>expected</code> → the page is <strong>held, not cancelled</strong></li>
-              <li>Watchdog loop every 15s writes <code>environmental-watch.json</code></li>
-              <li>Telegram send · the wall mirrors the state file after the fact</li>
+              <li>Threshold crossing, cooldown and escalation are checked</li>
+              <li>If someone is expected at the rack, the page is <strong>held, not cancelled</strong></li>
+              <li>Telegram send · the wall mirrors the state after the fact</li>
             </ol>
             <p class="flow-note">
-              Held pages fire the moment the responder leaves, annotated as held. A stale
-              <code>access.json</code> fails open and pages anyway — a watchdog silenced by a dead
-              input is indistinguishable from one silenced by good news.
+              A stale access state fails open and pages anyway — better a false alarm than a silenced
+              real one.
             </p>
           </article>
 
@@ -522,16 +534,12 @@
               <span class="badge">needs a human</span>
             </header>
             <ol class="flow-chain">
-              <li>Presence edge (ToF &lt; 1000mm) → <code>AccessSentry.update()</code></li>
-              <li><code>identify.ts</code> — detection only, so everyone reads <em>unknown</em></li>
-              <li><code>decide.ts</code> → clear · expected · challenge · tailgating…</li>
-              <li><code>notify.ts</code> pushes the challenge to the phone (text only)</li>
-              <li>Approve/deny on <code>phone.html</code> — tailnet, never Telegram</li>
-              <li>Append-only audit entry in <code>.state/access.json</code></li>
+              <li>Presence detected → a challenge is issued</li>
+              <li>Approve/deny on the phone — tailnet, never Telegram</li>
+              <li>Every decision is logged to an append-only audit trail</li>
             </ol>
             <p class="flow-note">
-              The image is resolved and dropped; nothing on this path writes image bytes to disk. A
-              decision relaxes the severity but never rewrites the finding.
+              Identity is detection-only today — everyone reads <em>unknown</em> until a human decides.
             </p>
           </article>
 
@@ -541,16 +549,12 @@
               <span class="badge">on demand</span>
             </header>
             <ol class="flow-chain">
-              <li>Question typed on the phone → Telegram Bot API</li>
-              <li><code>hermes gateway</code> long-polls it — sole consumer of the token</li>
-              <li>Hermes Agent calls the MCP tools over stdio</li>
-              <li>GenieX → Qwen3-4B on the Hexagon NPU, 127.0.0.1:18181</li>
-              <li>Reply back over Telegram to the phone</li>
-              <li>The wall reads the transcript read-only and shows both sides</li>
+              <li>Question typed on the phone → Telegram</li>
+              <li>Hermes Agent reasons over the same MCP tools</li>
+              <li>Reply sent back — the wall shows both sides</li>
             </ol>
             <p class="flow-note">
-              The same tool functions answer the agent and this display, so the wall and the phone
-              cannot contradict each other about what the rack is doing.
+              The same tools answer the agent and the wall, so neither can contradict the other.
             </p>
           </article>
         </div>
@@ -558,27 +562,15 @@
         <div class="flow-facts">
           <article class="card note-card">
             <header class="card-head"><h3>What crosses the internet</h3></header>
-            <p>
-              Telegram text only: the question, the reply, the page, the challenge notice. Never an
-              approval, never an image, never a sensor stream. Cut the WiFi and every stage above
-              still runs — only the notification hop stops.
-            </p>
+            <p>Telegram text only — never an approval, an image, or a sensor stream.</p>
           </article>
           <article class="card note-card">
             <header class="card-head"><h3>What persists</h3></header>
-            <p>
-              <code>sensor_log.jsonl</code> (append-only) · <code>environmental-watch.json</code>
-              (watchdog) · <code>access.json</code> (challenge + audit) · <code>roster.json</code>
-              (embeddings, never images). One writer per file.
-            </p>
+            <p>Four append-only files, one writer each: sensor log, watchdog state, access audit, roster.</p>
           </article>
           <article class="card note-card">
             <header class="card-head"><h3>What is real</h3></header>
-            <p>
-              Environmental and access are live from the board. Network, storage and compute are
-              simulated with realistic patterns and every card says so. The MCP adapters are the
-              seam where real DCIM/BMS/SNMP would replace them.
-            </p>
+            <p>Environmental and access are live from the board; network, storage and compute are simulated.</p>
           </article>
         </div>
       </div>
@@ -586,219 +578,103 @@
 
 
     <!-- ══════════════════════════════════════════════════════════════════
-         Tab 4 — Live system. Unchanged: the original wall display, driven
-         by app.js over the /api/stream SSE feed.
+         Tab 4 — Live system. The at-a-glance summary, sized for a room
+         reading it off a projector: the risk verdict, the four channel
+         states, and the access verdict, all driven by the same
+         /api/stream snapshot as the detailed dashboard. Full drill-down
+         (sparklines, evidence, signal sources, the phone thread) lives on
+         Live details -- kept separate on purpose, since a room six feet
+         from the wall neither needs nor can read a three-column technical
+         dashboard.
          ══════════════════════════════════════════════════════════════════ -->
-    <main class="wall tab-panel" id="panel-live" role="tabpanel" aria-labelledby="tab-btn-live" tabindex="0">
-      <!-- ── Left: the environmental device ─────────────────────────────── -->
-      <section class="column" aria-labelledby="device-title">
-        <div class="column-head">
-          <p class="kicker">Edge device</p>
-          <h2 id="device-title">Arduino UNO Q</h2>
-          <p class="column-sub" id="device-sub">Rack environmental monitor</p>
-        </div>
-
-        <article class="card card--tight">
-          <div class="badge-row">
-            <span class="badge" id="device-source">source –</span>
-            <span class="badge" id="device-transport">transport –</span>
-            <span class="badge" id="device-age">age –</span>
+    <section class="tab-panel" id="panel-live" role="tabpanel" aria-labelledby="tab-btn-live" tabindex="0">
+      <div class="brief">
+        <div class="brief-head">
+          <div>
+            <p class="kicker">Live system · real-time</p>
+            <h1 class="brief-title">Rack status, right now</h1>
           </div>
-          <p class="note note--warn" id="device-fallback" hidden></p>
-        </article>
-
-        <div class="state-grid" id="state-grid">
-          <article class="state-tile" data-channel="door" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-door" /></svg>
-            <p class="tile-label">Door</p>
-            <p class="tile-value" id="door-value">unknown</p>
-            <p class="tile-sub" id="door-sub">no edge in window</p>
-          </article>
-          <article class="state-tile" data-channel="light" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-light" /></svg>
-            <p class="tile-label">Lighting</p>
-            <p class="tile-value" id="light-value">unknown</p>
-            <p class="tile-sub" id="light-sub">no edge in window</p>
-          </article>
-          <article class="state-tile" data-channel="leak" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-leak" /></svg>
-            <p class="tile-label">Leak</p>
-            <p class="tile-value" id="leak-value">unknown</p>
-            <p class="tile-sub" id="leak-sub">–</p>
-          </article>
-          <article class="state-tile" data-channel="presence" data-status="unknown">
-            <svg class="tile-icon" aria-hidden="true"><use href="#i-presence" /></svg>
-            <p class="tile-label">Presence</p>
-            <p class="tile-value" id="presence-value">unknown</p>
-            <p class="tile-sub" id="presence-sub">ToF distance –</p>
-          </article>
+          <p class="brief-lede">
+            One live feed, read by both this wall and the on-call's phone. Full detail — evidence,
+            signal sources, the phone thread — is one tab over on Live details.
+          </p>
         </div>
-
-        <!--
-          Placed directly under the door/presence tiles on purpose: this card is
-          derived from them. The adjacency is the argument -- two channels that
-          were previously only drawn now produce a verdict.
-        -->
-        <article class="card" id="access-card" data-status="unknown">
-          <header class="card-head">
-            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access</h3>
-            <span class="chip" id="access-chip" data-status="unknown">–</span>
-          </header>
-          <p class="access-verdict" id="access-verdict">–</p>
-          <p class="tile-sub" id="access-identity">identity –</p>
-          <ul class="access-faces" id="access-faces"></ul>
-          <ul class="access-reasons" id="access-reasons"></ul>
-          <p class="note note--warn" id="access-approval" hidden></p>
-          <ol class="access-log" id="access-log"></ol>
-        </article>
-
-        <article class="card">
-          <header class="card-head">
-            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
-            <span class="chip" id="temp-chip" data-status="unknown">–</span>
-          </header>
-          <p class="stat-value"><span id="temp-value">–</span><span class="unit">°C</span></p>
-          <figure class="spark" id="temp-spark" data-series="temperature"></figure>
-          <p class="chart-note" id="temp-note"></p>
-        </article>
-
-        <article class="card">
-          <header class="card-head">
-            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
-            <span class="chip" id="hum-chip" data-status="unknown">–</span>
-          </header>
-          <p class="stat-value"><span id="hum-value">–</span><span class="unit">%&nbsp;RH</span></p>
-          <figure class="spark" id="hum-spark" data-series="humidity"></figure>
-          <p class="chart-note" id="hum-note"></p>
-        </article>
-
-        <details class="table-view">
-          <summary>Readings table</summary>
-          <div class="table-scroll"><table id="climate-table"></table></div>
-        </details>
-
-        <article class="card card--grow">
-          <header class="card-head">
-            <h3>Sensor log</h3>
-            <span class="muted" id="device-log-count">–</span>
-          </header>
-          <ol class="feed" id="device-events"></ol>
-        </article>
-      </section>
-
-      <!-- ── Conduit: device → server ───────────────────────────────────── -->
-      <div class="conduit" id="conduit-in" data-state="idle">
-        <p class="conduit-label">sensor feed</p>
-        <div class="rail" aria-hidden="true">
-          <span class="pulse"></span><span class="pulse"></span><span class="pulse"></span>
-        </div>
-        <p class="conduit-foot" id="conduit-in-foot">–</p>
-      </div>
-
-      <!-- ── Middle: the server ─────────────────────────────────────────── -->
-      <section class="column column--wide" aria-labelledby="server-title">
-        <div class="column-head">
-          <p class="kicker">Server · on-device reasoning</p>
-          <h2 id="server-title">–</h2>
-          <p class="column-sub" id="server-sub">–</p>
-        </div>
-
-        <article class="card card--tight">
-          <header class="card-head">
-            <h3>Ingest</h3>
-            <span class="chip" id="feed-chip" data-status="unknown">–</span>
-          </header>
-          <dl class="kv" id="feed-kv"></dl>
-          <p class="note note--warn" id="feed-reason" hidden></p>
-        </article>
 
         <article class="card card--inference">
           <header class="card-head">
-            <h3>Inference</h3>
-            <span class="chip" id="confidence-chip" data-status="unknown">–</span>
+            <h3>Risk assessment</h3>
           </header>
           <div class="hero">
-            <p class="hero-value" id="risk-score">–</p>
+            <p class="hero-value" id="sum-risk-score">–</p>
             <div class="hero-meta">
               <p class="hero-label">Risk index <span class="muted">/100</span></p>
-              <p class="hero-level" id="risk-level" data-status="unknown">–</p>
-              <div class="meter" role="img" id="risk-meter-wrap" aria-label="risk index">
-                <div class="meter-fill" id="risk-meter"></div>
+              <p class="hero-level" id="sum-risk-level" data-status="unknown">–</p>
+              <div class="meter" role="img" id="sum-risk-meter-wrap" aria-label="risk index">
+                <div class="meter-fill" id="sum-risk-meter"></div>
               </div>
-              <p class="muted" id="risk-families">–</p>
             </div>
           </div>
           <dl class="verdict">
             <dt>Likely cause</dt>
-            <dd id="likely-cause">–</dd>
+            <dd id="sum-likely-cause">–</dd>
             <dt>Recommended action</dt>
-            <dd id="recommended">–</dd>
+            <dd id="sum-recommended">–</dd>
           </dl>
-          <h4 class="sub-head">Evidence <span class="muted" id="evidence-count"></span></h4>
-          <ul class="evidence" id="evidence"></ul>
-          <p class="note" id="provenance">–</p>
         </article>
 
-        <article class="card">
-          <header class="card-head">
-            <h3>Signal sources</h3>
-            <span class="muted" id="sources-count">–</span>
-          </header>
-          <div class="family-row" id="families"></div>
-          <div class="feeder-grid" id="feeders"></div>
-        </article>
-
-        <article class="card card--grow">
-          <header class="card-head">
-            <h3>Processing stream</h3>
-            <span class="muted">newest first</span>
-          </header>
-          <ol class="feed feed--pipeline" id="pipeline"></ol>
-        </article>
-      </section>
-
-      <!-- ── Conduit: server → phone ────────────────────────────────────── -->
-      <div class="conduit" id="conduit-out" data-state="idle">
-        <p class="conduit-label">telegram relay</p>
-        <div class="rail" aria-hidden="true">
-          <span class="pulse"></span><span class="pulse"></span><span class="pulse"></span>
-          <span class="pulse pulse--up"></span>
+        <div class="summary-tiles">
+          <article class="state-tile state-tile--lg" data-channel="door" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-door" /></svg>
+            <p class="tile-label">Door</p>
+            <p class="tile-value" id="sum-door-value">unknown</p>
+            <p class="tile-sub" id="sum-door-sub">no edge in window</p>
+          </article>
+          <article class="state-tile state-tile--lg" data-channel="light" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-light" /></svg>
+            <p class="tile-label">Lighting</p>
+            <p class="tile-value" id="sum-light-value">unknown</p>
+            <p class="tile-sub" id="sum-light-sub">no edge in window</p>
+          </article>
+          <article class="state-tile state-tile--lg" data-channel="leak" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-leak" /></svg>
+            <p class="tile-label">Leak</p>
+            <p class="tile-value" id="sum-leak-value">unknown</p>
+            <p class="tile-sub" id="sum-leak-sub">–</p>
+          </article>
+          <article class="state-tile state-tile--lg" data-channel="presence" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-presence" /></svg>
+            <p class="tile-label">Presence</p>
+            <p class="tile-value" id="sum-presence-value">unknown</p>
+            <p class="tile-sub" id="sum-presence-sub">ToF distance –</p>
+          </article>
         </div>
-        <p class="conduit-foot" id="conduit-out-foot">–</p>
+
+        <div class="summary-row">
+          <article class="card">
+            <header class="card-head">
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
+              <span class="chip" id="sum-temp-chip" data-status="unknown">–</span>
+            </header>
+            <p class="stat-value"><span id="sum-temp-value">–</span><span class="unit">°C</span></p>
+          </article>
+          <article class="card">
+            <header class="card-head">
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
+              <span class="chip" id="sum-hum-chip" data-status="unknown">–</span>
+            </header>
+            <p class="stat-value"><span id="sum-hum-value">–</span><span class="unit">%&nbsp;RH</span></p>
+          </article>
+          <article class="card access-summary" id="sum-access-card" data-status="unknown">
+            <header class="card-head">
+              <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access</h3>
+              <span class="chip" id="sum-access-chip" data-status="unknown">–</span>
+            </header>
+            <p class="access-verdict" id="sum-access-verdict">–</p>
+          </article>
+        </div>
       </div>
+    </section>
 
-      <!-- ── Right: the on-call phone ───────────────────────────────────── -->
-      <section class="column" aria-labelledby="phone-title">
-        <div class="column-head">
-          <p class="kicker">On-call phone</p>
-          <h2 id="phone-title">Telegram</h2>
-          <p class="column-sub">the one cloud hop · chat text only</p>
-        </div>
-
-        <div class="phone">
-          <div class="phone-frame">
-            <span class="phone-notch" aria-hidden="true"></span>
-            <div class="tg-head">
-              <span class="tg-avatar" aria-hidden="true">H</span>
-              <div>
-                <p class="tg-title" id="tg-bot">–</p>
-                <p class="tg-sub" id="tg-sub">–</p>
-              </div>
-            </div>
-            <ol class="tg-thread" id="tg-thread"></ol>
-          </div>
-        </div>
-
-        <article class="card card--tight">
-          <header class="card-head">
-            <h3>Watchdog</h3>
-            <span class="chip" id="watchdog-chip" data-status="unknown">–</span>
-          </header>
-          <dl class="kv" id="watchdog-kv"></dl>
-          <p class="note" id="watchdog-note"></p>
-        </article>
-      </section>
-    </main>
 
     <!-- ══════════════════════════════════════════════════════════════════
          Tab 6 — Detailed architecture. The conceptual and logical tabs back
@@ -1117,21 +993,222 @@
     </section>
 
     <!-- ══════════════════════════════════════════════════════════════════
-         Tab 5 — Live details. A live mirror of the "Live system" tab, not a
-         second independent render: app.js clones panel-live's DOM into this
-         container on every tick (see `syncLiveDetails` near the tab wiring),
-         so it is always exactly what the wall shows, one tick of lag at
-         most. Left empty here on purpose -- hand-authoring a second copy of
-         the wall markup would drift from the original the first time either
-         one changed.
+         Tab 5 — Live details. The full technical dashboard: sparklines,
+         evidence, signal sources, the phone thread, the processing log.
+         This is the drill-down for someone standing at the laptop, not the
+         room -- see Live system for the projector-scale summary driven by
+         the same /api/stream snapshot.
          ══════════════════════════════════════════════════════════════════ -->
-    <section
-      class="wall tab-panel"
-      id="panel-live-details"
-      role="tabpanel"
-      aria-labelledby="tab-btn-live-details"
-      tabindex="0"
-    ></section>
+    <main class="wall tab-panel" id="panel-live-details" role="tabpanel" aria-labelledby="tab-btn-live-details" tabindex="0">
+      <!-- ── Left: the environmental device ─────────────────────────────── -->
+      <section class="column" aria-labelledby="device-title">
+        <div class="column-head">
+          <p class="kicker">Edge device</p>
+          <h2 id="device-title">Arduino UNO Q</h2>
+          <p class="column-sub" id="device-sub">Rack environmental monitor</p>
+        </div>
+
+        <article class="card card--tight">
+          <div class="badge-row">
+            <span class="badge" id="device-source">source –</span>
+            <span class="badge" id="device-transport">transport –</span>
+            <span class="badge" id="device-age">age –</span>
+          </div>
+          <p class="note note--warn" id="device-fallback" hidden></p>
+        </article>
+
+        <div class="state-grid" id="state-grid">
+          <article class="state-tile" data-channel="door" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-door" /></svg>
+            <p class="tile-label">Door</p>
+            <p class="tile-value" id="door-value">unknown</p>
+            <p class="tile-sub" id="door-sub">no edge in window</p>
+          </article>
+          <article class="state-tile" data-channel="light" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-light" /></svg>
+            <p class="tile-label">Lighting</p>
+            <p class="tile-value" id="light-value">unknown</p>
+            <p class="tile-sub" id="light-sub">no edge in window</p>
+          </article>
+          <article class="state-tile" data-channel="leak" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-leak" /></svg>
+            <p class="tile-label">Leak</p>
+            <p class="tile-value" id="leak-value">unknown</p>
+            <p class="tile-sub" id="leak-sub">–</p>
+          </article>
+          <article class="state-tile" data-channel="presence" data-status="unknown">
+            <svg class="tile-icon" aria-hidden="true"><use href="#i-presence" /></svg>
+            <p class="tile-label">Presence</p>
+            <p class="tile-value" id="presence-value">unknown</p>
+            <p class="tile-sub" id="presence-sub">ToF distance –</p>
+          </article>
+        </div>
+
+        <!--
+          Placed directly under the door/presence tiles on purpose: this card is
+          derived from them. The adjacency is the argument -- two channels that
+          were previously only drawn now produce a verdict.
+        -->
+        <article class="card" id="access-card" data-status="unknown">
+          <header class="card-head">
+            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-presence" /></svg>Access</h3>
+            <span class="chip" id="access-chip" data-status="unknown">–</span>
+          </header>
+          <p class="access-verdict" id="access-verdict">–</p>
+          <p class="tile-sub" id="access-identity">identity –</p>
+          <ul class="access-faces" id="access-faces"></ul>
+          <ul class="access-reasons" id="access-reasons"></ul>
+          <p class="note note--warn" id="access-approval" hidden></p>
+          <ol class="access-log" id="access-log"></ol>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Temperature</h3>
+            <span class="chip" id="temp-chip" data-status="unknown">–</span>
+          </header>
+          <p class="stat-value"><span id="temp-value">–</span><span class="unit">°C</span></p>
+          <figure class="spark" id="temp-spark" data-series="temperature"></figure>
+          <p class="chart-note" id="temp-note"></p>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <h3><svg class="head-icon" aria-hidden="true"><use href="#i-humidity" /></svg>Humidity</h3>
+            <span class="chip" id="hum-chip" data-status="unknown">–</span>
+          </header>
+          <p class="stat-value"><span id="hum-value">–</span><span class="unit">%&nbsp;RH</span></p>
+          <figure class="spark" id="hum-spark" data-series="humidity"></figure>
+          <p class="chart-note" id="hum-note"></p>
+        </article>
+
+        <details class="table-view">
+          <summary>Readings table</summary>
+          <div class="table-scroll"><table id="climate-table"></table></div>
+        </details>
+
+        <article class="card card--grow">
+          <header class="card-head">
+            <h3>Sensor log</h3>
+            <span class="muted" id="device-log-count">–</span>
+          </header>
+          <ol class="feed" id="device-events"></ol>
+        </article>
+      </section>
+
+      <!-- ── Conduit: device → server ───────────────────────────────────── -->
+      <div class="conduit" id="conduit-in" data-state="idle">
+        <p class="conduit-label">sensor feed</p>
+        <div class="rail" aria-hidden="true">
+          <span class="pulse"></span><span class="pulse"></span><span class="pulse"></span>
+        </div>
+        <p class="conduit-foot" id="conduit-in-foot">–</p>
+      </div>
+
+      <!-- ── Middle: the server ─────────────────────────────────────────── -->
+      <section class="column column--wide" aria-labelledby="server-title">
+        <div class="column-head">
+          <p class="kicker">Server · on-device reasoning</p>
+          <h2 id="server-title">–</h2>
+          <p class="column-sub" id="server-sub">–</p>
+        </div>
+
+        <article class="card card--tight">
+          <header class="card-head">
+            <h3>Ingest</h3>
+            <span class="chip" id="feed-chip" data-status="unknown">–</span>
+          </header>
+          <dl class="kv" id="feed-kv"></dl>
+          <p class="note note--warn" id="feed-reason" hidden></p>
+        </article>
+
+        <article class="card card--inference">
+          <header class="card-head">
+            <h3>Inference</h3>
+            <span class="chip" id="confidence-chip" data-status="unknown">–</span>
+          </header>
+          <div class="hero">
+            <p class="hero-value" id="risk-score">–</p>
+            <div class="hero-meta">
+              <p class="hero-label">Risk index <span class="muted">/100</span></p>
+              <p class="hero-level" id="risk-level" data-status="unknown">–</p>
+              <div class="meter" role="img" id="risk-meter-wrap" aria-label="risk index">
+                <div class="meter-fill" id="risk-meter"></div>
+              </div>
+              <p class="muted" id="risk-families">–</p>
+            </div>
+          </div>
+          <dl class="verdict">
+            <dt>Likely cause</dt>
+            <dd id="likely-cause">–</dd>
+            <dt>Recommended action</dt>
+            <dd id="recommended">–</dd>
+          </dl>
+          <h4 class="sub-head">Evidence <span class="muted" id="evidence-count"></span></h4>
+          <ul class="evidence" id="evidence"></ul>
+          <p class="note" id="provenance">–</p>
+        </article>
+
+        <article class="card">
+          <header class="card-head">
+            <h3>Signal sources</h3>
+            <span class="muted" id="sources-count">–</span>
+          </header>
+          <div class="family-row" id="families"></div>
+          <div class="feeder-grid" id="feeders"></div>
+        </article>
+
+        <article class="card card--grow">
+          <header class="card-head">
+            <h3>Processing stream</h3>
+            <span class="muted">newest first</span>
+          </header>
+          <ol class="feed feed--pipeline" id="pipeline"></ol>
+        </article>
+      </section>
+
+      <!-- ── Conduit: server → phone ────────────────────────────────────── -->
+      <div class="conduit" id="conduit-out" data-state="idle">
+        <p class="conduit-label">telegram relay</p>
+        <div class="rail" aria-hidden="true">
+          <span class="pulse"></span><span class="pulse"></span><span class="pulse"></span>
+          <span class="pulse pulse--up"></span>
+        </div>
+        <p class="conduit-foot" id="conduit-out-foot">–</p>
+      </div>
+
+      <!-- ── Right: the on-call phone ───────────────────────────────────── -->
+      <section class="column" aria-labelledby="phone-title">
+        <div class="column-head">
+          <p class="kicker">On-call phone</p>
+          <h2 id="phone-title">Telegram</h2>
+          <p class="column-sub">the one cloud hop · chat text only</p>
+        </div>
+
+        <div class="phone">
+          <div class="phone-frame">
+            <span class="phone-notch" aria-hidden="true"></span>
+            <div class="tg-head">
+              <span class="tg-avatar" aria-hidden="true">H</span>
+              <div>
+                <p class="tg-title" id="tg-bot">–</p>
+                <p class="tg-sub" id="tg-sub">–</p>
+              </div>
+            </div>
+            <ol class="tg-thread" id="tg-thread"></ol>
+          </div>
+        </div>
+
+        <article class="card card--tight">
+          <header class="card-head">
+            <h3>Watchdog</h3>
+            <span class="chip" id="watchdog-chip" data-status="unknown">–</span>
+          </header>
+          <dl class="kv" id="watchdog-kv"></dl>
+          <p class="note" id="watchdog-note"></p>
+        </article>
+      </section>
+    </main>
 
     <div class="tooltip" id="tooltip" role="status" aria-live="off" hidden></div>
     <script src="/app.js" type="module"></script>

@@ -14,9 +14,6 @@ const INBOUND_GLOW_MS = 30_000;
 const $ = (id) => document.getElementById(id);
 
 const els = {
-  livePanel: $("panel-live"),
-  liveDetailsPanel: $("panel-live-details"),
-
   brandSub: $("brand-sub"),
   headTick: $("head-tick"),
   headBuild: $("head-build"),
@@ -85,6 +82,25 @@ const els = {
   watchdogNote: $("watchdog-note"),
 
   tooltip: $("tooltip"),
+
+  // Live system summary tab -- a sparser, projector-scale mirror of a subset
+  // of the fields above. Kept as distinct elements (not shared ids) because
+  // getElementById only ever resolves to the first match in the document;
+  // see setTile(), renderServer() and renderAccess() for how each pair stays
+  // in sync.
+  sumRiskScore: $("sum-risk-score"),
+  sumRiskLevel: $("sum-risk-level"),
+  sumRiskMeter: $("sum-risk-meter"),
+  sumRiskMeterWrap: $("sum-risk-meter-wrap"),
+  sumLikelyCause: $("sum-likely-cause"),
+  sumRecommended: $("sum-recommended"),
+  sumTempValue: $("sum-temp-value"),
+  sumTempChip: $("sum-temp-chip"),
+  sumHumValue: $("sum-hum-value"),
+  sumHumChip: $("sum-hum-chip"),
+  sumAccessCard: $("sum-access-card"),
+  sumAccessChip: $("sum-access-chip"),
+  sumAccessVerdict: $("sum-access-verdict"),
 };
 
 /** The board's raw event vocabulary, in words a judge can read off the wall. */
@@ -130,7 +146,7 @@ let lastInboundAt = 0;
 let phoneAtBottom = true;
 /**
  * Breaks a real deadlock, not a hypothetical one (reproduced live): the phone
- * panel lives on the "Live system" tab, and a `display:none` tab's contents
+ * panel lives on the "Live details" tab, and a `display:none` tab's contents
  * report scrollHeight/clientHeight/scrollTop as 0 no matter how much text is
  * in them. A tick that lands while the tab is still hidden can render the
  * entire backlog into a 0-sized box, so the scroll-to-bottom it attempts is a
@@ -452,6 +468,13 @@ function renderDevice(snap) {
   setAttr(els.humChip, "data-status", d.humidityStatus);
   setText(els.humChip, d.humidityStatus);
 
+  setText(els.sumTempValue, d.temperatureC.toFixed(1));
+  setAttr(els.sumTempChip, "data-status", d.temperatureStatus);
+  setText(els.sumTempChip, d.temperatureStatus);
+  setText(els.sumHumValue, d.humidityPct.toFixed(1));
+  setAttr(els.sumHumChip, "data-status", d.humidityStatus);
+  setText(els.sumHumChip, d.humidityStatus);
+
   drawSpark(
     els.tempSpark,
     d.climate.map((p) => ({ at: p.at, value: p.temperatureC })),
@@ -507,10 +530,15 @@ function renderDevice(snap) {
 }
 
 function setTile(channel, value, sub, status) {
-  const tile = document.querySelector(`.state-tile[data-channel="${channel}"]`);
-  setAttr(tile, "data-status", status);
+  // Two tiles share this channel -- the detailed dashboard's and the Live
+  // system summary's -- so this updates every match rather than assuming one.
+  for (const tile of document.querySelectorAll(`.state-tile[data-channel="${channel}"]`)) {
+    setAttr(tile, "data-status", status);
+  }
   setText($(`${channel}-value`), value);
   setText($(`${channel}-sub`), sub);
+  setText($(`sum-${channel}-value`), value);
+  setText($(`sum-${channel}-sub`), sub);
 }
 
 function renderClimateTable(points) {
@@ -557,6 +585,11 @@ function renderAccess(snap) {
   setAttr(els.accessChip, "data-status", a.severity);
   setText(els.accessChip, a.verdict === "idle" ? "clear" : a.verdict.replace(/-/g, " "));
   setText(els.accessVerdict, ACCESS_TEXT[a.verdict] || a.verdict);
+
+  setAttr(els.sumAccessCard, "data-status", a.severity);
+  setAttr(els.sumAccessChip, "data-status", a.severity);
+  setText(els.sumAccessChip, a.verdict === "idle" ? "clear" : a.verdict.replace(/-/g, " "));
+  setText(els.sumAccessVerdict, ACCESS_TEXT[a.verdict] || a.verdict);
 
   const bits = [`identity: ${a.identityMethod}`];
   if (a.doorConsistent === false) bits.push("no door entry");
@@ -656,9 +689,18 @@ function renderServer(snap) {
       : "no family outside thresholds",
   );
 
+  setText(els.sumRiskScore, String(risk.score));
+  setText(els.sumRiskLevel, risk.level);
+  setAttr(els.sumRiskLevel, "data-status", riskStatus);
+  els.sumRiskMeter.style.width = `${Math.max(2, Math.min(100, risk.score))}%`;
+  setAttr(els.sumRiskMeter, "data-status", riskStatus);
+  setAttr(els.sumRiskMeterWrap, "aria-label", `risk index ${risk.score} of 100, ${risk.level}`);
+
   setText(els.confidenceChip, `confidence ${s.assessment.confidence.level}`);
   setText(els.likelyCause, s.assessment.likelyCause);
   setText(els.recommended, s.assessment.recommendedAction);
+  setText(els.sumLikelyCause, s.assessment.likelyCause);
+  setText(els.sumRecommended, s.assessment.recommendedAction);
 
   setText(els.evidenceCount, s.assessment.evidence.length ? `${s.assessment.evidence.length} signals` : "");
   if (s.assessment.evidence.length === 0) {
@@ -973,28 +1015,6 @@ function renderConduits(snap) {
 
 /* ── stream ──────────────────────────────────────────────────────────────── */
 
-/**
- * "Live details" is a mirror of the "Live system" tab, not a second
- * independently-rendered view: re-running every render* function against a
- * second `els` scope would double the diffing cost every 2s tick for a tab
- * that is, by request, identical to the one next to it. A structural clone
- * of the already-rendered panel is cheaper and can't drift from it.
- *
- * The clone duplicates element ids (door-value, temp-chip, ...) into the
- * document. That's safe here only because panel-live-details is placed
- * after panel-live in the DOM: `getElementById` and the `$(...)` lookups
- * above always resolve to the first match in document order, so every
- * existing `els.*` reference keeps pointing at the original, live-bound
- * elements -- the clone is inert, display-only. Interactions wired via
- * `addEventListener` on specific nodes (sparkline hover tooltips, the
- * phone-thread auto-scroll observer) aren't cloned, so this tab shows the
- * same data without those hover/scroll behaviors.
- */
-function syncLiveDetails() {
-  if (!els.liveDetailsPanel) return;
-  els.liveDetailsPanel.replaceChildren(...els.livePanel.cloneNode(true).childNodes);
-}
-
 function render(snap) {
   latest = snap;
   renderHeader(snap);
@@ -1003,7 +1023,6 @@ function render(snap) {
   renderServer(snap);
   renderPhone(snap);
   renderConduits(snap);
-  syncLiveDetails();
 }
 
 function setConnection(state, label) {
@@ -1064,10 +1083,9 @@ function activateTab(name) {
     panel.classList.toggle("active", key === name);
   }
   // Sparklines size themselves from their container, which is 0px wide while
-  // the live tab is hidden -- force a redraw now that it has real width.
-  // Live details mirrors panel-live's own sparklines (see `syncLiveDetails`),
-  // so it needs the same forced redraw whenever it's the one being switched to.
-  if ((name === "live" || name === "live-details") && latest) {
+  // Live details is hidden -- force a redraw now that it has real width. The
+  // Live system summary tab has no sparklines, so it doesn't need this.
+  if (name === "live-details" && latest) {
     els.tempSpark.dataset.sig = "";
     els.humSpark.dataset.sig = "";
     render(latest);
