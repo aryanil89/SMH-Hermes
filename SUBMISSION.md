@@ -36,9 +36,11 @@ must demo to be eligible for a prize.**
     (the full seven-piece flow).
 - [x] **An open-source license** — Apache-2.0.
 - [ ] **Runnable using the provided instructions** — verified end to end on the demo
-  laptop; quickstart rung 1 (`npm install && npm run build && npm test` → 327/327, then
-  the dashboard) re-verified 2026-08-06. Recommended before submission: one clean-machine
-  walkthrough of README §0 by a team member who did not write it.
+  laptop; quickstart rung 1 verified 2026-08-06 **from a fresh `git clone` in a clean
+  directory**: `npm install` → `npm run build` → 327/327 tests, and the environmental
+  smoke command returned the documented honest-mock fallback with its reason string.
+  Still recommended before submission: one walkthrough of the full README §0 provisioning
+  (rungs 2–3) by a team member who did not write it.
 - [x] **Installs and runs on the intended Copilot+ PC** — the Snapdragon X Elite demo
   laptop is the target machine; all instructions are written for it, with the x64 CPU
   fallback documented.
