@@ -124,6 +124,21 @@ $py = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe"
 answering at all — and unlike `curl /v1/models` it is a request GenieX will actually serve rather
 than a probe that hangs behind an in-flight completion.
 
+### If Telegram itself is unreachable
+
+The receipt send can fail for a reason that has nothing to do with the model — Telegram
+unreachable, DNS down, the tailnet blipping. A failed send is queued to
+`%LOCALAPPDATA%\hermes\state\ack-queue.json` rather than dropped, and the next inbound message
+retries the single oldest queued entry before sending its own receipt — so a run of messages
+during an outage drains the backlog one per turn, in the order they were meant to arrive. There
+is no background process to retry on a timer; this hook only runs when a Telegram message does.
+
+A receipt is a promise about *now* — "got it, ~2 minutes" delivered 20 minutes late is not a
+receipt anymore, it is a confusing message about a turn the phone may already have the real
+answer for. Anything older than 5 minutes is dropped instead of sent, and the queue is capped at
+20 entries (oldest dropped first) so an outage that outlasts both limits does not grow the file
+without bound.
+
 ### Known limits
 
 - **Telegram only.** The CLI streams status locally and the wall renders the transcript as it is
