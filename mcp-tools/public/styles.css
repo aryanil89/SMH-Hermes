@@ -1741,16 +1741,16 @@ svg {
  */
 .brief {
   width: 100%;
-  max-width: 1760px;
+  max-width: 1880px;
   margin: 0 auto;
-  padding: 22px 30px 26px;
+  padding: 24px 32px 28px;
   display: flex;
   flex-direction: column;
   gap: 18px;
   /* Projector baseline: these four tabs are the ones presented to a room, read
      from the back row, not scrolled through on a laptop. Every size in this
      block is set for that distance first and legibility up close second. */
-  font-size: 17px;
+  font-size: 19px;
 }
 
 /* Detailed architecture tab stacks the conceptual and logical briefs in one
@@ -1767,25 +1767,25 @@ svg {
    arm's length and these are read from across the table. Scoped to `.brief` so
    the wall's own cards keep their tighter measurements. */
 .brief .card {
-  padding: 18px 20px;
+  padding: 19px 21px;
 }
 
 .brief .card-head {
-  margin-bottom: 10px;
+  margin-bottom: 11px;
 }
 
 .brief .card-head h3 {
-  font-size: 15px;
-  letter-spacing: 0.04em;
+  font-size: 17px;
+  letter-spacing: 0.03em;
 }
 
 .brief .head-icon {
-  width: 19px;
-  height: 19px;
+  width: 21px;
+  height: 21px;
 }
 
 .brief .kicker {
-  font-size: 13px;
+  font-size: 14.5px;
 }
 
 /* The wall's kv rows are label-left/value-right because those columns are narrow
@@ -1794,7 +1794,7 @@ svg {
 .brief .kv {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 4px 12px;
-  font-size: 14.5px;
+  font-size: 16px;
   margin-top: 12px;
   padding-top: 11px;
   border-top: 1px solid var(--hairline);
@@ -1815,21 +1815,21 @@ svg {
 }
 
 .brief-title {
-  font-size: 40px;
+  font-size: 46px;
   font-weight: 700;
   letter-spacing: -0.01em;
-  line-height: 1.15;
+  line-height: 1.12;
 }
 
 .brief-lede {
-  font-size: 19px;
-  line-height: 1.55;
+  font-size: 21.5px;
+  line-height: 1.5;
   color: var(--ink-2);
   max-width: 92ch;
 }
 
 .brief-h2 {
-  font-size: 15px;
+  font-size: 16.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1853,8 +1853,8 @@ svg {
 }
 
 .brief p {
-  font-size: 16.5px;
-  line-height: 1.5;
+  font-size: 18.5px;
+  line-height: 1.48;
   color: var(--ink-2);
 }
 
@@ -1900,13 +1900,13 @@ svg {
 }
 
 .team-name {
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 600;
   color: var(--ink-1);
 }
 
 .team-org {
-  font-size: 13.5px;
+  font-size: 15px;
   color: var(--ink-3);
   margin-top: 1px;
 }
@@ -2048,7 +2048,7 @@ svg {
 .brief-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 16px;
+  font-size: 18px;
   /* Fixed, with the widths declared below: left to itself at 1700px the middle
      column eats the row and the "planned" column ends up pinned to the far edge,
      which reads as two tables rather than a comparison. */
@@ -2058,9 +2058,9 @@ svg {
 .brief-table th,
 .brief-table td {
   text-align: left;
-  padding: 15px 18px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--hairline);
-  line-height: 1.45;
+  line-height: 1.4;
   vertical-align: top;
 }
 
@@ -2077,7 +2077,7 @@ svg {
 .brief-table th {
   background: var(--surface-1);
   color: var(--ink-3);
-  font-size: 12.5px;
+  font-size: 13.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 600;
@@ -2112,33 +2112,33 @@ svg {
   background: var(--surface-1);
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   justify-content: center;
 }
 
 .arch-node-head {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
 }
 
 .arch-node-icon {
-  width: 24px;
-  height: 24px;
+  width: 27px;
+  height: 27px;
   flex: 0 0 auto;
   color: var(--ink-2);
 }
 
 .arch-node h3 {
-  font-size: 20px;
+  font-size: 23px;
   font-weight: 600;
 }
 
 .arch-node-sub {
-  font-size: 14px;
+  font-size: 15.5px;
   color: var(--ink-3);
   line-height: 1.4;
 }
@@ -2165,7 +2165,7 @@ svg {
 }
 
 .arch-link-label {
-  font-size: 11px;
+  font-size: 12.5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--ink-3);
@@ -2237,8 +2237,8 @@ svg {
 }
 
 .arch-does {
-  font-size: 15.5px;
-  line-height: 1.5;
+  font-size: 17.5px;
+  line-height: 1.48;
   color: var(--ink-2);
 }
 
@@ -2247,7 +2247,7 @@ svg {
   flex-direction: column;
   gap: 6px;
   margin: 10px 0;
-  font-size: 14.5px;
+  font-size: 16px;
   line-height: 1.4;
   color: var(--ink-2);
 }
@@ -2274,7 +2274,7 @@ svg {
 }
 
 .arch-components code {
-  font: 13px var(--mono);
+  font: 14px var(--mono);
   color: var(--ink-2);
 }
 
@@ -2288,8 +2288,8 @@ svg {
  */
 .flow-rail {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 14px 22px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px 18px;
   counter-reset: flow;
 }
 
@@ -2299,10 +2299,10 @@ svg {
   border: 1px solid var(--hairline);
   border-top: 3px solid var(--rule);
   border-radius: var(--radius);
-  padding: 15px 17px 16px;
+  padding: 17px 19px 18px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 8px;
 }
 
 /* The connector sits in the 22px column gap. Hidden on the last stage of each
@@ -2341,7 +2341,7 @@ svg {
 }
 
 .flow-step {
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -2349,16 +2349,16 @@ svg {
 }
 
 .flow-stage h3 {
-  font-size: 18px;
+  font-size: 20.5px;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.22;
 }
 
 .flow-items {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  font-size: 14.5px;
+  font-size: 16px;
   line-height: 1.4;
   color: var(--ink-2);
 }
@@ -2385,7 +2385,7 @@ svg {
   margin-top: auto;
   padding-top: 9px;
   border-top: 1px dashed var(--rule);
-  font-size: 13.5px;
+  font-size: 15px;
   line-height: 1.4;
   color: var(--ink-2);
 }
@@ -2393,7 +2393,7 @@ svg {
 .flow-out span {
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--ink-3);
   margin-right: 5px;
 }
@@ -2420,17 +2420,17 @@ svg {
 .flow-chain {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 10px 0 0;
+  gap: 7px;
+  margin: 11px 0 0;
   counter-reset: step;
-  font-size: 14.5px;
+  font-size: 16px;
   line-height: 1.4;
   color: var(--ink-2);
 }
 
 .flow-chain li {
   position: relative;
-  padding-left: 26px;
+  padding-left: 29px;
   counter-increment: step;
 }
 
@@ -2439,22 +2439,22 @@ svg {
   position: absolute;
   left: 0;
   top: 0;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border-radius: 50%;
   border: 1px solid var(--rule);
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
 }
 
 .flow-note {
-  margin-top: 11px;
-  padding-top: 10px;
+  margin-top: 12px;
+  padding-top: 11px;
   border-top: 1px solid var(--hairline);
-  font-size: 14.5px;
+  font-size: 16px;
   line-height: 1.45;
   color: var(--ink-3);
 }
@@ -2470,7 +2470,7 @@ svg {
 .flow-chain code,
 .flow-items code,
 .flow-out code {
-  font-size: 14.5px;
+  font-size: 16px;
 }
 
 .flow-chain code,
@@ -2478,7 +2478,7 @@ svg {
 .flow-out code,
 .flow-note code {
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink-1);
 }
 
