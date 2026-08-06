@@ -1753,6 +1753,12 @@ svg {
   font-size: 19px;
 }
 
+/* Bolder icon strokes to match the heavier card borders and connector lines
+   below -- the wall's own icons (door, temp, ...) keep the lighter default. */
+.brief svg {
+  stroke-width: 2;
+}
+
 /* Detailed architecture tab stacks the conceptual and logical briefs in one
    scrolling panel -- this seam is the only thing that marks where one ends
    and the other begins. */
@@ -1768,6 +1774,7 @@ svg {
    the wall's own cards keep their tighter measurements. */
 .brief .card {
   padding: 19px 21px;
+  border-width: 1.5px;
 }
 
 .brief .card-head {
@@ -1797,7 +1804,7 @@ svg {
   font-size: 16px;
   margin-top: 12px;
   padding-top: 11px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1.5px solid var(--hairline);
 }
 
 .brief .kv dd {
@@ -1996,11 +2003,14 @@ svg {
 /* One accent per card in the Executive overview row -- border, tinted
    background and a matching icon colour, so all four stand out equally
    instead of just the one that used to carry `.card--accent`. */
-.card--accent-cyan,
-.card--accent-blue,
-.card--accent-violet,
-.card--accent-pink {
-  border-width: 1.5px;
+/* `.card` repeated in each selector to match `.brief .card`'s specificity --
+   otherwise that rule's own border-width would win the cascade and flatten
+   every accent card back to the plain-card thickness. */
+.card.card--accent-cyan,
+.card.card--accent-blue,
+.card.card--accent-violet,
+.card.card--accent-pink {
+  border-width: 2px;
 }
 
 .card--accent-cyan {
@@ -2041,7 +2051,7 @@ svg {
 
 .table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--hairline);
+  border: 1.5px solid var(--hairline);
   border-radius: var(--radius);
 }
 
@@ -2059,7 +2069,7 @@ svg {
 .brief-table td {
   text-align: left;
   padding: 14px 18px;
-  border-bottom: 1px solid var(--hairline);
+  border-bottom: 1.5px solid var(--hairline);
   line-height: 1.4;
   vertical-align: top;
 }
@@ -2110,7 +2120,7 @@ svg {
   flex: 1 1 0;
   min-width: 0;
   background: var(--surface-1);
-  border: 1px solid var(--hairline);
+  border: 1.5px solid var(--hairline);
   border-radius: var(--radius);
   padding: 20px 22px;
   display: flex;
@@ -2179,7 +2189,7 @@ svg {
 .arch-arrow {
   position: relative;
   width: 100%;
-  height: 2px;
+  height: 3px;
   background: linear-gradient(
     to right,
     color-mix(in srgb, var(--series-temp) 55%, transparent),
@@ -2192,11 +2202,11 @@ svg {
   position: absolute;
   right: -1px;
   top: 50%;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   transform: translateY(-50%) rotate(45deg);
-  border-right: 2px solid var(--good);
-  border-top: 2px solid var(--good);
+  border-right: 3px solid var(--good);
+  border-top: 3px solid var(--good);
 }
 
 .arch-link--stacked {
@@ -2216,16 +2226,16 @@ svg {
   position: absolute;
   left: -1px;
   top: 50%;
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   transform: translateY(-50%) rotate(-135deg);
-  border-right: 2px solid var(--series-temp);
-  border-top: 2px solid var(--series-temp);
+  border-right: 3px solid var(--series-temp);
+  border-top: 3px solid var(--series-temp);
 }
 
 .arch-link--stacked .arch-link-label--dashed {
   padding-top: 8px;
-  border-top: 1px dashed var(--rule);
+  border-top: 1.5px dashed var(--rule);
   margin-top: 4px;
 }
 
@@ -2296,8 +2306,8 @@ svg {
 .flow-stage {
   position: relative;
   background: var(--surface-1);
-  border: 1px solid var(--hairline);
-  border-top: 3px solid var(--rule);
+  border: 1.5px solid var(--hairline);
+  border-top: 4px solid var(--rule);
   border-radius: var(--radius);
   padding: 17px 19px 18px;
   display: flex;
@@ -2315,8 +2325,8 @@ svg {
   width: 9px;
   height: 9px;
   transform: rotate(45deg);
-  border-right: 2px solid var(--rule);
-  border-top: 2px solid var(--rule);
+  border-right: 2.5px solid var(--rule);
+  border-top: 2.5px solid var(--rule);
 }
 
 .flow-stage:last-child::after {
@@ -2384,7 +2394,7 @@ svg {
 .flow-out {
   margin-top: auto;
   padding-top: 9px;
-  border-top: 1px dashed var(--rule);
+  border-top: 1.5px dashed var(--rule);
   font-size: 15px;
   line-height: 1.4;
   color: var(--ink-2);
@@ -2444,7 +2454,7 @@ svg {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1px solid var(--rule);
+  border: 1.5px solid var(--rule);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--ink-3);
@@ -2453,7 +2463,7 @@ svg {
 .flow-note {
   margin-top: 12px;
   padding-top: 11px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1.5px solid var(--hairline);
   font-size: 16px;
   line-height: 1.45;
   color: var(--ink-3);
