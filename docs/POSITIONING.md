@@ -147,20 +147,35 @@ it may never carry the answer.
 > **stop paging them.** That is the only rule in the system that makes it quieter.
 
 **"Is that face recognition?"**
-> No, and I want to be precise: there's no automated identity check running at all today — no
-> badge, no QR code, no face match. Presence, the decision matrix and the approval loop are all
-> live; identity resolution is not. Every capture reads as unknown, and a human decides from the
-> photo. Underneath, identity is architected as a pluggable ladder — a QR/badge rung and a
-> face-embedding rung both exist in code — but neither is wired to something we'd stand behind on
-> stage: the badge rung has no real credential behind it, and the face rung needs an external
-> vision script that isn't built yet. We're not claiming either.
+> Yes, now — and I want to be precise about what that covers. `face-cpu` is live: InsightFace's
+> **buffalo_s** bundle — an SCRFD-500MF detector and an ArcFace MobileFaceNet recognizer, both
+> ONNX — running entirely on the laptop's **CPU** via onnxruntime. Deliberately not the NPU: Phase
+> A targets CPU because it's deterministic and stable inside a 24-hour ship window; the NPU rung,
+> `face-npu`, is the adapter's next step and is **not built**. The badge rung, `qr-badge`, also
+> isn't claimed — it has no real credential behind it.
 >
-> If a face-embedding rung is switched on in the future, the roster would store **embeddings and
-> never images** — the source photo discarded after matching. You cannot reconstruct a face from
-> that file, which is why it's safe to open it on stage. GDPR treats face templates as
-> special-category data, so keeping them on-device is what a privacy impact assessment wants to
-> see — materially easier to deploy and to defend than shipping staff biometrics to someone else's
-> GPU.
+> The match threshold is `ACCESS_MATCH_THRESHOLD=0.43`, and I'll say plainly it's **provisional**
+> — measured 2026-08-06 on a 3-person roster enrolled from laptop-webcam photos (genuine matches,
+> n=23, minimum cosine similarity 0.7702; impostor pairs, n=46, maximum cosine similarity 0.1026;
+> threshold set at the midpoint, rounded down). We validated it live the same day against
+> phone-camera captures — known people scored 0.85 and 0.79, comfortably clear of the line — but
+> n is small, and the threshold needs re-measuring against any larger roster before it means more
+> than "worked for us this week."
+>
+> There is also **no liveness detection** — a printed photo of an enrolled face could pass a
+> match today. That's why the design doesn't stop at the match: every non-match still falls to a
+> human, on the phone or from the wall's approval panel, which shows the captured photo so the
+> decision is informed rather than a rubber stamp. The system is human-supervised throughout, by
+> design, not as a stopgap for what isn't built yet.
+>
+> The roster stores **embeddings, never images** — the source photo is discarded once a match is
+> resolved, and a photo held for a human decision lives in memory only, never on disk, dropped the
+> moment the decision lands. You cannot reconstruct a face from the roster file, which is why it's
+> safe to open it on stage. GDPR treats face templates as special-category data, so keeping them
+> on-device — and never persisting the source image — is what a privacy impact assessment wants to
+> see, materially easier to deploy and defend than shipping staff biometrics to someone else's GPU.
+> InsightFace's pretrained models are released for **non-commercial research purposes only**,
+> which is the license this project runs under.
 
 **"Why Arduino?"**
 > It is our physical rack simulator. Real datacenters have DCIM and BMS; we needed something a judge

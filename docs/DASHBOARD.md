@@ -61,8 +61,8 @@ table (usually the board clock, step 2 ⚠️).
 | `HERMES_MODEL` / `HERMES_ACCELERATOR` | Qwen3-4B / Hexagon NPU | Header captions only — the page never talks to the model |
 | `ACCESS_STATE_PATH` | `mcp-tools/.state/access.json` | Open challenge + the access audit trail |
 | `ACCESS_ROSTER_PATH` | `mcp-tools/.state/roster.json` | Enrolled people. **Embeddings only, never images** |
-| `ACCESS_IDENTITY_METHOD` | `stub` | Identity rung: `stub` \| `qr-badge` \| `face-npu` \| `face-cpu`. Only `stub` (detection-only) is used and claimed today — see [../phone/README.md](../phone/README.md#the-identity-ladder) |
-| `ACCESS_MATCH_THRESHOLD` | `0.5` | Cosine similarity for a face match. **A starting point, not a calibrated value** — tune it against the actual enrolled faces and record what you measured |
+| `ACCESS_IDENTITY_METHOD` | `stub` | Identity rung: `stub` \| `qr-badge` \| `face-npu` \| `face-cpu`. `stub` (detection-only) is the process default; `face-cpu` is built and claimed — verified live 2026-08-06 — see [../phone/README.md](../phone/README.md#the-identity-ladder) |
+| `ACCESS_MATCH_THRESHOLD` | `0.5` | Cosine similarity for a face match. Code default is a starting point, not a calibrated value. The project's own measured value is **0.43, provisional** — genuine n=23 (min 0.7702), impostor n=46 (max 0.1026), 2026-08-06 — re-measure against the actual enrolled faces before trusting it on a larger roster |
 | `ACCESS_DOOR_LOOKBACK_MS` | `30000` | How far *before* a presence edge a door-open still counts as the same entry. Too short and a normal entry reads as tailgating |
 | `ACCESS_VISION_SCRIPT` / `ACCESS_PYTHON` | unset / `python` | The face pipeline, for rungs 1–2 |
 | `ACCESS_SUPPRESS_MAX_AGE_S` | `180` | Older than this and the access state cannot withhold a page — see below |
@@ -84,6 +84,7 @@ while the wall still shows a live feed, and the two will contradict each other.
 | `GET /api/health` | Liveness, tick count, connected browsers, feed state |
 | `POST /api/telegram` | Feed a real gateway message onto the phone panel (below) |
 | `GET /api/access/state` | The access slice alone, for a reconnecting phone |
+| `GET /api/access/pending-photo` | The captured photo for an open, unmatched challenge — unauthenticated, like the other read-only GET routes; held in memory only, 404 once decided or abandoned |
 | `POST /api/access/capture` | `{imageBase64?, badges?}` → identify → verdict |
 | `POST /api/access/approve` | `{id, decision, decidedBy}` — authorise or refuse a challenge |
 | `POST /api/access/enroll` | `{name, embedding, method}` — add to the roster |
@@ -206,14 +207,19 @@ Three things the card refuses to do:
   and re-challenged the same person on the next tick — approving a judge and then
   accusing them two seconds later.
 
-Identity comes from a swappable rung (`ACCESS_IDENTITY_METHOD`); the default — and the only one
-used or claimed on this project — is detection-only, so every capture reads as unknown and a
-human decides from the photo rather than the system claiming a match it never made. `qr-badge`
-and the face rungs exist in code but are not part of the current demo. Full ladder in
+Identity comes from a swappable rung (`ACCESS_IDENTITY_METHOD`); the process default is
+`stub` (detection-only), but `face-cpu` is built and claimed — verified live 2026-08-06 — so an
+enrolled person now resolves automatically and only an unmatched capture still reads as unknown
+and needs a human decision from the photo. `qr-badge` and `face-npu` exist in code but are not
+part of the current demo. Full ladder in
 [../phone/README.md](../phone/README.md#the-identity-ladder).
 
-**Nothing on this path stores an image.** Captures are resolved to an embedding and
-dropped; `mcp-tools/.state/roster.json` holds floats only.
+**A matched capture never stores an image** — it is resolved to an embedding and dropped;
+`mcp-tools/.state/roster.json` holds floats only. An **unmatched** capture is held in memory only
+(never written to disk) so the wall's approval panel can show it — `GET /api/access/pending-photo`
+— to the human deciding, and it is dropped the instant that challenge is decided or abandoned.
+There is no liveness check on this path: a printed photo of an enrolled face could pass a match,
+which is why every non-match still requires that human decision.
 
 ### `expected` withholds a page — how that actually works
 

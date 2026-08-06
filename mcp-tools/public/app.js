@@ -32,10 +32,17 @@ const els = {
   accessCard: $("access-card"),
   accessChip: $("access-chip"),
   accessVerdict: $("access-verdict"),
+  accessWelcome: $("access-welcome"),
   accessIdentity: $("access-identity"),
   accessFaces: $("access-faces"),
   accessReasons: $("access-reasons"),
-  accessApproval: $("access-approval"),
+  accessApprovalPanel: $("access-approval-panel"),
+  accessApprovalHeadline: $("access-approval-headline"),
+  accessApprovalPhoto: $("access-approval-photo"),
+  accessApprovalMeta: $("access-approval-meta"),
+  accessApproveBtn: $("access-approve-btn"),
+  accessDenyBtn: $("access-deny-btn"),
+  accessApprovalResult: $("access-approval-result"),
   accessLog: $("access-log"),
   deviceLogCount: $("device-log-count"),
   tempCard: $("temp-card"),
@@ -610,10 +617,10 @@ const ACCESS_TEXT = {
   "pending-capture": "Presence detected — awaiting capture",
   "clear": "Authorised person in the room",
   "expected": "On-call on site — escalation suppressed",
-  "challenge": "Unknown person — approval required",
-  "unauthorized-during-incident": "Unknown person during an active incident",
-  "anti-passback": "In the room with no door entry",
-  "tailgating": "Tailgating — more people than authorised entries",
+  "challenge": "NOT AUTHORISED — unknown person, approval required",
+  "unauthorized-during-incident": "NOT AUTHORISED — unknown person during an active incident",
+  "anti-passback": "NOT AUTHORISED — in the room with no door entry",
+  "tailgating": "NOT AUTHORISED — tailgating, more people than authorised entries",
 };
 
 function writeSummaryAccess(severity, chipText, verdictText) {
@@ -623,6 +630,110 @@ function writeSummaryAccess(severity, chipText, verdictText) {
   setText(els.sumAccessVerdict, verdictText);
 }
 
+/**
+ * The approval panel's headline, reusing ACCESS_TEXT -- the one verdict →
+ * words map this page already has -- rather than a second copy of the same
+ * strings. Every verdict that unconditionally requires approval already says
+ * "NOT AUTHORISED" above; this only has to cover the one that sometimes
+ * doesn't (`pending-capture` reads this way only once its grace period has
+ * lapsed unanswered, which is the only way the panel shows for it at all).
+ */
+function approvalHeadline(verdict) {
+  const text = ACCESS_TEXT[verdict] || verdict;
+  return text.startsWith("NOT AUTHORISED") ? text : `NOT AUTHORISED — ${text}`;
+}
+
+/**
+ * The shared secret for the write routes, if the server is running with one.
+ *
+ * Same convention phone.html uses: taken from the URL once (`?secret=...`)
+ * and kept in memory only, never localStorage. The wall's approve/deny
+ * buttons go through the same POST /api/access/approve the phone does, so
+ * they need to satisfy the same gate the same way.
+ */
+const ACCESS_SECRET = new URLSearchParams(location.search).get("secret") || "";
+
+async function postJson(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(ACCESS_SECRET ? { "x-access-secret": ACCESS_SECRET } : {}),
+    },
+    body: JSON.stringify(body),
+  });
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {
+    /* empty body is fine */
+  }
+  return { ok: res.ok, status: res.status, data };
+}
+
+/**
+ * Which challenge's photo is already loaded, so the <img> is only pointed at
+ * the endpoint again when a NEW challenge starts -- not on every 2s tick
+ * while the same one is still open and the underlying bytes have not moved.
+ */
+let shownPhotoFor = null;
+
+function renderApprovalPanel(a) {
+  const pending = a.pending;
+  const approval = pending && pending.approval;
+  const awaiting = Boolean(approval && approval.state === "pending");
+
+  els.accessApprovalPanel.hidden = !awaiting;
+  if (!awaiting) {
+    shownPhotoFor = null;
+    els.accessApprovalPhoto.hidden = true;
+    els.accessApprovalPhoto.removeAttribute("src");
+    return;
+  }
+
+  setText(els.accessApprovalHeadline, approvalHeadline(pending.verdict));
+  setText(els.accessApprovalMeta, `challenge ${pending.id} · awaiting a decision on the wall or the phone`);
+
+  if (shownPhotoFor !== pending.id) {
+    shownPhotoFor = pending.id;
+    els.accessApprovalPhoto.hidden = false;
+    // No cache-buster needed: the server marks this route no-store, and the
+    // bytes behind it do not change for the life of one challenge -- this
+    // only re-points the <img> when the challenge id itself has changed.
+    els.accessApprovalPhoto.src = "/api/access/pending-photo";
+    els.accessApprovalPhoto.onerror = () => {
+      els.accessApprovalPhoto.hidden = true;
+    };
+  }
+}
+
+/** Record a human decision from the wall, over the same route the phone uses. */
+async function submitAccessDecision(decision) {
+  const pending = latest && latest.access && latest.access.pending;
+  if (!pending) return;
+  els.accessApproveBtn.disabled = true;
+  els.accessDenyBtn.disabled = true;
+  const res = await postJson("/api/access/approve", {
+    id: pending.id,
+    decision,
+    decidedBy: "on-call · wall",
+  });
+  els.accessApproveBtn.disabled = false;
+  els.accessDenyBtn.disabled = false;
+  setText(
+    els.accessApprovalResult,
+    res.ok ? `Recorded: ${decision}.` : res.data.reason || res.data.error || "Could not record that.",
+  );
+  els.accessApprovalResult.hidden = false;
+  clearTimeout(submitAccessDecision._t);
+  submitAccessDecision._t = setTimeout(() => {
+    els.accessApprovalResult.hidden = true;
+  }, 3200);
+}
+
+els.accessApproveBtn.addEventListener("click", () => submitAccessDecision("approved"));
+els.accessDenyBtn.addEventListener("click", () => submitAccessDecision("denied"));
+
 function renderAccess(snap) {
   const a = snap.access;
   if (!a) return;
@@ -631,6 +742,18 @@ function renderAccess(snap) {
   setAttr(els.accessChip, "data-status", a.severity);
   setText(els.accessChip, a.verdict === "idle" ? "clear" : a.verdict.replace(/-/g, " "));
   setText(els.accessVerdict, ACCESS_TEXT[a.verdict] || a.verdict);
+
+  // The known-arrival banner. Tied to the live verdict rather than a
+  // one-shot flag on purpose: it renders fresh from a.verdict/a.faces every
+  // tick, so it is showing exactly as long as the person is clear in the
+  // room and disappears the instant the verdict is no longer "clear" --
+  // nothing to age out separately.
+  const knownArrivals = (a.faces || [])
+    .filter((f) => f.match === "known" && f.name)
+    .map((f) => f.name);
+  const showWelcome = a.verdict === "clear" && knownArrivals.length > 0;
+  els.accessWelcome.hidden = !showWelcome;
+  if (showWelcome) setText(els.accessWelcome, `${knownArrivals.join(", ")} just got in`);
 
   if (!demoMode) {
     writeSummaryAccess(
@@ -677,17 +800,7 @@ function renderAccess(snap) {
     (li, r) => setText(li, r.text),
   );
 
-  const approval = a.pending && a.pending.approval;
-  const awaiting = approval && approval.state === "pending";
-  els.accessApproval.hidden = !approval || approval.state === "not-required";
-  if (approval && approval.state !== "not-required") {
-    setText(
-      els.accessApproval,
-      awaiting
-        ? `Awaiting authorisation on the on-call phone · challenge ${a.pending.id}`
-        : `${approval.state === "approved" ? "Approved" : "DENIED"} by ${approval.decidedBy || "a human"}`,
-    );
-  }
+  renderApprovalPanel(a);
 
   renderList(
     els.accessLog,

@@ -1108,10 +1108,27 @@
             <span class="chip" id="access-chip" data-status="unknown">–</span>
           </header>
           <p class="access-verdict" id="access-verdict">–</p>
+          <p class="access-welcome" id="access-welcome" hidden></p>
           <p class="tile-sub" id="access-identity">identity –</p>
           <ul class="access-faces" id="access-faces"></ul>
           <ul class="access-reasons" id="access-reasons"></ul>
-          <p class="note note--warn" id="access-approval" hidden></p>
+          <div class="access-approval-panel" id="access-approval-panel" hidden>
+            <p class="access-approval-headline" id="access-approval-headline"></p>
+            <img
+              class="access-approval-photo"
+              id="access-approval-photo"
+              alt="Captured photo of the person awaiting approval"
+              hidden
+            />
+            <p class="access-approval-meta" id="access-approval-meta"></p>
+            <div class="access-approval-actions">
+              <button type="button" class="access-btn access-btn--approve" id="access-approve-btn">
+                Approve
+              </button>
+              <button type="button" class="access-btn access-btn--deny" id="access-deny-btn">Deny</button>
+            </div>
+            <p class="access-approval-result" id="access-approval-result" hidden></p>
+          </div>
           <ol class="access-log" id="access-log"></ol>
         </article>
 
