@@ -324,6 +324,10 @@ async function accessCapture(req: IncomingMessage, res: ServerResponse): Promise
   if (!body) return;
 
   const raw = typeof body.imageBase64 === "string" ? body.imageBase64 : undefined;
+  // Captured before stripping, not reconstructed after: this is the mime the
+  // pending-photo GET route serves back, and `canvas.toDataURL()` on the
+  // phone is the source of truth for it, not an assumption made here.
+  const imageMime = raw?.match(/^data:(image\/[a-z+]+);base64,/i)?.[1];
   const imageBase64 = raw?.replace(/^data:image\/[a-z+]+;base64,/i, "");
   const badges = Array.isArray(body.badges)
     ? body.badges.filter((b): b is string => typeof b === "string")
@@ -335,7 +339,7 @@ async function accessCapture(req: IncomingMessage, res: ServerResponse): Promise
   }
 
   const result = await access.capture({
-    ...(imageBase64 ? { imageBase64 } : {}),
+    ...(imageBase64 ? { imageBase64, imageMime: imageMime ?? "image/jpeg" } : {}),
     ...(badges ? { badges } : {}),
     now: new Date(),
   });
@@ -379,6 +383,33 @@ async function accessApprove(req: IncomingMessage, res: ServerResponse): Promise
   });
   void tick();
   sendJson(res, result.ok ? 202 : 409, result);
+}
+
+/**
+ * The captured photo for whichever challenge currently needs a human
+ * decision -- 404 when there is none.
+ *
+ * Deliberately its own tiny route rather than a field on `/api/access/state`
+ * or the SSE snapshot: those are polled/broadcast on every 2s tick, and a
+ * base64 JPEG on every one of those payloads is a lot of bytes to move for
+ * something that is usually absent and, when present, does not change
+ * between ticks. `AccessSentry.pendingPhoto()` already gates on the approval
+ * still being `"pending"`, so this route does not have to re-derive that.
+ */
+function accessPendingPhoto(res: ServerResponse): void {
+  const photo = access.pendingPhoto();
+  if (!photo) {
+    res.writeHead(404, { "content-type": "text/plain", "cache-control": "no-store" });
+    res.end("no photo pending");
+    return;
+  }
+  const body = Buffer.from(photo.imageBase64, "base64");
+  res.writeHead(200, {
+    "content-type": photo.mime,
+    "cache-control": "no-store",
+    "content-length": String(body.length),
+  });
+  res.end(body);
 }
 
 /** Enrolment. Takes an embedding, never an image -- see access/roster.ts. */
@@ -555,6 +586,10 @@ const server = createServer((req, res) => {
       return;
     }
     sendJson(res, 200, latest.access);
+    return;
+  }
+  if (pathname === "/api/access/pending-photo") {
+    accessPendingPhoto(res);
     return;
   }
   if (pathname === "/api/health") {
