@@ -1,0 +1,161 @@
+# Design: Face-Verified Physical Access Control for Hermes — Current State → Target State
+
+## Context
+
+Hermes's access-control subsystem (`mcp-tools/src/access/`) exists to close a gap
+`docs/POSITIONING.md` §7 had promised but never built: "observe → explain → recommend →
+**human approves** → act." The presence trigger, phone capture UI, roster storage, decision
+matrix, and Telegram alerting are all built and tested (PROGRESS.md #12/#13, 242/242 tests
+passing at last count). The one missing piece is the actual face-recognition model — today
+every capture resolves as `unknown` via a detection-only stub, because `ACCESS_IDENTITY_METHOD`
+has no working `face-npu`/`face-cpu` backend (`ACCESS_VISION_SCRIPT` doesn't exist).
+
+This session's conversation worked through what should fill that gap, landing on: pre-enrolled
+face embeddings (never images), matched via cosine similarity against a captured photo, feeding
+the existing human-approval flow. The open question that came out of it — and the reason for
+writing this down now instead of building immediately — is **where the embedding model should
+run**: laptop CPU, laptop NPU, or the phone's own NPU. Each has different effort and different
+payoff against the hackathon's "all-Snapdragon" thesis. This doc is the plan to resolve that in
+order, across sessions, rather than guessing which to build first.
+
+## Where we are (verified from code, this session)
+
+| Piece | File | Status |
+|---|---|---|
+| Presence trigger → challenge opened | `access/sentry.ts` `AccessSentry.update()` | ✅ built, tested |
+| Phone capture UI (downscale, upload) | `public/phone.html` | ✅ built |
+| Roster storage — embeddings only, never images | `access/roster.ts` | ✅ built |
+| Matching math (cosine similarity vs. threshold) | `roster.ts::matchEmbedding` | ✅ built, threshold **uncalibrated** (0.5 default, flagged in code) |
+| Identity ladder dispatch (`stub`/`qr-badge`/`python`) | `access/identify.ts::identifyFaces` | ✅ built |
+| **The vision model itself** (`face-npu`/`face-cpu`) | `identify.ts::fromPython` expects `ACCESS_VISION_SCRIPT` | ❌ **not built** — no script exists, so this rung always throws and falls back |
+| Decision matrix (clear/expected/challenge/tailgating/anti-passback) | `access/decide.ts` | ✅ built, tested |
+| Human approve/deny on phone | `phone.html` + `state.ts::resolveApproval` | ✅ built |
+| Telegram alert on challenge | `access/notify.ts` | ✅ built |
+| Suppression (known responder silences page) | `alert-skill/suppress.ts` | ✅ built, verified live (PROGRESS.md #13) |
+
+**Net: the entire pipeline around the model exists. Only the model integration is missing.**
+
+## Research findings that constrain the design
+
+1. **NPU contention is a documented, reproducible failure mode on this hardware**, not a
+   theoretical risk. `docs/BENCHMARKS.md` / `llm-serving-bench/RESULTS.md` record GenieX
+   crashing twice when a second Hexagon-touching process ran concurrently ("second Hexagon
+   process destabilizes the DSP"). Any design that puts a face model on the *laptop's* NPU
+   at the same time GenieX may be serving a turn inherits this risk directly.
+2. **The phone's NPU is architecturally idle today** and is the same silicon family
+   (Qualcomm Hexagon inside Snapdragon 8 Elite) as the laptop's Hexagon v73 — so moving face
+   recognition there uses the same AI Hub / QNN toolchain conceptually, not a different vendor
+   stack. This is a genuine "all-Snapdragon, every NPU doing real inference" story, which
+   `docs/HARDWARE_UTILIZATION.md`'s own scoring rubric explicitly rewards (flagged there as a
+   current gap — phone NPU idle).
+3. **Open/unresolved, needs a 5-minute check before it goes on any slide**: the Hexagon
+   version for the 8 Elite is inconsistently documented across two Qualcomm-adjacent sources
+   already cited in this repo (`docs/PHONE_PLAN_2026-08-05.md` — v73 in one tutorial, v79 per
+   llama.cpp's own docs). Resolve before quoting a specific NPU generation for the phone.
+2. **Phone-NPU inference requires a native app or WebNN pipeline.** This contradicts the
+   phone's current stated design ("There is no app to build," `phone/README.md`) and is a
+   scope increase comparable to the existing MCP tools build, not a small addition — nothing
+   for it exists today (no app skeleton, no model conversion, no packaging).
+3. **Face embedding models are much smaller than the LLM concern that shelved on-phone
+   inference before.** The earlier "phone on-device LLM" idea was shelved over a 12GB RAM
+   floor for 3B+ models exactly matching the S25 Ultra's 12GB (`docs/HARDWARE_UTILIZATION.md`).
+   Face embedding models are tens of MB, not billions of parameters — that specific blocker
+   likely doesn't apply, but the actual model's footprint should be checked, not assumed.
+4. **No face-quality gating exists anywhere in the code today.** `detectOnly()` (the stub)
+   always returns exactly one face with no size/blur/angle/multi-face checks. Any real vision
+   backend needs to add these itself — "call model, get vector" is not sufficient for a usable
+   feature, model choice aside.
+5. **Liveness/anti-spoof is out of scope.** Nothing today or in this plan defends against a
+   printed photo or a phone screen held up to the camera. Worth stating explicitly as an
+   accepted limitation for a hackathon demo rather than silently absent.
+
+## Target architecture (end state)
+
+```
+Phase A/B (laptop):                       Phase C (stretch — phone NPU):
+Phone (browser, phone.html, unchanged) →   Phone (native app/WebNN, NEW)
+  JPEG → downscale → base64                  on-device model → embedding vector
+  POST /api/access/capture {imageBase64}      POST /api/access/capture {embedding}
+       ↓                                          ↓
+Laptop: identify.ts::fromPython           Laptop: identify.ts (unchanged downstream)
+  spawns ACCESS_VISION_SCRIPT (NEW)         matchEmbedding() — unchanged, already built
+  runs on CPU (A) or NPU (B)                     ↓
+       ↓                                   decideAccess() → notifyChallenge() → phone approve/deny
+matchEmbedding() → decideAccess() → ...     (all unchanged, already built)
+```
+
+Everything downstream of "produce an embedding" is identical regardless of phase — this is
+why the phases can be built and demoed independently, each one a strict improvement on the
+last, none of them a rewrite of the others.
+
+## Phased build plan — build in this order, next session(s)
+
+### Phase A — `face-cpu` on the laptop (build first)
+- Write `ACCESS_VISION_SCRIPT`: a Python script matching the existing contract in
+  `identify.ts::fromPython` — stdin `{"imageBase64": "..."}`, stdout
+  `{"embeddings": [[...]], "boxes": [[x,y,w,h]], "device": "cpu"}`.
+- Use a stock ONNX face-detection + embedding model (e.g. a standard face-embedding net),
+  ONNX Runtime, CPU execution provider — no QNN, no NPU, zero contention with GenieX by
+  construction.
+- Add face-quality gating inside this script before embedding: reject on no-face-detected,
+  face too small, and (if the detector gives landmarks) too oblique an angle. Basic blur
+  check (Laplacian variance) if time allows.
+- Enroll 2-3 real people via the phone's capture flow (needs a small change: enrollment
+  should capture a photo and run it through this same script, not send the placeholder
+  `embedding: [1]` it sends today for QR-badge mode).
+- Calibrate `ACCESS_MATCH_THRESHOLD` against these real enrollments — the current 0.5 default
+  is explicitly a placeholder in `roster.ts`.
+- **Verification**: run the existing flow end-to-end — presence trigger → phone capture of an
+  enrolled person → `clear` verdict, no human prompt; capture of a stranger → `challenge` →
+  Telegram alert → approve/deny on phone → audit log entry. This exercises code paths that
+  exist today but have never been run against a real model.
+
+### Phase B — `face-npu` on the laptop (only after A works)
+- Same model, QNN execution provider instead of CPU (`device: "npu"` in the script's output).
+- **Must decide a contention strategy before enabling this**, given the documented crash mode:
+  either (a) gate face-NPU calls behind a check of whether GenieX is mid-turn (the
+  `gateway_state.json` `active_agents` field the supervisor scripts already read is the
+  candidate signal), or (b) accept the risk for a demo and rely on the existing GenieX
+  supervisor to recover from a crash.
+- **Verification**: deliberately trigger a capture while an agent turn is in flight and confirm
+  the chosen mitigation behaves as intended (either the face call defers, or GenieX survives).
+
+### Phase C — phone-NPU native app (stretch goal, only if time remains after B)
+- Resolve the Hexagon-version documentation conflict first (five-minute check).
+- Confirm the chosen face model's actual memory/runtime footprint on Android NNAPI/QNN before
+  committing to this phase — do not assume the earlier LLM-memory blocker doesn't apply without
+  checking.
+- Build a minimal native Android app (or WebNN-in-browser pipeline if mature enough) that:
+  runs the same face-detection + embedding step on-device, sends only the embedding (never the
+  photo) to `/api/access/capture`, and reuses `phone.html`'s existing approve/deny UI for
+  everything downstream (or reimplements that thin UI natively if a full app replacement is
+  wanted).
+- Requires a protocol tweak: `accessCapture()` in `dashboard/server.ts` currently expects
+  `imageBase64`; add an `embedding` field it can accept directly instead of running
+  `identifyFaces()` on an image.
+- **Verification**: same end-to-end test as Phase A, but confirm zero laptop-NPU utilization
+  during the capture (Task Manager NPU graph, same technique already used for LLM rehearsal
+  screenshots per PROGRESS.md item 1).
+
+## Open items to resolve before or during next session (not blocking the start of Phase A)
+
+- Pick the specific face-detection/embedding model (needs a short model-selection pass —
+  not done in this conversation).
+- Confirm whether `phone.html`'s enrollment flow needs a UI change to capture-then-embed
+  rather than posting a placeholder vector.
+- Decide the Phase B contention strategy (defer-until-idle vs. accept-risk) before enabling
+  `face-npu`, not after.
+- Resolve the Hexagon v73/v79 documentation conflict before Phase C, and before any slide
+  claims a specific phone NPU generation.
+
+## Verification plan (applies at the end of every phase)
+
+1. `npm run build && npm test` in `mcp-tools/` — confirm no regression in the 242+ existing
+   access-control tests.
+2. Live run against the real UNO Q presence sensor (or a manual `object_entered` log line if
+   the board isn't at hand) — confirm the challenge opens, the phone shows the capture card,
+   and a real photo produces a real verdict (not the stub's permanent `unknown`).
+3. Confirm the audit trail (`access.json` log) records the capture, identity method, and
+   approval decision correctly for both a known and an unknown face.
+4. For Phase B/C specifically: confirm GenieX does not crash and the LLM agent path is
+   unaffected by a concurrent face-recognition call.
