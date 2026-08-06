@@ -27,12 +27,9 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 
 | Name | Email |
 |---|---|
-| Indranil Acharya | `<qualcomm-email — fill before submission>` |
-| Christopher Gould | `<qualcomm-email — fill before submission>` |
-
-<!-- Hackathon rules require names AND emails of every team member in the README.
-     Fill the addresses (and add any member missing from this table) before the
-     Friday 12:00 PST submission — missing entries are a disqualification risk. -->
+| Indranil Acharya | indranil@qualcomm.com |
+| John Koch | jkoch@qualcomm.com |
+| Christopher Gould | cgould@qualcomm.com |
 
 
 > **Disclosure:** network, storage and compute telemetry are **simulated** with realistic data
