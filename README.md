@@ -28,11 +28,8 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 | Name | Email |
 |---|---|
 | Indranil Acharya | `aryanil89@gmail.com` |
-| Christopher Gould | `<qualcomm-email — fill before submission>` |
-
-<!-- Hackathon rules require names AND emails of every team member in the README.
-     Fill the addresses (and add any member missing from this table) before the
-     Friday 12:00 PST submission — missing entries are a disqualification risk. -->
+| Christopher Gould | `chrisxgould@gmail.com` |
+| John Koch | `ghostboarder193@gmail.com` |
 
 
 > **Disclosure:** network, storage and compute telemetry are **simulated** with realistic data
@@ -73,7 +70,7 @@ claims score zero, so the line between them is part of the submission, not a foo
 |---|---|---|
 | LLM inference | Qwen3-4B-Instruct-2507 Q4_0 on the **laptop's** X Elite NPU via GenieX — measured, serving the agent | Same model benchmarked on the **phone's** 8 Elite NPU via a pre-compiled bundle over `adb` — same GGUF, two Hexagon NPUs, one table |
 | Physical access | Presence (ToF distance sensor, <1000mm) → challenge → photo captured → **automated identity match on CPU** (`face-cpu`: InsightFace buffalo_s, SCRFD-500MF + MobileFaceNet, onnxruntime) resolves enrolled people — built and verified live 2026-08-06, known matches scored 0.85/0.79 against a provisional threshold. Unknown faces still go to a human: approve/deny on the phone's local page, or the wall's approval panel (now shows the captured photo) → append-only audit trail | NPU-accelerated identity (`face-npu` — same models, Hexagon NPU execution) and `qr-badge` — **not** built |
-| Phone's role | Approval terminal (`phone.html`) + Telegram client + **challenge notification pushed to Telegram** (text only, deliberately no photo; fire-and-forget, silent no-op when unconfigured) — no on-phone inference | On-phone LLM benchmark, "failover brain" demo beat |
+| Phone's role | Approval terminal (`phone.html`) + Telegram client + **challenge notification pushed to Telegram** (text only, deliberately no photo; fire-and-forget, silent no-op when unconfigured) — no on-phone inference | On-phone LLM benchmark on the S25's 8 Elite NPU — **deliberately deferred, not omitted**: the ship window went to the laptop-NPU path that is measured and serving today; running the same GGUF on the phone's Hexagon ("two NPUs, one table") is the next rung, plus the "failover brain" demo beat |
 | Alert suppression | **Wired and verified end to end**: an enrolled responder on site withholds the page; walking away releases it *("held while the on-call was on site; sending now")*; escalation or a stale access state pages regardless | — |
 | Energy | **Measured 2026-08-05** (HWiNFO system-rail integration, 60s idle baseline subtracted, same method as arXiv 2606.11257): NPU **471 J/query** at the real 12.5K-token agent shape (n=5); CPU burns **~8.7× more energy per prompt-token** (0.327 vs 0.0375 J) and lifts the system +21.3 W over idle vs the NPU's +6.3 W — [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md#energy--joules-per-query-measured-2026-08-05-pm) | Same measurement on the **phone's** 8 Elite NPU, with error bars |
 

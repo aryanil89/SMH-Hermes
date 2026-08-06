@@ -23,10 +23,8 @@ must demo to be eligible for a prize.**
   account before submitting the link.
 - **README contents** (all four are required):
   - [x] Application description — [README.md](README.md) intro.
-  - [ ] **Names and emails of ALL team members** — ⚠️ **BLOCKER: `README.md` team table
-    still has a placeholder email for Christopher Gould, and the roster must be confirmed
-    complete. The deck makes this a hard requirement — a missing entry is a
-    disqualification risk.**
+  - [x] Names and emails of ALL team members — README team table: Indranil Acharya,
+    Christopher Gould, John Koch (completed 2026-08-06).
   - [x] Setup instructions from scratch, including dependencies —
     [README §0. Setting this up on a fresh machine](README.md#0-setting-this-up-on-a-fresh-machine).
   - [x] Run and usage instructions —
