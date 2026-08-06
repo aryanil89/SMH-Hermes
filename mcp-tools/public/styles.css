@@ -2017,7 +2017,12 @@ svg {
   display: grid;
   grid-template-columns: 3fr 2fr;
   gap: 22px;
-  align-items: start;
+  /* stretch, not start: the right column (head + phone) matches whatever
+     height the left column's content actually comes out to, so the phone's
+     bottom edge lands on the same line as the last row of sensor boxes
+     instead of a hand-picked height that drifts the moment either side's
+     content changes. */
+  align-items: stretch;
 }
 
 .live-split-left {
@@ -2066,7 +2071,12 @@ svg {
    40% column's content, not a small mockup floating in empty space. */
 .live-split-right .phone-frame {
   max-width: 460px;
-  height: 770px;
+  /* No explicit height: .live-split-right now stretches to match the left
+     column (see .live-split), .phone fills that column via flex: 1 1 auto
+     below, and .phone-frame -- a flex item in .phone's row axis -- stretches
+     to fill it in turn by the flex default, so the frame's bottom always
+     lands on the left column's bottom regardless of how tall either gets. */
+  min-height: 0;
 }
 
 .live-split-right .phone-notch {
