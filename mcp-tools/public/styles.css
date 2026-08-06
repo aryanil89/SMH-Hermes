@@ -2038,9 +2038,57 @@ svg {
 
 /* Sized for this column rather than inheriting the wall's tight sidebar
    dimensions -- this is the one place on the tab a fixed height is correct,
-   since the phone thread needs a bounded box to scroll inside. */
+   since the phone thread needs a bounded box to scroll inside. Width is
+   raised well past the wall's 320px cap so the phone actually reads as the
+   40% column's content, not a small mockup floating in empty space. */
 .live-split-right .phone-frame {
-  height: 620px;
+  max-width: 460px;
+  height: 700px;
+}
+
+.live-split-right .phone-notch {
+  width: 118px;
+  height: 18px;
+}
+
+.live-split-right .tg-avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 17px;
+}
+
+.live-split-right .tg-title {
+  font-size: 16px;
+}
+
+.live-split-right .tg-sub {
+  font-size: 13.5px;
+}
+
+.live-split-right .tg-thread {
+  padding: 14px 14px 18px;
+  gap: 9px;
+}
+
+.live-split-right .bubble {
+  font-size: 15px;
+  padding: 9px 13px 8px;
+  border-radius: 14px;
+}
+
+.live-split-right .bubble--system {
+  font-size: 13px;
+}
+
+.live-split-right .bubble-meta {
+  font-size: 12px;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.live-split-right .tg-placeholder {
+  font-size: 14px;
+  padding: 14px 16px;
 }
 
 .infra-row {
