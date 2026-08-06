@@ -428,3 +428,59 @@ anything) each post one line to Telegram — up/down status per component for th
 initiated it for the latter. Same `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` the watchdog uses,
 same contract: silent no-op when unset, fire-and-forget, a failed send is logged and
 swallowed rather than failing the script.
+
+---
+
+## 9. Venue preflight — the pre-demo checklist
+
+Run this **on the venue network, the morning of the demo** — not the night before on a
+network that behaves differently. Two things here have already failed under venue-like
+conditions: Telegram delivery died under local TLS interception once, and the access
+suppression path silently degrades if the dashboard is not writing `access.json`.
+
+**T-45 min — power and start**
+
+- [ ] Power the UNO Q. Boot is ~70s and most of it is the NTP wait — do this first, never
+      during the demo (§4).
+- [ ] Start the stack: `scripts\install-autostart.ps1`, or by hand in README start order.
+      GenieX under the **supervisor** (§2), exactly one of it, exactly one watchdog.
+
+**T-30 min — every component answers**
+
+- [ ] GenieX: process + socket + the actual flags (§1). `--nctx 65536`, `--compute npu`,
+      `--keepalive 3600`. **Never an HTTP probe.**
+- [ ] Sensor path: `arduino_uno_q-sensor_log.json` LastWriteTime within ~20s, and
+      `node mcp-tools\dist\alert-skill\check-environmental.js --json` says `"source": "real"`.
+- [ ] Watchdog: `curl.exe -s http://127.0.0.1:7789/health` — ticks climbing,
+      `lastSource: "real"`, `canDeliver: true`.
+- [ ] Wall display: `curl.exe -s http://127.0.0.1:7788/api/health` — up, feed state live.
+      **The dashboard is load-bearing for alert suppression**: if it stops writing
+      `access.json`, suppression fails open and pages even with a responder on site. If the
+      demo uses suppression, the dashboard is part of the demo path, not decoration.
+- [ ] Access terminal: dashboard bound to the **tailnet address** (never `0.0.0.0` on venue
+      WiFi) **with `ACCESS_SHARED_SECRET` set** — `demo-face-ON.ps1 -Secret <value>` does
+      both — and the phone opens `…/phone.html?secret=<value>`. Off-loopback with no secret,
+      enrol/approve are open to the venue network; the startup banner warns, listen to it.
+- [ ] Gateway: `hermes gateway status` — running, telegram connected — and the ack hook is
+      loaded (`Select-String "Loaded hook 'ack'" ...gateway-stdio.log`, §3).
+
+**T-15 min — the two live round-trips**
+
+- [ ] **Telegram on the venue network**: send a real question from the phone; expect the
+      italic receipt in ~2s. Telegram fetches have failed under local TLS interception
+      before — if delivery fails here, **switch the laptop to the phone's hotspot** and
+      re-verify. Decide this now, not on stage.
+- [ ] **Sensor edge to phone**: press and release button C on the board; expect the alert
+      within ~15–30s and a one-time recovery push after release.
+
+**T-5 min — stage state**
+
+- [ ] **Reset the Telegram session** so demo turns stay in the ~1 min band. Near the 32K
+      compression ceiling a single turn is ~5 min
+      ([llm-serving-bench/RESULTS.md](../llm-serving-bench/RESULTS.md) § Session token budget).
+- [ ] Warm the model: one throwaway message now. `--keepalive 3600` holds it after that;
+      the first question on a cold model pays reload + prefill (§2).
+- [ ] Keep demo questions **one tool call each** — prefer `get_incident_assessment`; each
+      extra call is a full re-prefill (§6).
+- [ ] Face rung per the consent decision: `demo-face-ON.ps1` with enrolled consenting
+      people, or stay on `stub` — the loop, matrix, and audit trail demo the same either way.
