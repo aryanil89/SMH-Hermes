@@ -1642,6 +1642,97 @@ svg {
 }
 .access-log li:last-child { border-bottom: 0; }
 
+/* ── known-arrival banner ─────────────────────────────────────────────────── */
+
+.access-welcome {
+  margin: 6px 0 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--good) 45%, var(--rule));
+  background: color-mix(in srgb, var(--good) 16%, var(--surface-2));
+  color: var(--good);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ── approval panel: the wall as a second decision surface ──────────────────
+ *
+ * Mirrors phone.html's approve/deny card so the two never look like two
+ * different features -- same words, same photo, same POST underneath.
+ */
+
+.access-approval-panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--rule));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface-2));
+}
+#access-card[data-status="critical"] .access-approval-panel {
+  border-color: color-mix(in srgb, var(--critical) 55%, var(--rule));
+  background: color-mix(in srgb, var(--critical) 10%, var(--surface-2));
+}
+
+.access-approval-headline {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--warning);
+}
+#access-card[data-status="critical"] .access-approval-headline {
+  color: var(--critical);
+}
+
+.access-approval-photo {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--rule);
+  margin: 0 0 8px;
+}
+
+.access-approval-meta {
+  margin: 0 0 8px;
+  font: 11px/1.5 var(--mono);
+  color: var(--ink-3);
+}
+
+.access-approval-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.access-btn {
+  flex: 1;
+  padding: 9px 10px;
+  font: 600 13px var(--font);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--rule);
+  background: var(--surface-3);
+  color: var(--ink-1);
+  cursor: pointer;
+}
+.access-btn:hover { background: var(--surface-2); }
+.access-btn:disabled { opacity: 0.5; cursor: default; }
+.access-btn--approve {
+  background: color-mix(in srgb, var(--good) 24%, var(--surface-3));
+  border-color: color-mix(in srgb, var(--good) 55%, var(--rule));
+}
+.access-btn--deny {
+  background: color-mix(in srgb, var(--critical) 24%, var(--surface-3));
+  border-color: color-mix(in srgb, var(--critical) 55%, var(--rule));
+}
+
+.access-approval-result {
+  margin: 8px 0 0;
+  font: 12px/1.4 var(--font);
+  color: var(--ink-2);
+}
+
 /* ── Tabs ────────────────────────────────────────────────────────────────── */
 
 .tabnav {

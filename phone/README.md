@@ -123,9 +123,17 @@ multi-megabyte POST over a phone hotspot.
 | | |
 |---|---|
 | Sent to the laptop | a downscaled JPEG, per capture |
-| Kept after matching | a numeric embedding **only** |
-| Never written anywhere | the image itself |
-| Never leaves the laptop | any of it |
+| Kept after a **match** | a numeric embedding **only** — the photo is discarded immediately |
+| Held for an **unmatched** capture | the JPEG, **in memory only**, until a human decides |
+| Ever written to disk | never — matched or not |
+
+A **matched** capture is resolved to a numeric embedding and the source photo is discarded on the
+spot; `mcp-tools/.state/roster.json` never sees the image, only floats. An **unmatched** capture
+is different on purpose: since a human now has to make the call, the photo is held in memory (see
+[../docs/DASHBOARD.md](../docs/DASHBOARD.md) `GET /api/access/pending-photo` — unauthenticated,
+like the other read-only GET routes) so it can be shown on the wall's approval panel alongside the
+Approve/Deny buttons. It is never written to disk, and it is dropped the moment a decision lands
+or the challenge is abandoned — held, not retained.
 
 Enrolment keeps `{name, embedding, enrolledAt, method}` in `mcp-tools/.state/roster.json` and
 discards the source photo. You cannot reconstruct a face from that file, and it is safe to open
@@ -143,30 +151,46 @@ added **before** the first capture existed.
 
 ## The identity ladder
 
-**Today, no rung above detection-only is part of the demo or the claim.** The only
-physical-security signal is the Distance Modulino's presence read (< 1000mm); that opens a
-challenge, a photo is captured, and a human decides. Identity resolution is architected as a
-swappable adapter — same idea as the messaging gateway, so a rung that fails costs a capability
-rather than the demonstration — but three of its four rungs are unused. Set with
-`ACCESS_IDENTITY_METHOD`:
+**`face-cpu` is built and claimed** — verified live 2026-08-06. The Distance Modulino's presence
+read (< 1000mm) still opens every challenge and a photo is still captured, but an enrolled person
+now resolves automatically; only an unmatched face still needs a human decision. Identity
+resolution is architected as a swappable adapter — same idea as the messaging gateway, so a rung
+that fails costs a capability rather than the demonstration. Set with `ACCESS_IDENTITY_METHOD`:
 
 | Rung | `ACCESS_IDENTITY_METHOD` | What it does | Status |
 |---|---|---|---|
-| 1 | `face-npu` | AI Hub face model via ONNX Runtime + QNN EP on the Hexagon NPU | not built — needs `ACCESS_VISION_SCRIPT`, which doesn't exist in this repo |
-| 2 | `face-cpu` | same model, CPU execution — still entirely on-device | not built — same missing script |
-| 3 | `stub` *(default)* | detection-only; everyone reads as unknown, loop runs end to end | **the only rung we claim** |
+| 1 | `face-npu` | AI Hub-style face model via ONNX Runtime + QNN EP on the Hexagon NPU | not built — no NPU-executing vision script exists yet; the adapter's next rung |
+| 2 | `face-cpu` | InsightFace **buffalo_s** — SCRFD-500MF detector + ArcFace MobileFaceNet recognizer, both ONNX, CPU execution via onnxruntime — still entirely on-device | **built, verified live 2026-08-06, claimed** — `mcp-tools/scripts/face_vision.py` (shared pipeline in `face_common.py`) |
+| 3 | `stub` *(default)* | detection-only; everyone reads as unknown, loop runs end to end | not claiming a match it never made — remains the safe default for an unconfigured clone |
 | 4 | `qr-badge` | a QR code is decoded in-browser by `BarcodeDetector`, and its text is matched against enrolled names | code exists and runs, but not claimed — there's no real badge behind it, just a typed name treated as the credential, and anyone can print a QR code with any name on it |
+
+InsightFace's pretrained models (the buffalo_s bundle behind rung 2) are released for
+**non-commercial research purposes only**.
 
 Rungs 1–2 shell out to a Python process (`ACCESS_VISION_SCRIPT`) that reads
 `{"imageBase64": "..."}` on stdin and returns `{"embeddings": [[...]], "boxes": [[x,y,w,h]],
-"device": "npu"|"cpu"}`. It runs out-of-process deliberately: the QNN execution provider is the
-least stable thing in this stack, and a native crash must not take the wall down mid-demo. If
-it fails, the record says so (`degradedFrom`) rather than hiding it. No `ACCESS_VISION_SCRIPT`
-ships in this repo today, so rungs 1–2 cannot run regardless of the env var.
+"device": "npu"|"cpu"}`. It runs out-of-process deliberately: a native crash in the vision
+pipeline must not take the wall down mid-demo. If it fails, the record says so (`degradedFrom`)
+rather than hiding it. `ACCESS_VISION_SCRIPT` now ships in this repo — `mcp-tools/scripts/face_vision.py`
+— but it runs CPU-only and always reports `device: "cpu"`, which is what makes rung 2 (`face-cpu`)
+the one that actually resolves; rung 1 (`face-npu`) still has no NPU-executing script behind it
+and stays not built. CPU was the deliberate Phase A choice — deterministic and stable inside a
+24-hour ship window; the QNN execution provider is the more failure-prone path, which is exactly
+why Phase A didn't reach for it.
 
-The default is the *least* capable rung that works, so an unconfigured machine understates what
-it can do rather than claiming a match it never made. We haven't switched on anything above that
-default for this project — if that changes, this table is the place to update.
+The match threshold, `ACCESS_MATCH_THRESHOLD=0.43`, is **provisional** — measured 2026-08-06 on a
+3-person roster enrolled from laptop-webcam photos (genuine matches n=23, minimum cosine 0.7702;
+impostor pairs n=46, maximum cosine 0.1026; threshold set at the midpoint, rounded down), then
+validated live the same day against phone-camera captures — known people scored 0.85 and 0.79.
+Small n; re-measure against any larger roster. There is **no liveness detection** — a printed
+photo of an enrolled face could pass a match — which is why every non-match still requires a
+human decision rather than being treated as final.
+
+The default is still the *least* capable rung that works, so an unconfigured machine understates
+what it can do rather than claiming a match it never made. `face-cpu` is opt-in via
+`scripts/demo-face-ON.ps1` (back off with `scripts/demo-face-OFF.ps1`, both live-tested
+2026-08-06, ~5s, process-scope env only) — `stub` stays the process default. If that changes,
+this table is the place to update.
 
 ## Still not implemented
 

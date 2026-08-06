@@ -193,12 +193,57 @@ async function fromPython(input: IdentifyInput, roster: RosterEntry[]): Promise<
     boxes?: [number, number, number, number][];
     device?: string;
   };
+  const method = resolveMethod(parsed.device);
   const embeddings = parsed.embeddings ?? [];
   const threshold = matchThreshold();
   const faces: FaceMatch[] = embeddings.map((embedding, i) => {
-    const match = matchEmbedding(embedding, roster, threshold);
+    assertValidEmbedding(embedding);
+    // The roster can carry entries of the wrong dimension -- the phone UI has
+    // no way to enforce the model's output shape, so a hand-typed enrolment
+    // like `embedding: [1]` is possible. cosineSimilarity would silently
+    // return 0 for that mismatch today, but relying on that is fragile: this
+    // filter makes the dimension check the caller's responsibility instead of
+    // an accident of the scoring function's guard clause.
+    const compatibleRoster = roster.filter((entry) => entry.embedding.length === embedding.length);
+    const match = matchEmbedding(embedding, compatibleRoster, threshold);
     const box = parsed.boxes?.[i];
     return box ? { ...match, boxPct: box } : match;
   });
-  return { faces, method: parsed.device === "cpu" ? "face-cpu" : "face-npu" };
+  return { faces, method };
+}
+
+/**
+ * Map the backend's self-reported device to the audit-trail method.
+ *
+ * Deliberately strict: only the two literal values the contract promises are
+ * accepted. Anything else -- a typo, a future device string, a stub that
+ * forgot the field entirely -- must not be quietly upgraded to "face-npu".
+ * The caller's catch block turns this into a clean degrade, same as any
+ * other backend failure.
+ */
+function resolveMethod(device: string | undefined): IdentityMethod {
+  if (device === "cpu") return "face-cpu";
+  if (device === "npu") return "face-npu";
+  throw new Error(`vision backend reported unrecognized device: ${JSON.stringify(device)}`);
+}
+
+/** The embedding width the vision model contract promises. */
+const EMBEDDING_DIM = 512;
+
+/**
+ * Reject a malformed embedding before it reaches the matcher.
+ *
+ * A wrong-length or non-finite vector is not a face the model actually saw --
+ * it is a protocol violation from the child process (truncated JSON, a stub
+ * that emits a placeholder, a future model with a different output width).
+ * Scoring it anyway would produce a match or non-match that means nothing, so
+ * this throws and lets the same degrade path used for every other backend
+ * failure take over.
+ */
+function assertValidEmbedding(embedding: number[]): void {
+  if (embedding.length !== EMBEDDING_DIM || !embedding.every((v) => Number.isFinite(v))) {
+    throw new Error(
+      `invalid embedding from vision backend: expected ${EMBEDDING_DIM} finite values, got length ${embedding.length}`,
+    );
+  }
 }

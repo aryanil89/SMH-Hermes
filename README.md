@@ -27,7 +27,7 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 
 | Name | Email |
 |---|---|
-| Indranil Acharya | `<qualcomm-email — fill before submission>` |
+| Indranil Acharya | `aryanil89@gmail.com` |
 | Christopher Gould | `<qualcomm-email — fill before submission>` |
 
 <!-- Hackathon rules require names AND emails of every team member in the README.
@@ -41,13 +41,21 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 > measured the simulator's own false-positive rate and recalibrated it — see
 > [docs/REVIEW_3_2026-08-04.md](docs/REVIEW_3_2026-08-04.md) §2.
 >
-> **On identity:** there is no automated identity check today — no badge or QR reading, no face
-> recognition. The one physical-security signal is the Modulino Distance sensor detecting presence
-> (under 1000mm); that opens a challenge, a photo is captured, and a human approves or denies on
-> the phone. Presence, door state, the decision matrix and the approval loop are all real and live.
-> The codebase has a pluggable identity-adapter interface (`qr-badge`, `face-npu`, `face-cpu`)
-> behind this, but none of those rungs are demonstrated or claimed — see
-> [phone/README.md](phone/README.md) § the identity ladder.
+> **On identity:** automated identity match is live — `face-cpu` (InsightFace **buffalo_s**:
+> SCRFD-500MF detector + ArcFace MobileFaceNet recognizer, both ONNX, CPU-only via onnxruntime) —
+> built, tested and verified live on 2026-08-06 (known-person matches scored 0.85 and 0.79 against
+> a provisional `ACCESS_MATCH_THRESHOLD=0.43`). The Modulino Distance sensor detects presence
+> (under 1000mm) and opens a challenge; a photo is captured and matched against the roster.
+> Enrolled people resolve automatically; **an unmatched face still falls to a human** — approve or
+> deny on the phone, or from the wall dashboard's approval panel, which now shows the captured
+> photo (held in memory only, never written to disk, dropped the moment a decision lands). There
+> is **no liveness detection** — a printed photo of an enrolled face could pass — which is exactly
+> why every non-match still requires a human decision and the demo stays human-supervised.
+> Presence, door state, the decision matrix and the approval loop are all real and live. The
+> codebase has a pluggable identity-adapter interface (`qr-badge`, `face-npu`, `face-cpu`) behind
+> this; `qr-badge` and the NPU-accelerated `face-npu` rung are not built or claimed — see
+> [phone/README.md](phone/README.md) § the identity ladder. InsightFace's pretrained models are
+> released for **non-commercial research purposes only**.
 
 ## Status
 **[PROGRESS.md](PROGRESS.md)** — the living done/next map. Read this first.
@@ -56,15 +64,13 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 ## Today vs. planned
 
 Everything in the left column is built and verified on this rig; everything in the right
-column is **designed but NOT built** — the full design, with feasibility research and
-verified download paths, is [docs/PHONE_PLAN_2026-08-05.md](docs/PHONE_PLAN_2026-08-05.md).
-The two columns are kept side by side on purpose: unbacked claims score zero, so the line
-between them is part of the submission, not a footnote.
+column is **designed but NOT built**. The two columns are kept side by side on purpose: unbacked
+claims score zero, so the line between them is part of the submission, not a footnote.
 
 | Area | Today (built, verified) | Planned (not built) |
 |---|---|---|
 | LLM inference | Qwen3-4B-Instruct-2507 Q4_0 on the **laptop's** X Elite NPU via GenieX — measured, serving the agent | Same model benchmarked on the **phone's** 8 Elite NPU via a pre-compiled bundle over `adb` — same GGUF, two Hexagon NPUs, one table |
-| Physical access | Presence (ToF distance sensor, <1000mm) → challenge → photo captured → human approve/deny on the phone's local page → append-only audit trail. No automated identity match — a human makes every call | Automated identity resolution — badge/QR reading, face recognition (`ACCESS_VISION_SCRIPT` seam exists but is unwired) — **not** claimed |
+| Physical access | Presence (ToF distance sensor, <1000mm) → challenge → photo captured → **automated identity match on CPU** (`face-cpu`: InsightFace buffalo_s, SCRFD-500MF + MobileFaceNet, onnxruntime) resolves enrolled people — built and verified live 2026-08-06, known matches scored 0.85/0.79 against a provisional threshold. Unknown faces still go to a human: approve/deny on the phone's local page, or the wall's approval panel (now shows the captured photo) → append-only audit trail | NPU-accelerated identity (`face-npu` — same models, Hexagon NPU execution) and `qr-badge` — **not** built |
 | Phone's role | Approval terminal (`phone.html`) + Telegram client + **challenge notification pushed to Telegram** (text only, deliberately no photo; fire-and-forget, silent no-op when unconfigured) — no on-phone inference | On-phone LLM benchmark, "failover brain" demo beat |
 | Alert suppression | **Wired and verified end to end**: an enrolled responder on site withholds the page; walking away releases it *("held while the on-call was on site; sending now")*; escalation or a stale access state pages regardless | — |
 | Energy | No energy numbers exist yet | Measured joules-per-token on both NPUs, with error bars and methodology |
@@ -114,7 +120,7 @@ for anywhere else.
 & "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" ls          # expect the Q4_0 precision listed
 
 # 2. MCP tool servers
-cd mcp-tools; npm install; npm run build; npm test      # expect 107/107 passing
+cd mcp-tools; npm install; npm run build; npm test      # expect 327/327 passing
 cd ..
 
 # 3. Hermes Agent — native ARM64 installer → %LOCALAPPDATA%\hermes\  (this is HERMES_HOME;
@@ -438,14 +444,16 @@ cd mcp-tools; npm run start:dashboard; cd ..    # ACCESS_IDENTITY_METHOD default
 Then open `http://100.x.y.z:7788/phone.html?secret=pick-something` on the phone.
 
 What it does: someone approaches the rack, the ToF presence sensor (< 1000mm) opens a
-**challenge**, you photograph them with one tap, and an 8-row decision matrix produces a verdict
-in context — including **tailgating** (more faces than authorised door entries) and
-**anti-passback** (at the rack with no door edge). There is no automated identity check: the
-default and only claimed rung is detection-only, so every face reads as unknown and a human
-approves or denies **on this page**, not over Telegram, based on the photo. (The codebase also has `qr-badge`/`face-npu`/`face-cpu` identity rungs behind a pluggable
-interface — none are part of what's demoed or claimed. `qr-badge` has no real badge behind it,
-just a typed name treated as a credential; `face-npu`/`face-cpu` need an external script that
-doesn't exist in this repo — see [phone/README.md](phone/README.md#the-identity-ladder).)
+**challenge**, you photograph them with one tap, identity resolves down a pluggable ladder, and an
+8-row decision matrix produces a verdict in context — including **tailgating** (more faces than
+authorised door entries) and **anti-passback** (at the rack with no door edge). `ACCESS_IDENTITY_METHOD`
+defaults to `stub` (detection-only, the safe default for an unconfigured clone); switch on
+`face-cpu` (see [Face recognition (face-cpu)](#face-recognition-face-cpu) below) and an enrolled
+person resolves automatically — built and verified live 2026-08-06. An unmatched face still needs
+a human: approve or deny **on this page**, or from the wall's approval panel, which shows the
+captured photo. (`qr-badge` has no real badge behind it, just a typed name treated as a credential;
+the NPU-accelerated `face-npu` rung is not built — see
+[phone/README.md](phone/README.md#the-identity-ladder). Neither is claimed.)
 
 **Worked when:** trip the ToF sensor → the wall's Access card reads *"Presence detected — awaiting
 capture"* → tap the camera button on the phone → the verdict and reasons appear on **both** screens
@@ -461,10 +469,70 @@ Three things it deliberately refuses to do:
 - **A dead sensor feed freezes the loop rather than guessing.** No challenge is opened and none is
   filed as abandoned, because the board dying is not the same event as a person leaving.
 
-**Privacy — the point of doing this on-device:** captures are resolved to a numeric embedding and
-the image is discarded. `mcp-tools/.state/roster.json` holds floats only; you cannot reconstruct a
-face from it, and it is safe to open on stage. `.gitignore` blocked `*.jpg`, `roster.json` and
-`.state/` **before the first capture existed**. Full reference: **[phone/README.md](phone/README.md)**.
+**Privacy — the point of doing this on-device:** a matched capture is resolved to a numeric
+embedding and the image is discarded. `mcp-tools/.state/roster.json` holds floats only; you cannot
+reconstruct a face from it, and it is safe to open on stage. An **unmatched** capture is held in
+memory only — never written to disk — so the wall's approval panel can show it to the human making
+the call, and it is dropped the instant a decision lands or the challenge is abandoned.
+`.gitignore` blocked `*.jpg`, `roster.json` and `.state/` **before the first capture existed**.
+There is **no liveness detection** — a printed photo of an enrolled face could pass a match — which
+is exactly why every non-match still requires a human decision and the demo stays
+human-supervised. InsightFace's pretrained models (used by `face-cpu`) are released for
+**non-commercial research purposes only**. Full reference: **[phone/README.md](phone/README.md)**.
+
+### Face recognition (face-cpu)
+
+Optional, off by default (`ACCESS_IDENTITY_METHOD` defaults to `stub`). Built, tested and verified
+**live** 2026-08-06 — CPU inference on the laptop, deliberately not NPU: Phase A targets something
+deterministic and stable inside a 24-hour ship window, not maximum throughput. The `face-npu` rung
+is architected for the same models on the Hexagon NPU but is **not built**.
+
+**1. Fetch the models** — the InsightFace **buffalo_s** bundle: SCRFD-500MF detector
+(`det_500m.onnx`) + ArcFace MobileFaceNet recognizer (`w600k_mbf.onnx`), both ONNX, from the
+InsightFace model zoo (<https://github.com/deepinsight/insightface> — buffalo_s release package).
+**InsightFace's pretrained models are released for non-commercial research purposes only.** Place
+both files at `mcp-tools/models/buffalo_s/` and confirm the hashes match:
+
+| File | SHA256 |
+|---|---|
+| `det_500m.onnx` | `5e4447f50245bbd7966bd6c0fa52938c61474a04ec7def48753668a9d8b4ea3a` |
+| `w600k_mbf.onnx` | `9cc6e4a75f0e2bf0b1aed94578f144d15175f357bdc05e815e5c4a02b319eb4f` |
+
+```powershell
+Get-FileHash mcp-tools\models\buffalo_s\det_500m.onnx -Algorithm SHA256
+Get-FileHash mcp-tools\models\buffalo_s\w600k_mbf.onnx -Algorithm SHA256
+```
+
+**2. Enroll people** — offline, from photo files, via `mcp-tools/scripts/enroll.py` (the phone
+page's own "enrol" form stays disabled for the demo):
+
+```powershell
+python mcp-tools\scripts\enroll.py --name "<Name>" --dir path\to\photos
+```
+
+Per-photo embeddings are L2-normalized, averaged, then re-normalized into one roster entry in
+`mcp-tools/.state/roster.json`. `mcp-tools/scripts/probe.py` is the standalone tool used to check
+genuine-vs-impostor separation before picking a threshold.
+
+**3. Set the match threshold** — `ACCESS_MATCH_THRESHOLD` (cosine similarity). The current value,
+**0.43, is provisional**: measured 2026-08-06 on a 3-person roster enrolled from laptop-webcam
+photos (genuine n=23, min cosine 0.7702; impostor n=46, max cosine 0.1026; threshold = the midpoint
+rounded down), then validated live the same day against phone-camera captures — known-person
+matches scored **0.85** and **0.79**. Small n — re-measure for any larger roster.
+
+**4. Turn it on or off** — kill switches, ~5s, both live-tested 2026-08-06:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\demo-face-ON.ps1    # ACCESS_IDENTITY_METHOD=face-cpu
+powershell -ExecutionPolicy Bypass -File scripts\demo-face-OFF.ps1   # back to stub (safe default)
+```
+
+Both set process-scope env only, so nothing persists past the restarted dashboard process.
+
+**No liveness detection.** A printed photo of an enrolled face could pass a match. Mitigation:
+every non-match still falls to a human — approve/deny on the phone, or from the wall's approval
+panel, which shows the captured photo (held in memory only, never written to disk, dropped the
+moment a decision lands) — the demo is human-supervised throughout.
 
 ### Quick health check, all seven
 
@@ -534,12 +602,13 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
   structural reasons Hermes cron cannot tick faster than ~2 min, why 15s and not faster, the false
   *"recovered to OK"* of 2026-08-05 and the two defences against it, and the two staleness
   thresholds that look like a bug and are not
-- **[Phone compute plan (2026-08-05)](docs/PHONE_PLAN_2026-08-05.md)** — **planned, not
-  built**: the designed next step for the Galaxy S25 Ultra — on-phone Qwen3 NPU benchmark
-  over `adb` (no app), the face-embedding identity rung, and measured joules-per-token on
-  both NPUs — with the feasibility research and verified download paths behind each piece.
-  (Its challenge-notification item has since **landed** in its basic form: text to Telegram,
-  no photo.) The built-vs-designed line lives in [Today vs. planned](#today-vs-planned)
+- **Phone compute plan (2026-08-05, superseded)** — planned an on-phone Qwen3 NPU benchmark over
+  `adb` (no app) and a face-embedding identity rung on a Hexagon NPU. The on-phone LLM benchmark
+  remains **not built**, a stretch goal. The identity rung shipped instead as `face-cpu` — CPU
+  inference on the laptop, not the phone NPU this plan described — built and verified live
+  2026-08-06, see [phone/README.md](phone/README.md#the-identity-ladder). Its
+  challenge-notification item landed separately, in basic form: text to Telegram, no photo. The
+  built-vs-planned line lives in [Today vs. planned](#today-vs-planned)
 - **[The access terminal — the phone](phone/README.md)** — what the phone actually does: the
   authorisation surface, why the *notification* may be cloud but the *decision* may not, the
   four-rung identity ladder and which rungs work today, why capture uses `<input capture>`
@@ -559,9 +628,6 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 - **[End-to-end test procedure](docs/E2E_TEST.md)** — board → phone, layer by layer, with a
   "Test / Expect / If it fails" per layer, the traps that produce a false pass, and a 60-second
   pre-stage smoke check
-- [Response to the GPT review](docs/FEEDBACK_RESPONSE_2026-08-04.md) — accept/reject verdict on all
-  30 proposed improvements, the four that don't survive scrutiny (latency budget, uncoupled
-  simulators, additive risk double-counting, uncalibrated confidence), and the remaining build list
 - [Requirements](docs/REQUIREMENTS.md) — the original pitch (see the note at the top — architecture has since changed)
 - [Feasibility analysis](docs/FEASIBILITY.md) — reality check against the pitch's technical claims
 - [Hardware utilization plan](docs/HARDWARE_UTILIZATION.md) — **the finalized architecture**: where
@@ -605,4 +671,4 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 - `phone/` — Samsung Galaxy S25 Ultra (Snapdragon 8 Elite). **No app to build**: the phone runs
   Telegram plus the access terminal served from the laptop at `/phone.html` — the authorisation
   surface, the rack camera, and roster enrolment. Its NPU is **not** in use yet; the on-phone
-  Qwen3-4B benchmark remains the stretch goal ([docs/PHONE_PLAN_2026-08-05.md](docs/PHONE_PLAN_2026-08-05.md))
+  Qwen3-4B benchmark remains the stretch goal ([phone/README.md](phone/README.md#still-not-implemented))

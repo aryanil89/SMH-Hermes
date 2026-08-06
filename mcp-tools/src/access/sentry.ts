@@ -130,6 +130,19 @@ export class AccessSentry {
   private captured:
     | { faces: FaceMatch[]; method: IdentityMethod; degradedFrom?: string; capturePath?: string }
     | undefined;
+  /**
+   * The captured photo for the open challenge -- in memory only, never in
+   * `AccessState`, so it can never reach access.json.
+   *
+   * Keyed to the challenge id it belongs to and read only through
+   * `pendingPhoto()`, which additionally gates on the approval still being
+   * `"pending"`. Dropped explicitly in two places: `approve()` the moment a
+   * decision is recorded, and the abandon branch of `update()` when the
+   * person leaves without one. It is not cleared on every tick the way a
+   * naive TTL would be -- the whole point is that it outlives nothing beyond
+   * the decision it was captured for.
+   */
+  private photo: { challengeId: string; imageBase64: string; mime: string } | undefined;
 
   constructor(private readonly opts: AccessSentryOptions) {}
 
@@ -184,6 +197,8 @@ export class AccessSentry {
       // facts about a stranger at a rack.
       this.state = abandonChallenge(this.state, now);
       this.captured = undefined;
+      // The challenge closed, so the photo goes with it -- see `photo` above.
+      this.photo = undefined;
       await this.persist();
     }
 
@@ -217,6 +232,7 @@ export class AccessSentry {
         ...(decision.doorConsistent !== undefined ? { doorConsistent: decision.doorConsistent } : {}),
         ...(concurrentIncident ? { concurrentIncident } : {}),
         ...(this.captured?.capturePath ? { capturePath: this.captured.capturePath } : {}),
+        ...(this.captured?.degradedFrom ? { degradedFrom: this.captured.degradedFrom } : {}),
         approvalRequired: decision.approvalRequired,
         at: now,
       });
@@ -314,6 +330,8 @@ export class AccessSentry {
    */
   async capture(input: {
     imageBase64?: string;
+    /** MIME of the decoded image, for the pending-photo GET's content-type. Defaults to JPEG -- what the phone actually sends. */
+    imageMime?: string;
     badges?: string[];
     now: Date;
   }): Promise<{ ok: boolean; reason?: string; faces: FaceMatch[]; method: IdentityMethod }> {
@@ -336,7 +354,32 @@ export class AccessSentry {
       method: result.method,
       ...(result.degradedFrom ? { degradedFrom: result.degradedFrom } : {}),
     };
+    // Held in memory only, keyed to this challenge -- see `photo` above. Never
+    // folded into `this.state`, so `persist()` can never write it to disk.
+    if (input.imageBase64) {
+      this.photo = {
+        challengeId: this.state.pending.id,
+        imageBase64: input.imageBase64,
+        mime: input.imageMime ?? "image/jpeg",
+      };
+    }
     return { ok: true, faces: result.faces, method: result.method };
+  }
+
+  /**
+   * The captured photo for the currently open challenge, but only while a
+   * human decision is actually pending on it.
+   *
+   * Gated on live state rather than trusting a stale flag: if the challenge
+   * id has moved on (a new visit started) or the approval already resolved,
+   * this answers undefined even before `this.photo` itself gets overwritten
+   * or cleared, so the GET route never has to reason about staleness itself.
+   */
+  pendingPhoto(): { imageBase64: string; mime: string } | undefined {
+    const pending = this.state.pending;
+    if (!pending || !this.photo || this.photo.challengeId !== pending.id) return undefined;
+    if (pending.approval.state !== "pending") return undefined;
+    return { imageBase64: this.photo.imageBase64, mime: this.photo.mime };
   }
 
   /**
@@ -366,6 +409,11 @@ export class AccessSentry {
     // `captured` deliberately survives: the person has not moved, so their
     // identity is still the identity of whoever is at the rack. Clearing it here
     // would drop the verdict back to "awaiting capture" on the next tick.
+    //
+    // `photo` does not get the same treatment: a decision, once made, is the
+    // point at which the image must stop being shown to anyone -- see `photo`
+    // above.
+    if (this.photo?.challengeId === input.id) this.photo = undefined;
     await this.persist();
     return { ok: true };
   }

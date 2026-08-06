@@ -133,6 +133,14 @@ export interface AccessEvent {
    * only and never an image.
    */
   capturePath?: string;
+  /**
+   * Set when an identity rung failed and a lower one answered for this event.
+   * Carried into the audit trail so a degraded read is visible after the
+   * fact, not only on the live view. Never the image itself -- see
+   * `AccessSentry`'s in-memory photo buffer for why no image field exists
+   * here at all.
+   */
+  degradedFrom?: string;
 }
 
 /** Persisted access state: what is open now, and what has happened. */
