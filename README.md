@@ -60,6 +60,8 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 ## Status
 **[PROGRESS.md](PROGRESS.md)** — the living done/next map. Read this first.
 **[docs/POSITIONING.md](docs/POSITIONING.md)** — the approved wording: pitch, offline claim, judge answers.
+**[SUBMISSION.md](SUBMISSION.md)** — every hackathon submission requirement, checked off or flagged.
+**[docs/EVIDENCE.md](docs/EVIDENCE.md)** — every measured claim with the measurement behind it.
 
 ## Today vs. planned
 
@@ -73,7 +75,52 @@ claims score zero, so the line between them is part of the submission, not a foo
 | Physical access | Presence (ToF distance sensor, <1000mm) → challenge → photo captured → **automated identity match on CPU** (`face-cpu`: InsightFace buffalo_s, SCRFD-500MF + MobileFaceNet, onnxruntime) resolves enrolled people — built and verified live 2026-08-06, known matches scored 0.85/0.79 against a provisional threshold. Unknown faces still go to a human: approve/deny on the phone's local page, or the wall's approval panel (now shows the captured photo) → append-only audit trail | NPU-accelerated identity (`face-npu` — same models, Hexagon NPU execution) and `qr-badge` — **not** built |
 | Phone's role | Approval terminal (`phone.html`) + Telegram client + **challenge notification pushed to Telegram** (text only, deliberately no photo; fire-and-forget, silent no-op when unconfigured) — no on-phone inference | On-phone LLM benchmark, "failover brain" demo beat |
 | Alert suppression | **Wired and verified end to end**: an enrolled responder on site withholds the page; walking away releases it *("held while the on-call was on site; sending now")*; escalation or a stale access state pages regardless | — |
-| Energy | No energy numbers exist yet | Measured joules-per-token on both NPUs, with error bars and methodology |
+| Energy | **Measured 2026-08-05** (HWiNFO system-rail integration, 60s idle baseline subtracted, same method as arXiv 2606.11257): NPU **471 J/query** at the real 12.5K-token agent shape (n=5); CPU burns **~8.7× more energy per prompt-token** (0.327 vs 0.0375 J) and lifts the system +21.3 W over idle vs the NPU's +6.3 W — [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md#energy--joules-per-query-measured-2026-08-05-pm) | Same measurement on the **phone's** 8 Elite NPU, with error bars |
+
+## Judge quickstart — three rungs, pick your hardware
+
+The fastest path to seeing something real. Rung 1 needs any machine with Node 18+; the
+higher rungs need specific hardware. Every step says what "worked" looks like.
+
+**Rung 1 — code, tests, and the wall display (any OS/arch, ~5 minutes, no hardware):**
+
+```powershell
+cd mcp-tools
+npm install
+npm run build
+npm test                       # expect: Test Files 29 passed (29), Tests 327 passed (327)
+npm run start:dashboard        # then open http://127.0.0.1:7788
+```
+
+Expected: the wall renders live, with a header pill reading **"Sensor feed down ·
+environmental reading is mock"** — that is the system saying honestly that no live sensor
+board is attached (the checked-in sensor log is stale, so readings fall back to labeled
+mock). Open `http://127.0.0.1:7788/phone.html` in a second tab for the phone's approval
+surface. Everything simulated on screen is labeled as such.
+
+**Rung 2 — the offline agent on the NPU (needs a Snapdragon X Elite laptop):** follow
+[§0. Setting this up on a fresh machine](#0-setting-this-up-on-a-fresh-machine) — steps 1–5,
+~30 min plus ~10 GB of model downloads — then:
+
+```powershell
+hermes -z "assess the current incident"   # one-shot; expect ~2–4 min (full NPU prefill)
+```
+
+Expected: a verdict with tool-derived numbers (latency, temperature, risk arithmetic). This
+rung works with WiFi off — model, agent, and tools are all local.
+
+**Rung 3 — the full demo rig (laptop + UNO Q board + phone):** steps 1–7 of the section
+below, in start order.
+
+**Fallback modes, all deliberate:** no Snapdragon → everything runs except NPU inference
+(x64 CPU verified); no Telegram token → paging is a silent no-op and the health endpoints
+say so; no sensor board → environmental readings are labeled mock and never move the alert
+state machine.
+
+**Benchmark evidence:** [docs/EVIDENCE.md](docs/EVIDENCE.md) indexes every measured claim —
+NPU vs CPU throughput ([llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md)),
+joules-per-query, per-op Hexagon profiling ([docs/BENCHMARKS.md](docs/BENCHMARKS.md)).
+Test suite: **29 files / 327 tests, all passing** (verified 2026-08-06).
 
 ## Run it yourself — the whole flow, in start order
 
