@@ -198,27 +198,34 @@
             <tbody>
               <tr>
                 <td>LLM inference</td>
-                <td>Qwen3-4B-Instruct-2507 Q4_0 on the laptop's X Elite NPU via GenieX</td>
-                <td>Same model on the phone's 8 Elite NPU over adb</td>
+                <td>
+                  Qwen3-4B-Instruct-2507 Q4_0 on the laptop's X Elite NPU via GenieX — measured,
+                  serving the agent. Same model measured on the phone's 8 Elite NPU:
+                  1,918 tok/s prefill via <code>adb</code> (different quant/context, labeled)
+                </td>
+                <td>On-phone serving, "failover brain" demo beat</td>
               </tr>
               <tr>
                 <td>Physical access</td>
                 <td>
-                  Presence (ToF, &lt;1000mm) → challenge → photo captured → human approve/deny on
-                  the phone → append-only audit trail. No automated identity match — a person
-                  makes the call
+                  Presence (ToF, &lt;1000mm) → challenge → photo → automated identity match on CPU
+                  (face-cpu) resolves enrolled people. An unmatched face still goes to a human —
+                  approve/deny on the phone or this wall — then the append-only audit trail
                 </td>
-                <td>Automated identity resolution (badge / QR / face) — not supported today</td>
+                <td>NPU-accelerated identity (face-npu) and qr-badge — not built</td>
               </tr>
               <tr>
                 <td>Phone's role</td>
-                <td>Approval terminal + Telegram client + challenge notification (text only)</td>
-                <td>On-phone LLM benchmark, "failover brain" demo beat</td>
+                <td>
+                  Approval terminal + Telegram client + challenge notification (text only) +
+                  measured on-phone NPU benchmark
+                </td>
+                <td>On-phone serving, "failover brain" demo beat</td>
               </tr>
               <tr>
                 <td>Energy</td>
-                <td>—</td>
-                <td>Measured joules-per-token on both NPUs</td>
+                <td>Measured: NPU 471 J/query; CPU burns ~8.7× more energy per prompt-token</td>
+                <td>Same measurement on the phone's 8 Elite NPU</td>
               </tr>
             </tbody>
           </table>
