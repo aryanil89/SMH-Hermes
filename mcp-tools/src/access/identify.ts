@@ -193,6 +193,7 @@ async function fromPython(input: IdentifyInput, roster: RosterEntry[]): Promise<
     boxes?: [number, number, number, number][];
     device?: string;
   };
+  const method = resolveMethod(parsed.device);
   const embeddings = parsed.embeddings ?? [];
   const threshold = matchThreshold();
   const faces: FaceMatch[] = embeddings.map((embedding, i) => {
@@ -200,5 +201,20 @@ async function fromPython(input: IdentifyInput, roster: RosterEntry[]): Promise<
     const box = parsed.boxes?.[i];
     return box ? { ...match, boxPct: box } : match;
   });
-  return { faces, method: parsed.device === "cpu" ? "face-cpu" : "face-npu" };
+  return { faces, method };
+}
+
+/**
+ * Map the backend's self-reported device to the audit-trail method.
+ *
+ * Deliberately strict: only the two literal values the contract promises are
+ * accepted. Anything else -- a typo, a future device string, a stub that
+ * forgot the field entirely -- must not be quietly upgraded to "face-npu".
+ * The caller's catch block turns this into a clean degrade, same as any
+ * other backend failure.
+ */
+function resolveMethod(device: string | undefined): IdentityMethod {
+  if (device === "cpu") return "face-cpu";
+  if (device === "npu") return "face-npu";
+  throw new Error(`vision backend reported unrecognized device: ${JSON.stringify(device)}`);
 }
