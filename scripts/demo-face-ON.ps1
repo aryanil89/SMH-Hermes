@@ -23,38 +23,89 @@
   unset if not given, so roster.ts's own default (0.5) applies.
 
 .PARAMETER Secret
-  Optional ACCESS_SHARED_SECRET for the dashboard's write routes. Left unset
-  (open) if not given -- fine on loopback, per dashboard/server.ts.
+  ACCESS_SHARED_SECRET for the dashboard's write routes. If omitted, one is
+  generated and persisted to %LOCALAPPDATA%\hermes\access-secret.txt so it
+  SURVIVES restarts -- this script is a mid-demo kill-switch, and rotating the
+  secret mid-demo would 403 the phone's already-open page. Pass -NoSecret to
+  run open (loopback-only rehearsal).
+
+.PARAMETER NoSecret
+  Run with the write routes open. Only sane when nothing proxies port 7788
+  off loopback.
+
+.PARAMETER NodeExe
+  Path to node.exe. Defaults to node on PATH, then the standard install path.
+
+.PARAMETER PythonExe
+  Path to the face-vision venv python. Defaults to .venv-face\Scripts\python.exe
+  next to the repo checkout (i.e. <repo-parent>\.venv-face).
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\demo-face-ON.ps1
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File scripts\demo-face-ON.ps1 -Threshold 0.6
+  powershell -ExecutionPolicy Bypass -File scripts\demo-face-ON.ps1 -Threshold 0.6 -NoSecret
 #>
 [CmdletBinding()]
 param(
   [string]$Threshold = '',
-  [string]$Secret = ''
+  [string]$Secret = '',
+  [switch]$NoSecret,
+  [string]$NodeExe = '',
+  [string]$PythonExe = ''
 )
 
-$McpTools     = Join-Path (Split-Path $PSScriptRoot -Parent) 'mcp-tools'
-$NodeExe      = 'C:\Program Files\nodejs\node.exe'
-$LogOut       = 'C:\Users\qc_de\Downloads\QUAD\hermes-dashboard.log'
-$LogErr       = 'C:\Users\qc_de\Downloads\QUAD\hermes-dashboard.err.log'
+# Everything below is derived from the script's own location -- no machine-
+# specific absolute paths. Logs and the face venv sit NEXT TO the checkout, so
+# a clone at D:\hack\SMH-Hermes writes D:\hack\hermes-dashboard.log and looks
+# for D:\hack\.venv-face.
+$RepoRoot     = Split-Path $PSScriptRoot -Parent
+$WorkDir      = Split-Path $RepoRoot -Parent
+$McpTools     = Join-Path $RepoRoot 'mcp-tools'
+$LogOut       = Join-Path $WorkDir 'hermes-dashboard.log'
+$LogErr       = Join-Path $WorkDir 'hermes-dashboard.err.log'
 $Port         = 7788
 $Url          = 'http://127.0.0.1:7788/'
-$PythonExe    = 'C:\Users\qc_de\Downloads\QUAD\.venv-face\Scripts\python.exe'
-$VisionScript = 'C:\Users\qc_de\Downloads\QUAD\SMH-Hermes\mcp-tools\scripts\face_vision.py'
+$VisionScript = Join-Path $McpTools 'scripts\face_vision.py'
+if ($NodeExe -eq '') {
+  $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+  $NodeExe = if ($nodeCmd) { $nodeCmd.Source } else { 'C:\Program Files\nodejs\node.exe' }
+}
+if ($PythonExe -eq '') { $PythonExe = Join-Path $WorkDir '.venv-face\Scripts\python.exe' }
 
 function Say([string]$Level, [string]$Message) {
   $color = switch ($Level) { 'OK' {'Green'} 'WARN' {'Yellow'} 'FAIL' {'Red'} default {'Gray'} }
   Write-Host ("[{0}] {1}" -f $Level, $Message) -ForegroundColor $color
 }
 
-# ── 0. Sanity-check the face backend before touching anything running ──────
-# Missing files are not fatal -- identify.ts degrades to face-detect-only --
-# but the operator needs to know that is what they are about to get.
+# ── 0. Sanity checks and the shared secret ─────────────────────────────────
+# node missing is fatal (there is nothing to launch); missing face files are
+# not -- identify.ts degrades to face-detect-only -- but the operator needs to
+# know that is what they are about to get.
+if (-not (Test-Path $NodeExe)) {
+  Say 'FAIL' "node.exe not found ($NodeExe) -- install Node 22+ or pass -NodeExe"
+  exit 1
+}
+
+# The write routes (approve/deny/enroll) are what the phone reaches over the
+# tailnet, so the demo default is LOCKED: generate a secret once and reuse it
+# across restarts (a fresh secret per run would 403 the phone's open page).
+$SecretFile = Join-Path $env:LOCALAPPDATA 'hermes\access-secret.txt'
+if ($NoSecret) {
+  $Secret = ''
+  Say 'WARN' 'write routes OPEN (-NoSecret) -- loopback-only rehearsal mode'
+} elseif ($Secret -eq '') {
+  if (Test-Path $SecretFile) { $Secret = (Get-Content $SecretFile -TotalCount 1).Trim() }
+  if (-not $Secret) {
+    $rngBytes = New-Object byte[] 18
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($rngBytes)
+    $Secret = [Convert]::ToBase64String($rngBytes) -replace '[+/=]', ''
+    New-Item -ItemType Directory -Force (Split-Path $SecretFile -Parent) | Out-Null
+    Set-Content -Path $SecretFile -Value $Secret -Encoding ascii
+    Say 'OK' "generated shared secret -> $SecretFile"
+  }
+}
+
 if (-not (Test-Path $PythonExe)) {
   Write-Host "[WARN] python not found at $PythonExe -- dashboard will degrade to detection-only" -ForegroundColor Red
 }
@@ -119,6 +170,10 @@ while ((Get-Date) -lt $deadline) {
 
 if ($up) {
   Say 'OK' 'FACE ON -- dashboard up (face-cpu)'
+  if ($Secret -ne '') {
+    Say 'INFO' "wall:  http://127.0.0.1:$Port/?secret=$Secret"
+    Say 'INFO' "phone: append ?secret=$Secret to the tailnet phone.html URL"
+  }
   exit 0
 } else {
   Say 'FAIL' "dashboard did not come up within 10s -- tail of $LogErr :"
