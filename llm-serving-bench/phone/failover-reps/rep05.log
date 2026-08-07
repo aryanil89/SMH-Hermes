@@ -1,0 +1,6 @@
+[try] probe 127.0.0.1:18181: UP (ignored -- running the phone path anyway)
+[try] adb: C:\Users\qc_de\AppData\Local\Microsoft\WinGet\Packages\Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe\scrcpy-win64-v3.3.2\adb.exe
+[try] answered in 7.6s (407 chars); no messages sent
+
+📱 phone-NPU failover (degraded mode, no tools):
+In degraded mode with no telemetry, I cannot verify actual status or sensor readings. I know the cooling unit restarted twice, but without live data, I cannot confirm if the restarts were due to temperature, power, or software. Therefore, I cannot reliably determine what to check. I can only say: *In general, check the power supply and fan control logic—though this is speculative without real-time data.*

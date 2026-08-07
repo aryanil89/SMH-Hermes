@@ -1,0 +1,7 @@
+[try] probe 127.0.0.1:18181: UP (ignored -- running the phone path anyway)
+[try] adb: C:\Users\qc_de\AppData\Local\Microsoft\WinGet\Packages\Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe\scrcpy-win64-v3.3.2\adb.exe
+[try] answered in 7.6s (394 chars); no messages sent
+
+📱 phone-NPU failover (degraded mode, no tools):
+A left-open door near rack B1 risks unauthorized access, potential physical tampering, or uncontrolled entry into the datacenter, which may lead to power disruption, hardware damage, or unauthorized access to sensitive systems.  
+*(Note: No live telemetry or sensor data was checked. This is a known operational risk based on general knowledge of physical security in datacenter environments.)*

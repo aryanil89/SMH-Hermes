@@ -220,3 +220,46 @@ Raw: `phone/` — per-rep logs, `--profile` JSONs, the `run.sh` harness, `phone-
 (per-rep table + bundle hash + URLs). Prompt passed via `--prompt_file` — `-p` over
 `adb shell` loses its quoting and splits the prompt into bogus argv (first smoke log shows
 the failure mode).
+
+### The failover round-trip, decomposed — n=5, 2026-08-07
+
+The table above benchmarks the phone. This one measures **what the demo actually pays** when
+GenieX is dead and a real question routes to it: the whole phone leg, prompt push to answer
+parsed, from the installed hook's own code path (`handler.py --try`, which sends nothing and
+never touches GenieX). Driver: `phone/failover-reps.ps1`; raw logs and per-rep `--profile`
+JSONs in `phone/failover-reps/`. Five different one-sentence questions, not one question five
+times — an identical prompt would measure a cache this runtime does not have.
+
+| metric | value | note |
+|---|---|---|
+| **phone leg, wall clock** | **7.1 ± 0.7 s** | n=5, 5.9–7.6 s, all 5 succeeded |
+| model load (`GenieDialog_create`) | **3.83 ± 0.04 s** | paid **per question** — see below |
+| prefill | 1,100 ± 43 tok/s | 131–135-token prompts |
+| decode | 25.8 ± 1.0 tok/s | 40–84 generated tokens per rep |
+| TTFT | 0.12 ± 0.01 s | excludes model load |
+| teardown (`GenieDialog_free`) | 0.14 s | flat |
+
+**Model load is 54% of the answer, and it is structural.** The failover path is a one-shot
+`genie-t2t-run` per question — there is no persistent endpoint on the phone — so every
+question reloads 3.2 GB of context binaries before it can read a single token. That is the
+concrete cost of the gap already named in the README ("on-phone *serving*" is the not-built
+item), and it is why the phone leg is ~7 s while the phone itself decodes at 25.8 tok/s. It
+is also the one number that would move most if the phone ever ran a served endpoint.
+
+**Why prefill reads 1,100 here and 1,918 above.** Prompt length, not disagreement: the bench
+prefills 1,248 tokens, the failover prefills ~134. Per-call fixed overhead amortizes over the
+longer prompt, so the same phone reports a higher rate on the bigger prompt. Quote whichever
+matches the prompt you are describing, never the larger one by default. Decode (25.8 vs 23.1)
+sits within run-to-run variation of two short runs at different generated-token counts, and
+these reps were short enough not to reach the thermal decay the 6-rep bench shows.
+
+**Answer length dominates the variance.** The reps run 162 → 407 characters and 5.9 → 7.6 s in
+the same order, which is what a decode-bound leg should look like. The whole leg is predicted
+to within 0.1 s by *3.8 s load + 0.12 s TTFT + gtok/25.8 + ~0.3 s adb*, so read it as
+**~4.0 s fixed + ~0.04 s per generated token**, not as a single constant — an earlier n=1
+measurement of 9.3 s was a longer answer, not a slower phone.
+
+**Reproducibility.** An identical run of the same driver 20 minutes earlier gave 7.3 ± 0.4 s
+(6.7–7.8, 5/5) with the same prompts. Both runs are the same distribution; the artifacts
+committed here are the second one, so that the numbers above and the files beside them are the
+same measurement rather than a close cousin.

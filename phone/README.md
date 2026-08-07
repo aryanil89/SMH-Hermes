@@ -100,7 +100,7 @@ Then open `…/phone.html?secret=pick-something` on the phone. The server prints
 startup if you bind to a network without one. It is one lock on one door, not an auth system.
 
 **To get that URL onto a phone** — a new phone, a closed tab, or a bookmark saved without the
-query string — run `pwsh -File scripts\show-phone-link.ps1` on the laptop. It resolves the tailnet
+query string — run `scripts\show-phone-link.ps1` on the laptop. It resolves the tailnet
 host, appends the key, copies the link to the clipboard, and verifies the key against the running
 server first.
 
@@ -219,9 +219,18 @@ can see the device.
 when a TCP connect to the laptop's GenieX is refused — process dead, not merely busy — a
 gateway hook answers the inbound Telegram question on this phone's NPU instead, one-shot,
 no tools, delivered to Telegram and the wall labeled *📱 phone-NPU failover — degraded
-mode, no tools*. Measured **12.0 s** message→delivered answer (9.3 s of it is the phone).
+mode, no tools*. Measured **12.0 s** message→delivered answer, n=1.
 It is *compute* failover, not an offline mode — Telegram still needs internet. Design,
 limits and the demo arm/disarm scripts: [../hermes-hooks/README.md](../hermes-hooks/README.md).
+
+The **phone leg** of that number is repeatable without killing anything, and was measured at
+**7.1 ± 0.7 s over 5 questions** (`llm-serving-bench/phone/failover-reps.ps1`, raw in
+`failover-reps/`). The decomposition is the interesting part: **3.83 ± 0.04 s of it is model
+load, paid on every single question**, because this path is a one-shot `genie-t2t-run` with
+no resident process — 3.2 GB of context binaries reloaded before the first token. Decode is
+25.8 tok/s, so answer length sets the rest: ~4.0 s fixed + ~0.04 s per generated token. Full
+table and the reason prefill reads 1,100 tok/s here but 1,918 in the bench (prompt length,
+not disagreement): [RESULTS.md § failover round-trip](../llm-serving-bench/RESULTS.md#the-failover-round-trip-decomposed--n5-2026-08-07).
 Demo dependency through Friday: the bundle stays staged at
 `/data/local/tmp/hermes-npu-bench`, USB debugging on, Auto Blocker off.
 

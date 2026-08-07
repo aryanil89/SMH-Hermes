@@ -168,7 +168,7 @@ the AI Hub w4a16 Genie bundle; every config difference is tabled in
 ```
 > what should I check first if rack B1 runs hot?
   Got it — the model server is down, so this may take a little longer.   (~2 s, ack, canned)
-  📱 phone-NPU failover — degraded mode, no tools:                        (~15 s)
+  📱 phone-NPU failover — degraded mode, no tools:                        (~12 s)
   In degraded failover mode I cannot read live telemetry, so I cannot
   confirm current temperatures. Check fan operation and airflow first…
 ```
@@ -203,8 +203,18 @@ existing plumbing: Telegram Bot API (HTML, one plain retry on a 400) and the wal
 
 Every answer is prefixed `📱 phone-NPU failover — degraded mode, no tools:` and the system
 prompt forbids invented readings — same fabrication rule the ack hook enforces, because a
-confident fake "rack B1 is fine" from a phone would be worse than silence. Measured warm
-round-trip: **~10 s** (prefill 1,918 tok/s, decode 23.1 tok/s on the phone — RESULTS.md).
+confident fake "rack B1 is fine" from a phone would be worse than silence.
+
+Measured phone leg: **7.1 ± 0.7 s** (n=5, 2026-08-07 — `llm-serving-bench/phone/failover-reps.ps1`).
+The decomposition is worth knowing before anyone tries to make it faster, because the obvious
+lever is the wrong one: **3.83 ± 0.04 s of that is model load, paid on every question**, since
+this is a one-shot `genie-t2t-run` with no resident process on the phone. Decode contributes
+~0.04 s per generated token at 25.8 tok/s, and prefill — the number the phone benchmark makes
+look impressive — is ~0.12 s of the total at these prompt sizes. So the leg is **~4.0 s fixed
++ answer length**; tuning prefill would buy nothing, and only an on-phone serving endpoint
+(explicitly not built) would move the fixed 4 s. End-to-end, message→delivered, adds the ~2 s
+refused-probe detection and Telegram delivery: **12.0 s, n=1**
+([RESULTS.md](../llm-serving-bench/RESULTS.md#the-failover-round-trip-decomposed--n5-2026-08-07)).
 
 Every failure sends an equally labeled, equally honest line instead — *phone not connected /
 unauthorized / bundle missing / genie exited N / timed out* — because silence is exactly what

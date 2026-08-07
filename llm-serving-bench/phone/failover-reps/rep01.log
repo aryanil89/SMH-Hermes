@@ -1,0 +1,7 @@
+[try] probe 127.0.0.1:18181: UP (ignored -- running the phone path anyway)
+[try] adb: C:\Users\qc_de\AppData\Local\Microsoft\WinGet\Packages\Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe\scrcpy-win64-v3.3.2\adb.exe
+[try] answered in 5.9s (162 chars); no messages sent
+
+📱 phone-NPU failover (degraded mode, no tools):
+In DEGRADED FAILOVER mode with no telemetry, I cannot verify temperature or status. I cannot provide a reliable action.  
+(Stated fact: no data available to act.)

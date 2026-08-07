@@ -201,7 +201,7 @@ def _parse_devices(out: str) -> list:
 
 
 def _pick_serial() -> str:
-    """The serial to pin, or "" to let adb choose (exactly one device attached).
+    """The serial to pin, or "" when there is nothing usable to pin to.
 
     Why this exists: adb refuses to run at all -- "more than one
     device/emulator", exit 1 -- when a second device is attached, and at the
@@ -209,11 +209,21 @@ def _pick_serial() -> str:
     target too. Unpinned, plugging in the board silently disarms failover and
     reports it as a generic adb push failure.
 
+    **One usable device still gets pinned.** The first version of this returned
+    "" there, reasoning that adb's own default must be unambiguous. It is not:
+    adb counts EVERY line of `adb devices` when it decides whether the target
+    is ambiguous, including `offline` and `unauthorized` ones it will never run
+    against. Measured on this laptop 2026-08-07 with the phone the only usable
+    device and a stale `emulator-5554 offline` stub beside it -- `adb shell echo
+    hi` exits 1 with "more than one device/emulator". That is the demo's
+    recovery beat failing because of a dead entry in a list. Pinning the single
+    usable serial costs nothing and removes the whole class.
+
     With several usable devices we pick the one carrying the genie bundle
     rather than guessing by order: that is the definition of "the phone" for
     this hook, it costs one `test -d` per candidate and only when ambiguous,
     and if it does not resolve to exactly one we say so by name instead of
-    picking wrong. Never fails closed on the common single-device path.
+    picking wrong.
     """
     override = _env("HERMES_FAILOVER_SERIAL")
     if override:
@@ -225,8 +235,12 @@ def _pick_serial() -> str:
     if rc != 0:
         return ""
     serials = _parse_devices(out)
-    if len(serials) <= 1:
-        return ""            # 0: nothing to pin. 1: adb's own default is right.
+    if not serials:
+        # Nothing usable. Let the real call fail with adb's own message, which
+        # says "device not found" -- more useful than anything invented here.
+        return ""
+    if len(serials) == 1:
+        return serials[0]
     carrying = []
     for serial in serials:
         try:
@@ -931,7 +945,37 @@ def _selftest() -> int:  # noqa: C901 - deliberately one long linear script
 
         mod._run = fake_run_one_device
         _serial_cache = None
-        check("serial: single device needs no probing and no -s",
+        check("serial: single device is pinned without any probing",
+              _pick_serial() == "R3CXC07ZXZB")
+        _serial_cache = None
+        check("serial: single device still reaches adb as -s",
+              _adb_argv() == [_adb(), "-s", "R3CXC07ZXZB"])
+
+        # The regression this replaced: one usable device is NOT the same as an
+        # unambiguous adb target. adb counts offline/unauthorized lines too when
+        # it decides, so returning "" here exits 1 with "more than one
+        # device/emulator" -- measured live on this laptop 2026-08-07 with a
+        # stale emulator-5554 stub next to the phone.
+        def fake_run_one_plus_offline(argv, timeout):
+            if argv[1] == "devices":
+                return 0, ("List of devices attached\n"
+                           "R3CXC07ZXZB\tdevice\n"
+                           "emulator-5554\toffline\n")
+            raise AssertionError("must not probe when only one device is usable")
+
+        mod._run = fake_run_one_plus_offline
+        _serial_cache = None
+        check("serial: one usable device beside an offline stub is still pinned",
+              _pick_serial() == "R3CXC07ZXZB")
+
+        def fake_run_no_devices(argv, timeout):
+            if argv[1] == "devices":
+                return 0, "List of devices attached\n"
+            raise AssertionError("must not probe when nothing is attached")
+
+        mod._run = fake_run_no_devices
+        _serial_cache = None
+        check("serial: nothing attached -> no -s, adb reports its own reason",
               _pick_serial() == "" and _adb_argv() == [_adb()])
 
         def fake_run_ambiguous(argv, timeout):

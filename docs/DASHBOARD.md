@@ -567,7 +567,7 @@ rejects the key, `400` means it accepts it. Probing a read route would certify
 any key at all, correct or not.
 
 ```powershell
-pwsh -File scripts\show-phone-link.ps1      # exit 0 = key verified, 2 = rejected
+scripts\show-phone-link.ps1                 # exit 0 = key verified, 2 = rejected
 ```
 
 The URLs it prints contain the shared key, so it warns you not to put them on the

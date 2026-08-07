@@ -462,8 +462,8 @@ suppression path silently degrades if the dashboard is not writing `access.json`
       WiFi) **with `ACCESS_SHARED_SECRET` set** — `demo-face-ON.ps1 -Secret <value>` does
       both — and the phone opens `…/phone.html?secret=<value>`. Off-loopback with no secret,
       enrol/approve are open to the venue network; the startup banner warns, listen to it.
-- [ ] **The phone's key is the one the server is running.** `pwsh -File
-      scripts\show-phone-link.ps1` — exit 0 and `[OK] the dashboard … accepts this key`. Then
+- [ ] **The phone's key is the one the server is running.**
+      `scripts\show-phone-link.ps1` — exit 0 and `[OK] the dashboard … accepts this key`. Then
       re-open the link it prints on the phone, even if the phone looks fine. It will look fine:
       the page reads the key only on a write, so a key from before the last restart shows a
       green `live` dot and a correct verdict and fails **only** at capture, on stage, looking
@@ -487,7 +487,7 @@ suppression path silently degrades if the dashboard is not writing `access.json`
       `demo-failover-ON.ps1` (disables the supervisor: a killed GenieX now STAYS dead), then
       `Get-Process geniex | Stop-Process -Force` (teardown takes a few seconds — re-check with
       `handler.py --probe`, expect DOWN/exit 2), then a real Telegram question. Expect the
-      canned receipt in ~2s, the 📱-labeled phone answer in ~15s on both the phone and the
+      canned receipt in ~2s, the 📱-labeled phone answer in ~12s on both the phone and the
       wall, then silence — the doomed gateway turn dies quietly, which is §3's documented
       behavior. `demo-failover-OFF.ps1` restores; the next completion pays the model reload.
 

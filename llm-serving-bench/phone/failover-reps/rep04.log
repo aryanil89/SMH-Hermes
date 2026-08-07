@@ -1,0 +1,6 @@
+[try] probe 127.0.0.1:18181: UP (ignored -- running the phone path anyway)
+[try] adb: C:\Users\qc_de\AppData\Local\Microsoft\WinGet\Packages\Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe\scrcpy-win64-v3.3.2\adb.exe
+[try] answered in 7.5s (377 chars); no messages sent
+
+📱 phone-NPU failover (degraded mode, no tools):
+In DEGRADED FAILOVER mode with no live telemetry, I cannot verify current conditions. I cannot check sensors, logs, or system state. Therefore, I cannot determine the true cause of increased latency. I will not invent a reading or assume a cause. The statement is unverified and unsupported by real-time data. I must acknowledge this limitation. I cannot answer with certainty.

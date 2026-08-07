@@ -1,0 +1,6 @@
+[try] probe 127.0.0.1:18181: UP (ignored -- running the phone path anyway)
+[try] adb: C:\Users\qc_de\AppData\Local\Microsoft\WinGet\Packages\Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe\scrcpy-win64-v3.3.2\adb.exe
+[try] answered in 6.9s (326 chars); no messages sent
+
+📱 phone-NPU failover (degraded mode, no tools):
+In degraded failover mode, I cannot verify current humidity levels or trends—only general knowledge. Humidity trends in the east zone may signal potential hardware stress, but without live data, no action can be reliably inferred. Thus, from a systems perspective, it is not worth a page—only a cautionary note for monitoring.
