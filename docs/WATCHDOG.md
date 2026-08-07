@@ -172,8 +172,14 @@ To go back, re-create the cron job (`README.md` §"Proactive alerts") and
    page is **held, not cancelled** (`lastStatus` is deliberately not advanced, so
    it fires the instant they leave).
 5. `runRuleTick()` — user-authored and built-in rules, in plain code, zero tokens.
-6. `writeState()` — atomically, before anything is delivered.
-7. Return the lines to send. Usually there are none, and that is the point.
+6. `readLatestActivity()` — the newest `event: "activity"` line, if any: the UNO
+   Q's own on-device LLM correlating its sensor history (SmolLM2-135M, see
+   docs/ONDEVICE_ACTIVITY.md). Compared against the persisted `lastActivityAt`
+   watermark, not run through `evaluateSuppression` above -- "someone is at the
+   rack" isn't a reason to withhold "someone just entered the room" the way it
+   is for an environmental threshold the responder is already looking at.
+7. `writeState()` — atomically, before anything is delivered.
+8. Return the lines to send. Usually there are none, and that is the point.
 
 Rule cadence is independent of tick cadence: `event` rules evaluate every tick,
 `level` rules stay gated to five minutes behind `levelsEvaluatedAt`

@@ -160,3 +160,60 @@ describe("runWatchTick — rule engine failure reporting", () => {
     expect(persisted).toEqual({ lastStatus: "ok" });
   });
 });
+
+describe("runWatchTick — on-device activity push", () => {
+  // No staleness gate on the activity scan (see readLatestActivity), so a
+  // fixed 2026 date is fine here even though it makes `getEnvironmentalReading`
+  // fall back to mock -- these tests don't depend on `reading.source`.
+  async function writeActivityLog(now: Date, activity: string, trigger = "object_entered"): Promise<void> {
+    const lines = [
+      { timestamp: new Date(now.getTime() - 3000).toISOString(), event: "sensor_tick", temperature_c: 21, humidity_pct: 50 },
+      { timestamp: new Date(now.getTime() - 1000).toISOString(), event: "activity", activity, trigger, temperature_c: 21, humidity_pct: 50 },
+    ];
+    await writeFile(join(dir, "sensor.json"), lines.map((l) => JSON.stringify(l)).join("\n") + "\n", "utf8");
+  }
+
+  it("pushes a Telegram message naming the activity for a new activity line", async () => {
+    const now = new Date("2026-08-06T00:04:38.000Z");
+    await writeActivityLog(now, "activity-person_entered_room");
+
+    const result = await runWatchTick({ now, statePath });
+
+    expect(result.parts).toContain("UNO Q detected a possible activity: Person entered room.");
+    expect(result.nextState.lastActivityAt).toBeDefined();
+  });
+
+  it("does not repeat the same activity on the next tick", async () => {
+    const t0 = new Date("2026-08-06T00:04:38.000Z");
+    await writeActivityLog(t0, "activity-person_entered_room");
+    await runWatchTick({ now: t0, statePath });
+
+    // Same log, unchanged -- a later tick reading the identical newest activity
+    // line must not re-push it.
+    const t1 = new Date(t0.getTime() + 15_000);
+    const second = await runWatchTick({ now: t1, statePath });
+
+    expect(second.parts.join("\n")).not.toContain("detected a possible activity");
+  });
+
+  it("pushes again when a genuinely new activity line appears", async () => {
+    const t0 = new Date("2026-08-06T00:04:38.000Z");
+    await writeActivityLog(t0, "activity-person_entered_room");
+    await runWatchTick({ now: t0, statePath });
+
+    const t1 = new Date(t0.getTime() + 15_000);
+    await writeActivityLog(t1, "activity-possible_fire_risk");
+    const second = await runWatchTick({ now: t1, statePath });
+
+    expect(second.parts).toContain("UNO Q detected a possible activity: Possible fire risk.");
+  });
+
+  it("says nothing when the log has no activity line at all", async () => {
+    const now = new Date("2026-08-06T00:04:38.000Z");
+    await writeLog(now); // plain sensor_tick only, no activity event
+    const result = await runWatchTick({ now, statePath });
+
+    expect(result.parts).toEqual([]);
+    expect(result.nextState.lastActivityAt).toBeUndefined();
+  });
+});

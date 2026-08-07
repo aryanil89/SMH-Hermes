@@ -139,4 +139,18 @@ describe("readSensorLogView", () => {
 
     expect(view.climate.map((p) => p.temperatureC)).toEqual([22, 23, 24]);
   });
+
+  it("surfaces activity/trigger on the individual event feed entries", async () => {
+    // Written by uno-q/hermes-sensor-logger/python/activity.py -- see
+    // docs/ONDEVICE_ACTIVITY.md. Consumed by the pipeline stream and the raw
+    // Sensor-log feed (both in app.js); there is no dedicated device-level
+    // "latest activity" field -- that was tried as a wall tile and removed in
+    // favour of a Telegram push (see alert-skill/tick.ts).
+    await writeFile(path, line(-10, "activity", { activity: "activity-possible_fire_risk", trigger: "temp_humidity_rate" }) + "\n");
+
+    const view = await readSensorLogView({ path, now: NOW });
+
+    expect(view.events[0]?.activity).toBe("activity-possible_fire_risk");
+    expect(view.events[0]?.trigger).toBe("temp_humidity_rate");
+  });
 });
