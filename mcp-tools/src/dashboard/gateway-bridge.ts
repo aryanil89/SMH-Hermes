@@ -118,7 +118,8 @@ interface SqliteModule {
  *
  * `process.getBuiltinModule` rather than `import("node:sqlite")` for two
  * reasons: a literal import is resolved at compile time and fails to type-check
- * against @types/node 20 (the floor this package supports), and a variable
+ * against the installed @types/node 20 typings (which predate node:sqlite;
+ * the runtime engines floor is Node 22), and a variable
  * specifier is rewritten by the test runner's module transform, which drops the
  * `node:` prefix and then cannot find it. This call reaches the real builtin
  * registry from either environment, and answers `undefined` -- not a throw -- on

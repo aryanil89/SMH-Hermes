@@ -11,7 +11,11 @@ export LD_LIBRARY_PATH=$BASE/qairt/lib
 export ADSP_LIBRARY_PATH=$BASE/qairt/hexagon-$ARCH/unsigned
 [ -f "$PF" ] || { echo "[FAILOVER-ERROR] prompt file missing: $PF"; exit 2; }
 cd $BASE/bundle || { echo "[FAILOVER-ERROR] bundle missing at $BASE/bundle"; exit 3; }
-$BASE/qairt/bin/genie-t2t-run -c genie_config.json --prompt_file "$PF" 2>&1
+# --profile self-documents every live failover call (load/prefill/decode split)
+# without touching stdout; pull the evidence with:
+#   adb pull /data/local/tmp/hermes-npu-bench/failover-profile.json
+# NOTE: the phone runs its staged copy -- re-push this file at venue preflight.
+$BASE/qairt/bin/genie-t2t-run -c genie_config.json --prompt_file "$PF" --profile $BASE/failover-profile.json 2>&1
 RC=$?
 echo "=== exit_code $RC"
 exit $RC

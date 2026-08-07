@@ -22,6 +22,14 @@ the device, and you can prove it by cutting the WiFi mid-demo. The one internet 
 notification — a message relay, not intelligence, and a swappable adapter (Slack, Teams, Discord,
 WhatsApp and Signal are all supported by the same gateway; we demo on Telegram).
 
+And "the device" is now three devices: **inference runs on three Snapdragon tiers**. The
+laptop's X Elite Hexagon NPU serves the 4B agent; the Arduino UNO Q runs its own
+SmolLM2-135M **on the board**, pre-correlating raw sensor history into `activity-*` events
+before anything reaches the laptop (surfaced on the wall as "AI:" rows and folded into
+Telegram pages); and a Galaxy S25 Ultra's 8 Elite NPU stands by as the measured compute
+failover — GenieX dies, the phone answers in ~12 s, labeled degraded. Each tier is sized to
+its job; every number is measured ([docs/EVIDENCE.md](docs/EVIDENCE.md)).
+
 Built on [Hermes Agent](https://github.com/nousresearch/hermes-agent) + Qwen3-4B-Instruct-2507,
 NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP tool servers.
 
@@ -83,6 +91,7 @@ claims score zero, so the line between them is part of the submission, not a foo
 | Phone's role | Approval terminal (`phone.html`) + Telegram client + **challenge notification pushed to Telegram** (text only, deliberately no photo; fire-and-forget, silent no-op when unconfigured) — **plus the failover brain** (built + verified live 2026-08-06): kill the laptop's GenieX and the phone's 8 Elite NPU answers the Telegram question over `adb`, labeled *📱 phone-NPU failover — degraded mode, no tools*. Compute failover, **not** an offline claim — Telegram still needs internet ([hermes-hooks/README.md](hermes-hooks/README.md)). The bench bundle is re-staged on the phone as a demo dependency (USB debugging on, Auto Blocker off through Friday); the phone stayed a working approval terminal throughout | On-phone **serving** on the 8 Elite — a persistent endpoint; today's failover is one-shot, no tools |
 | Alert suppression | **Wired and verified end to end**: an enrolled responder on site withholds the page; walking away releases it *("held while the on-call was on site; sending now")*; escalation or a stale access state pages regardless | — |
 | Energy | **Measured 2026-08-05** (HWiNFO system-rail integration, 60s idle baseline subtracted, same method as arXiv 2606.11257): NPU **471 J/query** at the real 12.5K-token agent shape (n=5); CPU burns **~8.7× more energy per prompt-token** (0.327 vs 0.0375 J) and lifts the system +21.3 W over idle vs the NPU's +6.3 W — [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md#energy--joules-per-query-measured-2026-08-05-pm) | Same measurement on the **phone's** 8 Elite NPU, with error bars |
+| On-board activity inference | **SmolLM2-135M runs on the UNO Q itself** (CPU — the board's Adreno 702 GPU was found, measured and rejected: ~32× slower decode), correlating recent sensor history into `activity-*` log lines. A fresh line reaches the wall's device feed as an **"AI:" row** and is folded into the watchdog's Telegram page — built + verified 2026-08-06 ([docs/ONDEVICE_ACTIVITY.md](docs/ONDEVICE_ACTIVITY.md)) | Feeding `activity-*` lines into `get_incident_assessment` so the 4B tier reasons over the board's inferences — left unwired for the demo **on purpose** (a new assessment input two days out is churn risk; every detection already reaches the humans); level-based leak threshold demoted (Button C is the trigger) |
 
 ## Quickstart — three rungs, pick your hardware
 
@@ -140,7 +149,7 @@ and how to know it worked. The flow being started:
                                   [MCP tool servers: network/storage/compute = mock,
                                    environmental = real, assessment = the one-call verdict]
                                         ↑ log file
-                                  [2] Arduino UNO Q sensors → WiFi + Tailscale VPN
+                                  [2] Arduino UNO Q sensors + on-board activity LLM → WiFi + Tailscale VPN
                                   [5] watchdog loop (15s) → proactive Telegram alerts
                                   [6] wall display     → local browser (read-only)
                                   [7] access terminal  → the phone (the only thing that writes)
@@ -211,7 +220,7 @@ mcp_servers:                              # absolute paths — see "Paths to cha
     env:
       UNOQ_SENSOR_LOG: "<REPO>\\arduino_uno_q-sensor_log.json"
       UNOQ_LOG_MAX_AGE_S: "180"           # older than this -> honest mock, not stale "real"
-      # UNOQ_LEAK_DISTANCE_MM: "150"      # water-level leak threshold; unset = level detection off
+      # UNOQ_LEAK_DISTANCE_MM: "150"      # water-level threshold - currently INERT (see uno-q/README); Button C is the leak trigger
   assessment:                             # get_incident_assessment - one call, one verdict
     command: node
     args: [ "<REPO>\\mcp-tools\\dist\\servers\\assessment-server.js" ]
@@ -320,7 +329,8 @@ Restart, recovery and health checks for every component: **[docs/RUNBOOK.md](doc
 
 The board app auto-starts on boot and writes one `sensor_tick` line (temperature + humidity) every
 10s to its local log, plus one line per button transition — both press *and* release — and one per
-ToF presence crossing. Getting that file **to the laptop** is WiFi + Tailscale, and nothing else:
+ToF presence crossing. Since 2026-08-06 the board's own SmolLM2-135M adds an `activity-*` line
+when it infers something from the recent history ([docs/ONDEVICE_ACTIVITY.md](docs/ONDEVICE_ACTIVITY.md)). Getting that file **to the laptop** is WiFi + Tailscale, and nothing else:
 nothing to start on the laptop — the board's `hermes-sensor-logger-push.service` scp-pushes every
 10s over the tailnet, *if* the board has WiFi and its Tailscale is authed (`tailscale status` on
 the board; re-auth after long offline periods).
@@ -366,8 +376,8 @@ adb shell "arduino-app-cli app restart user:hermes-sensor-logger"
 
 ### MCP tool servers — nothing to start
 
-Hermes spawns all four (`network`, `storage`, `compute` — realistic mocks — and `environmental` —
-real, reading the sensor log) automatically over stdio; they're registered in Hermes's
+Hermes spawns all five (`network`, `storage`, `compute` — realistic mocks — `environmental` —
+real, reading the sensor log — and `assessment`, the one-call verdict) automatically over stdio; they're registered in Hermes's
 `config.yaml` under `mcp_servers`. To smoke-test the environmental chain **without** the agent:
 
 ```powershell
@@ -390,8 +400,9 @@ hermes -z "check the rack-b1 to zone-east link"         # one-shot smoke test
 ```
 
 **Worked when:** the one-shot answers with tool-derived data (latency/packet-loss numbers from
-the network mock). Expect ~2–4 min per tool-calling turn (full-prompt re-prefill at ~280 tok/s on
-the NPU) — keep demo questions to one tool call each. This step is the **offline demo beat**: it
+the network mock). Expect ~2–4 min per tool-calling turn (every model call re-prefills the full prompt — measured
+382 tok/s at the bench shape, ~206 tok/s at the real 12.5K agent shape) — keep demo questions
+to one tool call each. This step is the **offline demo beat**: it
 works with WiFi off, because model, agent, and tools are all local.
 
 ### 4. The phone — Telegram gateway
@@ -432,7 +443,10 @@ with the estimate. Design, configuration and limits:
 
 A persistent process ticking every **15s** (`curl.exe -s http://127.0.0.1:7789/health` to confirm)
 with **zero LLM cost per tick**, pushing to Telegram only on a threshold crossing or recovery —
-silence is the normal state. To exercise it end to end:
+silence is the normal state. The pages carry the board's AI too: a fresh `activity-*` inference
+is appended to the alert text (*"UNO Q detected a possible activity: …"*), and deliberately does
+**not** pass through suppression — a responder at the rack is a reason to hold a threshold page,
+not to hold "someone just entered the room". To exercise it end to end:
 
 1. Press and **hold** button C on the UNO Q (press logs `leak_detected`; releasing logs
    `leak_cleared`, which cancels the alert rather than re-raising it). The water-level path is not
@@ -456,7 +470,8 @@ has two causes now — nothing wrong, or someone is on site. The wall says which
 ### 6. The wall display — one page showing all of the above
 
 A local web page for the demo table: the UNO Q and its door / lighting / leak / temperature /
-humidity state on the left, the server ingesting that feed alongside the network, storage and
+humidity state on the left — its device feed labels the board's own SmolLM2 inferences as
+**"AI:" rows** — the server ingesting that feed alongside the network, storage and
 compute telemetry — and the inference it draws from them — in the middle, and the phone's Telegram
 thread on the right, **both directions** — pages the server sent on the left rail, questions the
 phone sent on the right. Three static tabs sit alongside the live one: the executive overview, the
@@ -606,6 +621,9 @@ moment a decision lands) — the demo is human-supervised throughout.
 Get-Process geniex; Get-NetTCPConnection -LocalPort 18181 -State Listen  # [1] model server up
                                                                   #     (NOT curl -- it queues behind inference)
 Get-Item arduino_uno_q-sensor_log.json | % LastWriteTime          # [2] fresh = sensors flowing
+Select-String '"event": "activity"' arduino_uno_q-sensor_log.json |
+    Select-Object -Last 1                                         # [2b] board AI has inferred
+                                                                  #     (edge-triggered - may be old)
 node mcp-tools\dist\alert-skill\check-environmental.js --json     # [tools] source: real
 hermes -z "what's the temperature in rack B1?"                    # [3] agent + tools + NPU
 hermes gateway status                                             # [4] telegram connected
@@ -734,7 +752,7 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 
 ## Layout
 - `mcp-tools/` — MCP servers (TypeScript) wiring network/storage/compute (realistic mocks) and environmental/physical (**real**, via UNO Q sensors) datacenter health data into the agent, plus the edge-triggered alert logic behind the proactive watchdog loop (`src/alert-skill/watch-loop.ts`, see [docs/WATCHDOG.md](docs/WATCHDOG.md)), plus the local wall display (`src/dashboard/` + the dependency-free pages in `public/`, see [docs/DASHBOARD.md](docs/DASHBOARD.md)), plus the physical-access sentry (`src/access/` — decision matrix, identity ladder, roster of embeddings, append-only audit trail) and the bridge that lets a responder on site withhold a page (`src/alert-skill/suppress.ts`)
-- `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic climate `sensor_tick`, both-edge button events, and ToF presence crossings over three Bridge channels, plus the LED-matrix boot/connection display), pushed to the laptop over WiFi + Tailscale, and deployment/bring-up docs
+- `uno-q/` — Arduino UNO Q app (`hermes-sensor-logger`: periodic climate `sensor_tick`, both-edge button events, and ToF presence crossings over three Bridge channels, plus the on-board SmolLM2-135M activity loop writing `activity-*` inferences to the same log, plus the LED-matrix boot/connection display), pushed to the laptop over WiFi + Tailscale, and deployment/bring-up docs
 - `bench/` — NPU profiling harness (qnn-net-run against the W4A16 bundle); results in [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 - `hermes-hooks/` — gateway hooks this project adds to Hermes (source of truth; the installed copy
   under `%LOCALAPPDATA%\hermes\hooks\` is not version-controlled and `hermes update` rewrites it).
