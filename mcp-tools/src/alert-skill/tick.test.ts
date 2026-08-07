@@ -35,7 +35,11 @@ beforeEach(async () => {
   process.env.ALERT_RULE_STATE_PATH = join(dir, "rule-state.json");
   process.env.ACCESS_STATE_PATH = join(dir, "access.json");
   process.env.UNOQ_SENSOR_LOG = join(dir, "sensor.json");
-  process.env.UNOQ_LOG_MAX_AGE_S = "3600";
+  // The production value, not the old 3600 code default. These tests write
+  // sensor lines a couple of seconds before `now`, so a tighter window costs
+  // nothing -- and pinning the value the rig actually runs on means a tick test
+  // cannot pass under a staleness setting no deployment uses.
+  process.env.UNOQ_LOG_MAX_AGE_S = "180";
 });
 
 afterEach(async () => {

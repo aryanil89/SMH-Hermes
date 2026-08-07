@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { readSensorLogReading } from "./file-source.js";
+import { DEFAULT_MAX_AGE_S, readSensorLogReading } from "./file-source.js";
 import { getEnvironmentalReading } from "./source.js";
 
 const NOW = new Date("2026-08-03T12:00:00Z");
@@ -166,11 +166,38 @@ describe("readSensorLogReading", () => {
     expect(result.reading.leakVia).toBe("event");
   });
 
+  it("defaults to the production staleness window, not an hour", async () => {
+    // Pins the number itself, because nothing failed the last time it drifted.
+    // This default was 3600 while every deployment set 180 -- the gateway's
+    // config.yaml, the demo scripts, the Scheduled Task payloads. So it applied
+    // only when someone forgot the env var, and in that exact case it declared
+    // an hour-dead board fresh while the wall (which had the env var) called the
+    // same file stale. dashboard/snapshot.ts imports this constant rather than
+    // repeating it, so the two cannot disagree again.
+    const original = process.env.UNOQ_LOG_MAX_AGE_S;
+    delete process.env.UNOQ_LOG_MAX_AGE_S;
+    try {
+      expect(DEFAULT_MAX_AGE_S).toBe(180);
+
+      await writeFile(logPath, line(200, "sensor_tick"));
+      const stale = await readSensorLogReading({ path: logPath, now: NOW });
+      expect(stale.ok).toBe(false);
+      if (!stale.ok) expect(stale.reason).toMatch(/stale/);
+
+      await writeFile(logPath, line(170, "sensor_tick"));
+      const fresh = await readSensorLogReading({ path: logPath, now: NOW });
+      expect(fresh.ok).toBe(true);
+    } finally {
+      if (original === undefined) delete process.env.UNOQ_LOG_MAX_AGE_S;
+      else process.env.UNOQ_LOG_MAX_AGE_S = original;
+    }
+  });
+
   it("falls back to the default when a numeric env var is malformed (NaN guard)", async () => {
     const original = process.env.UNOQ_LOG_MAX_AGE_S;
     process.env.UNOQ_LOG_MAX_AGE_S = "abc";
     try {
-      // 7200s old vs the 3600s default: must be stale. Before the guard,
+      // 7200s old vs the 180s default: must be stale. Before the guard,
       // Number("abc")=NaN made `ageSeconds > NaN` false and this passed as fresh.
       await writeFile(logPath, line(7200, "sensor_tick"));
       const result = await readSensorLogReading({ path: logPath, now: NOW });

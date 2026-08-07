@@ -214,7 +214,7 @@ they do **not** survive a board reflash; re-create them by hand if the board is 
 config), the environmental tool serves the newest line's temperature/humidity as
 `source: "real", via: "file"`, with `leak_detected` derived from any `leak_detected` button
 event within the last 5 minutes (`UNOQ_LEAK_WINDOW_S`) — so a leak alerts and then *recovers*
-rather than latching forever. A staleness guard (`UNOQ_LOG_MAX_AGE_S`, default 1h) refuses old
+rather than latching forever. A staleness guard (`UNOQ_LOG_MAX_AGE_S`, default 180s) refuses old
 data and falls through to the SSH-pull path (if `UNOQ_HOST` is set) and then mock, with the
 failure chain recorded in `fallbackReason`. The original gap analysis is kept below for context.
 

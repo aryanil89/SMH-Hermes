@@ -45,7 +45,7 @@ table (usually the board clock, step 2 ⚠️).
 | `DASHBOARD_HOST` | `127.0.0.1` | Bind address. See the security note below |
 | `DASHBOARD_TICK_MS` | `2000` | Snapshot cadence, floored at 250ms |
 | `UNOQ_SENSOR_LOG` | repo-root `arduino_uno_q-sensor_log.json` | The sensor log to read |
-| `UNOQ_LOG_MAX_AGE_S` | `3600` | Older than this and the feed counts as down. Set it to `180` to match the demo config |
+| `UNOQ_LOG_MAX_AGE_S` | `180` | Older than this and the feed counts as down. Matches the gateway's `config.yaml` and the Scheduled Task payloads; the wall imports the constant from `environmental/file-source.ts` so the two cannot drift |
 | `ALERT_STATE_PATH` | `mcp-tools/.state/environmental-watch.json` | The watchdog state file the phone panel mirrors |
 | `WATCH_HEALTH_PORT` | `7789` | Where the wall probes for a live watchdog loop. `0` disables the probe |
 | `WATCH_HEALTH_CACHE_MS` | `5000` | How long a probe result is reused, so a 2s repaint is not a socket per tick |

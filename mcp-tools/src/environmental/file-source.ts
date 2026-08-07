@@ -39,7 +39,7 @@ export interface ReadSensorLogOptions {
   path: string;
   /** Injection point for tests; defaults to the wall clock. */
   now?: Date;
-  /** Newest line older than this -> the file is stale and unusable. Default 3600. */
+  /** Newest line older than this -> the file is stale and unusable. Default 180. */
   maxAgeSeconds?: number;
   /** A leak_detected event within this window of `now` sets leakDetected. Default 300. */
   leakWindowSeconds?: number;
@@ -55,7 +55,22 @@ export type FileSourceResult =
   | { ok: true; reading: FileReading }
   | { ok: false; reason: string };
 
-const DEFAULT_MAX_AGE_S = 3600;
+/**
+ * Newest line older than this and the log is unusable.
+ *
+ * 180s, matching the gateway's config.yaml, the demo scripts, and the Scheduled
+ * Task payloads -- every place that configures this rig deliberately sets 180,
+ * and this default used to be 3600. A default nobody wants is not a default, it
+ * is a trap: it only applied when someone forgot the env var, which is exactly
+ * the moment it would be believed. An hour-dead board read as "real" on the wall
+ * while the agent, whose env server got 180 from config.yaml, called the same
+ * file mock -- the two contradicting each other on stage.
+ *
+ * Exported and imported by dashboard/snapshot.ts rather than repeated: the two
+ * copies of this number ARE the bug, and they had already drifted apart from
+ * production once.
+ */
+export const DEFAULT_MAX_AGE_S = 180;
 const DEFAULT_LEAK_WINDOW_S = 300;
 
 /**
