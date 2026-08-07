@@ -17,6 +17,11 @@ const event = (over: Partial<AccessEvent> = {}): AccessEvent => ({
   ...over,
 });
 
+const realFetch = globalThis.fetch;
+
+/** Let the fire-and-forget send settle without exposing a promise from the API. */
+const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
 beforeEach(() => {
   resetNotifications();
   delete process.env.TELEGRAM_BOT_TOKEN;
@@ -63,6 +68,23 @@ describe("challengeText", () => {
 });
 
 describe("notifyChallenge", () => {
+  // None of these tests are about the network, but notifyChallenge fires a real
+  // fetch the moment it has a token and a chat id. Stub it, then let every send
+  // settle and drain the log before leaving -- a rejection from an unstubbed
+  // fetch can land during a *later* test and put a phantom entry in its sent
+  // log. That is not hypothetical: it made this file fail 326/327 on a
+  // teammate's machine while passing here.
+  beforeEach(() => {
+    globalThis.fetch = vi.fn(async () => new Response("{}", { status: 200 })) as typeof fetch;
+  });
+
+  afterEach(async () => {
+    await settle();
+    drainSentNotifications();
+    globalThis.fetch = realFetch;
+    vi.restoreAllMocks();
+  });
+
   it("is a silent no-op when unconfigured -- the default", () => {
     // Nothing in the access loop may depend on a messaging gateway existing.
     expect(notifyChallenge(event())).toBe(false);
@@ -90,21 +112,20 @@ describe("notifyChallenge", () => {
 
   it("returns synchronously and never throws, even with no network", () => {
     // The WiFi-off beat guarantees this call fails. It must be invisible.
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("fetch failed");
+    }) as typeof fetch;
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const config = { botToken: "not-a-real-token", chatId: "0" };
     expect(() => notifyChallenge(event(), config)).not.toThrow();
   });
 });
 
 describe("sent-notification log (what the wall display shows)", () => {
-  const realFetch = globalThis.fetch;
-
   afterEach(() => {
     globalThis.fetch = realFetch;
     vi.restoreAllMocks();
   });
-
-  /** Let the fire-and-forget send settle without exposing a promise from the API. */
-  const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
   it("records a successful push so the phone panel can show it", async () => {
     // The reported bug: an access challenge reached the on-call's phone while the
