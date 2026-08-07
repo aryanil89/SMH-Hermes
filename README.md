@@ -551,6 +551,12 @@ cd mcp-tools; npm run start:dashboard; cd ..    # ACCESS_IDENTITY_METHOD default
 
 Then open `http://100.x.y.z:7788/phone.html?secret=pick-something` on the phone.
 
+Lost the link, or a phone that used to work now says *Capture rejected*? Don't reconstruct it by
+hand — `pwsh -File scripts\show-phone-link.ps1` prints the URL with the key already appended,
+copies it to the clipboard, and **checks the key against the running server** before telling you
+it is good (exit 0 = accepted, 2 = rejected). A stale key is the failure worth naming: the page
+looks completely normal and only fails at the moment of capture, so it reads as a broken camera.
+
 What it does: someone approaches the rack, the ToF presence sensor (< 1000mm) opens a
 **challenge**, you photograph them with one tap, identity resolves down a pluggable ladder, and an
 8-row decision matrix produces a verdict in context — including **tailgating** (more faces than
@@ -698,6 +704,7 @@ Every row here cost us real time; none are hypothetical.
 | **No alert arrived and nothing is wrong on the wall either** | An enrolled person is at the rack, so the page is being **held** on purpose (step 5 ⚠️) | Check the Access card — verdict `expected` means held, not broken. Walk away from the sensor and it fires |
 | The wall shows `expected` but the phone still paged | Correct: either the status **escalated** after they arrived, or the access state is older than `ACCESS_SUPPRESS_MAX_AGE_S` | Both are fail-open by design. If it is staleness, the dashboard (step 6) is not running — suppression needs it alive |
 | Phone gets **401** on Approve / Enrol | `ACCESS_SHARED_SECRET` is set on the server but missing from the phone's URL | Open `…/phone.html?secret=<the secret>` |
+| Phone page looks **completely normal**, then "Capture rejected" the moment you take a photo | The phone is holding a key from **before the last restart**. Nothing on the page reads the key until a write, so a stale one is invisible until then — it looks like a broken camera, not an auth failure | `pwsh -File scripts\show-phone-link.ps1` — it verifies the key against the running server and prints a fresh link. Exit 2 = the server rejects it |
 | Everyone reads as `unknown` no matter what | `ACCESS_IDENTITY_METHOD` is `stub` (the default and only claimed rung) — detection-only, by design. Nothing is broken | This is expected. The loop, matrix and audit trail all run the same way; a human decides from the photo either way |
 | Access card says *"presence unobservable"* | The sensor feed is stale, so the sentry froze rather than guess | Same fix as the `source: mock` row above. It is **not** filing false audit entries while in this state |
 | First reply of a session takes minutes, later ones are faster | `--keepalive` defaults to **300s**, so the model unloads after 5 min idle. The watchdog never calls the model, so nothing keeps it warm | `--keepalive 3600` (step 1), or send a throwaway message a minute before presenting |

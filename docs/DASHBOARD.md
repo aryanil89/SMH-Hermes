@@ -529,6 +529,50 @@ Telegram text to anyone on the network. The static file handler is containment-
 checked against `public/` and the ingest endpoint caps bodies at 16KB, but those
 are hygiene, not a security posture.
 
+### `tailscale serve` reaches a loopback bind — the startup warning cannot see it
+
+The phone reaches the terminal because `tailscale serve` publishes port 7788 on
+the tailnet and proxies to `127.0.0.1:7788`. Two consequences that the paragraph
+above does not cover on its own, both true of the demo configuration as shipped:
+
+- **The bind-address warning never fires.** It keys off `DASHBOARD_HOST`, which
+  is still loopback. Publishing over Tailscale reaches the same audience-widening
+  outcome by a route the check does not inspect, so *set `ACCESS_SHARED_SECRET`
+  whenever the wall is served over Tailscale too* — the autostart path does.
+- **Read paths are open to every tailnet device.** That follows directly from
+  "the read paths are a display", and it is the intended trade, but state it
+  plainly: anyone on the tailnet can read the sensor log, the roster names, file
+  paths and the Telegram text without a key. The tailnet is a handful of enrolled
+  devices rather than venue WiFi, which is why this is acceptable here and would
+  not be on a public network.
+- **Every request arrives as `127.0.0.1`.** The proxy is the client from the
+  server's point of view, so the server *cannot* distinguish the operator's own
+  browser from a tailnet visitor. Any future "only show this locally" idea is
+  therefore not implementable at this layer — which is exactly why the access key
+  is printed by a terminal script and not by an endpoint.
+
+### Recovering the phone link
+
+`scripts/show-phone-link.ps1` prints the ready-to-open phone URL (tailnet host
+included, key appended), copies it to the clipboard, and **verifies the key
+against the running dashboard** before telling you it is good. Run it when a
+phone has lost its link, when a new phone joins, or as a preflight check.
+
+The verification is the useful part. A phone holding a key from before the last
+restart shows a page that looks completely normal and fails only at the moment
+someone tries to capture — which during a live run reads as a broken camera, not
+a stale key. The script probes a **write** route (an empty `/api/access/capture`
+body, which cannot enrol or approve anything): `401` means the running server
+rejects the key, `400` means it accepts it. Probing a read route would certify
+any key at all, correct or not.
+
+```powershell
+pwsh -File scripts\show-phone-link.ps1      # exit 0 = key verified, 2 = rejected
+```
+
+The URLs it prints contain the shared key, so it warns you not to put them on the
+projector. Anyone holding the key can approve or deny rack access.
+
 ## Layout
 
 ```

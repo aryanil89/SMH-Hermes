@@ -99,6 +99,17 @@ $env:ACCESS_SHARED_SECRET = "pick-something"
 Then open `…/phone.html?secret=pick-something` on the phone. The server prints a warning at
 startup if you bind to a network without one. It is one lock on one door, not an auth system.
 
+**To get that URL onto a phone** — a new phone, a closed tab, or a bookmark saved without the
+query string — run `pwsh -File scripts\show-phone-link.ps1` on the laptop. It resolves the tailnet
+host, appends the key, copies the link to the clipboard, and verifies the key against the running
+server first.
+
+That verification exists because of a failure that is genuinely hard to diagnose in the moment:
+**a phone holding a key from before the last restart looks fine.** Nothing on the page reads the
+key until a write, so the green `live` dot, the rack verdict and the SSE feed all work — and the
+first sign of trouble is `Capture rejected` after someone has already taken the photo, which
+reads as a broken camera. The script asks the server directly and answers in one line.
+
 **Worked when:** the page shows a green `live` dot, the rack verdict tracks the wall, and
 pressing Approve on a challenge changes the laptop wall within a second.
 

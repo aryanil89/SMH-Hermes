@@ -462,6 +462,13 @@ suppression path silently degrades if the dashboard is not writing `access.json`
       WiFi) **with `ACCESS_SHARED_SECRET` set** — `demo-face-ON.ps1 -Secret <value>` does
       both — and the phone opens `…/phone.html?secret=<value>`. Off-loopback with no secret,
       enrol/approve are open to the venue network; the startup banner warns, listen to it.
+- [ ] **The phone's key is the one the server is running.** `pwsh -File
+      scripts\show-phone-link.ps1` — exit 0 and `[OK] the dashboard … accepts this key`. Then
+      re-open the link it prints on the phone, even if the phone looks fine. It will look fine:
+      the page reads the key only on a write, so a key from before the last restart shows a
+      green `live` dot and a correct verdict and fails **only** at capture, on stage, looking
+      like a broken camera. Every restart that mints a new secret arms this. Thirty seconds
+      here, or a dead beat in front of judges.
 - [ ] Gateway: `hermes gateway status` — running, telegram connected — and both hooks are
       loaded (`Select-String "Loaded hook" ...gateway-stdio.log`, §3): `ack`, then `failover`.
 - [ ] Failover phone (if the beat is scheduled): `adb devices` shows `device` — USB debugging
