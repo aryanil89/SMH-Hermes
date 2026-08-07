@@ -74,7 +74,7 @@ Analogy, used once and then dropped: **Hermes** is the employee. **Qwen3** is th
 
 | Term | What it is |
 |---|---|
-| **Arduino UNO Q** | The single-board computer: a Linux side (Qualcomm **QRB2210**, brand name **Dragonwing**) *plus* a microcontroller (**STM32U585**) on one board. **No NPU** — AI on this chip runs on GPU/CPU. |
+| **Arduino UNO Q** | The single-board computer: a Linux side (Qualcomm **QRB2210**, brand name **Dragonwing**) *plus* a microcontroller (**STM32U585**) on one board. **No NPU** — AI on this chip runs on GPU/CPU. As of 2026-08-06 it does both: a small LLM (SmolLM2-135M) runs **on the board's CPU** for on-device activity inference — its Adreno 702 GPU was measured and lost to CPU for this workload. See [ONDEVICE_ACTIVITY.md](ONDEVICE_ACTIVITY.md). |
 | **Modulino** | Arduino's plug-in sensor modules. On hand: **Buttons, Distance, Thermo** (I²C `0x3E` / `0x29` / `0x44`). There is no true leak sensor: **button C injects `leak_detected` on press and `leak_cleared` on release** — the live leak path. The **Distance** module now serves as a presence sensor (`object_entered`/`object_left` across 1000mm); its water-level leak role is **not currently reachable**, since `sensor_tick` no longer carries `distance_mm`. |
 | **Qwiic** / **`Wire1`** | The 4-pin connector standard / the I²C bus the Modulinos sit on. Visible **only from the microcontroller sketch**, not from the Linux side. |
 | **App Lab** | Arduino's tooling for running an app across the Linux + MCU halves. |

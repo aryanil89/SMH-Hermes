@@ -4,13 +4,27 @@ Deployment config for the Arduino UNO Q, driven via QUAD's `quad-unoq` skill (SS
 see `QUAD-Client-main/.claude/skills/quad-unoq/`).
 
 Status: **bonus, not on the critical path**. The board (Qualcomm QRB2210 "Dragonwing" + STM32U585
-MCU) doesn't host the agent's LLM — by choice, not because it can't run one. **It has no NPU**
-(Qualcomm: AI models run on the GPU and CPU), no official TOPS figure exists for it, it ships in
-2GB and 4GB variants, and Arduino officially demos SmolLM2-135M and Llama-3.2-1B-Q4 on it. There's
-simply no headroom for a 4B tool-calling model, and no accelerator to help — so the laptop keeps the
-brain and this board does what it's actually good at: sensing. (An earlier version of this line
-claimed "1 TOPS, 2GB RAM, INT8-only" — wrong on all three counts, traced to QUAD's `quad-unoq`
-reference table; see [../docs/AUDIT_2026-08-03.md](../docs/AUDIT_2026-08-03.md) §1.5.)
+MCU) doesn't host the **agent's** LLM (Hermes's 4B tool-calling brain stays on the laptop) — by
+choice, not because it can't run one. **It has no NPU** (Qualcomm: AI models run on the GPU and
+CPU), no official TOPS figure exists for it, it ships in 2GB and 4GB variants, and Arduino
+officially demos SmolLM2-135M and Llama-3.2-1B-Q4 on it. There's simply no headroom for a 4B
+tool-calling model, and — per measurement, not assumption, see below — no accelerator that actually
+helps a small one either, so the laptop keeps the agent's brain and this board does what it's
+actually good at: sensing. (An earlier version of this line claimed "1 TOPS, 2GB RAM, INT8-only" —
+wrong on all three counts, traced to QUAD's `quad-unoq` reference table; see
+[../docs/AUDIT_2026-08-03.md](../docs/AUDIT_2026-08-03.md) §1.5.)
+
+**Update 2026-08-06 — it does now run a small LLM of its own, on CPU.** Not the agent's brain, a
+separate, much smaller one: `hermes-sensor-logger` runs SmolLM2-135M-Instruct locally to correlate
+its own recent sensor history into short `activity-*` log lines (e.g. `activity-possible_fire_risk`,
+`activity-person_entered_room`) — see [docs/ONDEVICE_ACTIVITY.md](../docs/ONDEVICE_ACTIVITY.md).
+Also found while building this: the QRB2210 has a real Adreno 702 GPU (Turnip/Vulkan driver) that no
+doc here had previously identified. It was tried for this workload and measured, not assumed, to
+lose to CPU — it crashed under repeated load (`vk::DeviceLostError`) and was ~32× slower even on a
+single successful run (no matrix cores on this integrated GPU). CPU is what ships. Full
+measurements, the GPU-discovery detail, and why blind LLM classification needed a deterministic
+fallback to be reliable at this model size are all in
+[docs/ONDEVICE_ACTIVITY.md](../docs/ONDEVICE_ACTIVITY.md).
 
 Backs the **environmental/physical-monitoring** MCP tool in [../mcp-tools](../mcp-tools) with real
 temperature/humidity/distance data. The Modulino modules on hand are **Buttons, Distance, and

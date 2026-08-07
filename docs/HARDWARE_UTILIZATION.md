@@ -116,7 +116,11 @@ profiled."
 
 ## Arduino UNO Q — bonus, backs one real data source
 
-Not used for LLM inference — a deliberate design choice, not a hardware impossibility.
+Not used for the **agent's** LLM inference — a deliberate design choice, not a hardware
+impossibility. **Update 2026-08-06**: it does now run a small, separate LLM of its own (SmolLM2-135M,
+on-device activity correlation from the sensor feed) — see the note further down this section and
+[ONDEVICE_ACTIVITY.md](ONDEVICE_ACTIVITY.md). What follows below (no headroom for a 4B tool-calling
+model, no accelerator to help) is why the *agent's* brain still stays on the laptop.
 
 **Corrected specs** (the earlier "1 TOPS, 2GB RAM, INT8-only, confirmed too weak for any LLM" line
 was wrong on every count — see [AUDIT_2026-08-03.md](AUDIT_2026-08-03.md) §1.5, which traced it to
@@ -129,6 +133,12 @@ QUAD's own `quad-unoq` reference table rather than Qualcomm primary docs):
   `quad-detect` before any number goes on a slide.
 - **INT8-only is false** — Arduino's own guide runs Q4 GGUF models, and Arduino officially
   demonstrates SmolLM2-135M and Llama-3.2-1B-Q4 on the board.
+- **Update 2026-08-06 — no NPU, but there is a GPU.** No Hexagon/DSP node exists (reconfirmed via
+  `dmesg`/`lsmod`), but the QRB2210 has a real, working Adreno 702 GPU this doc didn't previously
+  mention — `vulkaninfo` enumerates it as `Turnip Adreno (TM) 702` via Mesa's open-source Vulkan
+  driver. On-device inference now runs here (SmolLM2-135M-Instruct, on-device activity correlation
+  from the sensor feed): CPU, not GPU — Vulkan/Turnip was measured and lost decisively, see
+  [ONDEVICE_ACTIVITY.md](ONDEVICE_ACTIVITY.md).
 
 So the honest framing is: a small LLM *can* run here, but there is nowhere near the headroom for the
 4B tool-calling model the agent needs, and no NPU to accelerate it — the laptop keeps the brain.

@@ -5,6 +5,8 @@ import time
 
 from arduino.app_utils import App, Bridge
 
+import activity
+
 # Relative to the app's working directory inside the App Lab container (/app),
 # which is bind-mounted to the app folder on the host. The host-side push to
 # the laptop (arduino_uno_q-sensor_log.json) is handled outside this
@@ -33,15 +35,27 @@ MIN_DWELL_S = 3.0
 STAGE_TIMEOUT_S = 60.0
 
 
-def _log_reading(event: str, celsius: float, humidity: float, distance_mm: float | None = None):
+def _log_reading(
+    event: str,
+    celsius: float,
+    humidity: float,
+    distance_mm: float | None = None,
+    extra: dict | None = None,
+):
     """Append one JSON line.
 
     `distance_mm` is omitted entirely when None -- the periodic climate channel
     carries no distance. When present it is -1.0 for "no usable reading", which
     the laptop side already treats as "no sample" rather than a measurement.
+
+    `extra` merges additional fields (e.g. activity.py's `activity`/`trigger`)
+    into the record. `event`/`temperature_c`/`humidity_pct` always win over
+    `extra` so a caller can never shadow the fields the laptop's
+    parseSensorLogLine requires.
     """
     reading = {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        **(extra or {}),
         "event": event,
         "temperature_c": celsius,
         "humidity_pct": humidity,
@@ -63,6 +77,12 @@ def button_event(event: str, distance_mm: float, celsius: float, humidity: float
     C -> leak_detected / leak_cleared.
     """
     _log_reading(event, celsius, humidity, distance_mm)
+    # leak_detected/leak_cleared deliberately excluded -- that channel already
+    # has its own real detector (button C / distance level, see file-source.ts);
+    # running it through the LLM would just add latency to an alert path that
+    # is edge-triggered and trusted precisely because it is NOT inferred.
+    if event in ("door_open", "door_closed", "light_on", "light_off"):
+        activity.on_transition(_log_reading, event, celsius, humidity)
 
 
 def sensor_tick(event: str, celsius: float, humidity: float):
@@ -74,6 +94,7 @@ def sensor_tick(event: str, celsius: float, humidity: float):
     than tripping its staleness guard whenever nobody has touched the board.
     """
     _log_reading("sensor_tick", celsius, humidity)
+    activity.on_sensor_tick(_log_reading, celsius, humidity)
 
 
 def presence_event(event: str, distance_mm: float, celsius: float, humidity: float):
@@ -86,6 +107,7 @@ def presence_event(event: str, distance_mm: float, celsius: float, humidity: flo
     line per tick.
     """
     _log_reading(event, celsius, humidity, distance_mm)
+    activity.on_transition(_log_reading, event, celsius, humidity)
 
 
 def _set_stage(stage: int, ok: bool = False, text: str = ""):

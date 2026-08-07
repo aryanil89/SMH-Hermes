@@ -46,6 +46,12 @@ __pycache__/
 venv/
 *.egg-info/
 
+# On-device activity-inference runtime (llama.cpp binaries + GGUF model,
+# fetched by uno-q/hermes-sensor-logger/scripts/fetch_llm_runtime.sh) --
+# large, device-specific, rebuildable. Same reasoning as the face-cpu ONNX
+# models below.
+uno-q/hermes-sensor-logger/runtime/
+
 # NPU / model build artifacts (large, device-specific, rebuildable)
 *.bin
 *.dlc
