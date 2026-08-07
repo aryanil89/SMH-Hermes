@@ -12,6 +12,9 @@ telegram_info
 # IP strategy material — internal analysis, never publish.
 docs/IP_ASSESSMENT*
 
+# Local AI-tool settings (Claude Code) — per-machine permission state, never shared.
+.claude/
+
 # Runtime output — the UNO Q push pipeline appends to this continuously while the
 # board is up. Tracking it kept the working tree permanently dirty; every reader
 # degrades to labeled mock data when it is absent or stale, so a clone without it
