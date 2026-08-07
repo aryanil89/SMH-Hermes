@@ -28,6 +28,8 @@ behavior this hook is layered on top of, not a bug it introduces.
 Env knobs (process env first, then HERMES_HOME/.env):
   HERMES_FAILOVER          kill switch, default on ("0" disarms the hook)
   HERMES_FAILOVER_ADB      adb binary (default: the winget scrcpy adb, else PATH)
+  HERMES_FAILOVER_SERIAL   adb serial to pin (default: auto-detect, see
+                           _pick_serial -- set this only to overrule it)
   HERMES_FAILOVER_TIMEOUT  phone answer budget in seconds, default 90
   HERMES_FAILOVER_PROBE    probe target "host:port" override (else config.yaml
                            model.base_url, else 127.0.0.1:18181)
@@ -69,6 +71,8 @@ _DEFAULT_ADB = (
 
 _DEFAULT_TIMEOUT_S = 90.0
 _PUSH_TIMEOUT_S = 15.0
+# `adb devices` starts the adb server if it is not up, which is the slow case.
+_DEVICES_TIMEOUT_S = 10.0
 # Windows loopback needs ~2.03s (measured) to surface ECONNREFUSED -- it
 # retransmits the SYN before giving up. A shorter timeout turns "refused"
 # into "timeout", which this hook deliberately reads as UP, and the failover
@@ -76,6 +80,19 @@ _PUSH_TIMEOUT_S = 15.0
 _PROBE_TIMEOUT_S = 3.0
 _SEND_TIMEOUT_S = 6.0
 _WALL_TIMEOUT_S = 4.0
+# Cleanup runs after we have already given up on an answer, so it must be short
+# -- the caller is waiting to report the failure, not to succeed.
+_CLEANUP_TIMEOUT_S = 10.0
+
+# Bracketed on purpose, everywhere this pattern is used.
+#
+# `pkill -f genie-t2t-run` run over `adb shell` matches its OWN `sh -c` wrapper,
+# because that wrapper's command line contains the pattern. Verified on device:
+# the naive form reports a pid every time, with nothing actually running. So the
+# cleanup would kill the shell doing the cleaning and report a phantom hit.
+# `genie-t2t-ru[n]` matches a real process's command line and never the literal
+# text of our own -- the same idiom as `ps | grep [x]`.
+_GENIE_PATTERN = 'genie-t2t-ru[n]'
 
 _MAX_QUESTION_CHARS = 1800  # ctx is 4096 on the phone; leave room to answer
 _MAX_ANSWER_CHARS = 3500    # Telegram hard limit is 4096 incl. label
@@ -164,6 +181,80 @@ def _adb() -> str:
     if _DEFAULT_ADB.exists():
         return str(_DEFAULT_ADB)
     return "adb"
+
+
+def _parse_devices(out: str) -> list:
+    """Serials from `adb devices` output that are actually usable.
+
+    Only state "device" counts. "offline", "unauthorized" and "no permissions"
+    entries are real lines in that output and adb will not run a command
+    against them -- an offline emulator-5554 stub appeared on this laptop the
+    moment the adb server was restarted, and counting it would make us pin a
+    serial that cannot answer.
+    """
+    serials = []
+    for line in out.splitlines()[1:]:          # first line is the banner
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] == "device":
+            serials.append(parts[0])
+    return serials
+
+
+def _pick_serial() -> str:
+    """The serial to pin, or "" to let adb choose (exactly one device attached).
+
+    Why this exists: adb refuses to run at all -- "more than one
+    device/emulator", exit 1 -- when a second device is attached, and at the
+    venue there IS a second device, because the UNO Q sensor board is an adb
+    target too. Unpinned, plugging in the board silently disarms failover and
+    reports it as a generic adb push failure.
+
+    With several usable devices we pick the one carrying the genie bundle
+    rather than guessing by order: that is the definition of "the phone" for
+    this hook, it costs one `test -d` per candidate and only when ambiguous,
+    and if it does not resolve to exactly one we say so by name instead of
+    picking wrong. Never fails closed on the common single-device path.
+    """
+    override = _env("HERMES_FAILOVER_SERIAL")
+    if override:
+        return override
+    try:
+        rc, out = _run([_adb(), "devices"], timeout=_DEVICES_TIMEOUT_S)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return ""            # let the real call fail with the real reason
+    if rc != 0:
+        return ""
+    serials = _parse_devices(out)
+    if len(serials) <= 1:
+        return ""            # 0: nothing to pin. 1: adb's own default is right.
+    carrying = []
+    for serial in serials:
+        try:
+            rc, _out = _run(
+                [_adb(), "-s", serial, "shell", f"test -d {_PHONE_BASE}/bundle"],
+                timeout=_PROBE_TIMEOUT_S,
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            continue
+        if rc == 0:
+            carrying.append(serial)
+    if len(carrying) == 1:
+        return carrying[0]
+    raise FailoverError(
+        f"{len(serials)} adb devices attached ({', '.join(serials)}) and "
+        f"{len(carrying)} carry the phone bundle -- set HERMES_FAILOVER_SERIAL"
+    )
+
+
+_serial_cache: str | None = None
+
+
+def _adb_argv() -> list:
+    """adb argv prefix with the serial pinned. Resolved once per process."""
+    global _serial_cache
+    if _serial_cache is None:
+        _serial_cache = _pick_serial()
+    return [_adb(), "-s", _serial_cache] if _serial_cache else [_adb()]
 
 
 _probe_cache: tuple | None = None
@@ -275,6 +366,44 @@ def _classify_adb(rc: int, output: str) -> str:
     return f"genie-t2t-run exited {rc} with no [BEGIN] marker"
 
 
+def _kill_phone_inference() -> str:
+    """Kill an inference this hook has just abandoned. Returns a short reason.
+
+    Measured on this rig (SM8750 over USB adb, 2026-08-07): killing the local
+    adb client -- exactly what subprocess.run's timeout does -- also takes
+    genie-t2t-run down on the phone, because adbd tears down the shell's
+    process group when the client socket closes. Same result when the adb
+    SERVER was killed mid-inference. So on the demo path this function
+    normally finds nothing and reports "nothing left running", and that is a
+    true answer rather than a failed cleanup.
+
+    It is kept because that teardown is adbd's behaviour rather than ours, and
+    it does not hold everywhere this code can run: adb over TCP keeps the
+    socket -- and the inference -- alive across a network partition until TCP
+    gives up, and a genie-t2t-run started by the bench harness was never in
+    our process group to begin with. Either one leaves the NPU and the ~344 MB
+    resident model held, and the next failover is the demo's recovery beat,
+    the one call that must not fail. When there is nothing to clean up the
+    cost is a single pkill.
+
+    failover.sh also clears leftovers on the way in, which covers the case where
+    this cleanup could not reach the phone. Doing it here as well means the
+    phone is left clean even if no further failover is ever attempted.
+
+    Never raises: this runs on a path that is already reporting a failure, and
+    an exception here would replace an honest "phone did not answer" with a
+    traceback about cleanup.
+    """
+    try:
+        rc, _out = _run(_adb_argv() + ["shell", f'pkill -f "{_GENIE_PATTERN}"'],
+                        timeout=_CLEANUP_TIMEOUT_S)
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return "could not reach the phone to clean up"
+    # pkill exits 1 when nothing matched -- the ordinary case when the phone
+    # finished just after our deadline expired.
+    return "abandoned inference killed" if rc == 0 else "nothing left running"
+
+
 def _phone_answer(message: str, timeout_s: float) -> str:
     """Blocking: prompt file -> adb push -> failover.sh -> parsed answer.
     Raises FailoverError with an honest reason on every failure path."""
@@ -285,7 +414,8 @@ def _phone_answer(message: str, timeout_s: float) -> str:
         with os.fdopen(fd, "wb") as fh:  # binary write: LF stays LF on Windows
             fh.write(prompt.encode("utf-8"))
         try:
-            rc, out = _run([_adb(), "push", tmp, _PHONE_PROMPT], timeout=_PUSH_TIMEOUT_S)
+            rc, out = _run(_adb_argv() + ["push", tmp, _PHONE_PROMPT],
+                           timeout=_PUSH_TIMEOUT_S)
         except subprocess.TimeoutExpired:
             raise FailoverError("adb push timed out -- phone/USB stalled") from None
         except FileNotFoundError:
@@ -295,11 +425,20 @@ def _phone_answer(message: str, timeout_s: float) -> str:
         remaining = max(5.0, deadline - time.monotonic())
         try:
             rc, out = _run(
-                [_adb(), "shell", f"sh {_PHONE_SCRIPT} {_PHONE_PROMPT} {_DSP_ARCH}"],
+                _adb_argv()
+                + ["shell", f"sh {_PHONE_SCRIPT} {_PHONE_PROMPT} {_DSP_ARCH}"],
                 timeout=remaining,
             )
         except subprocess.TimeoutExpired:
-            raise FailoverError(f"phone did not answer within {int(timeout_s)}s") from None
+            # Give up on the answer, not on the phone. The detail is worth
+            # carrying into the message even though it is usually "nothing left
+            # running": that phrase and "abandoned inference killed" are two
+            # different diagnoses of the same timeout, and the second one says
+            # the phone was still working when we stopped waiting.
+            detail = _kill_phone_inference()
+            raise FailoverError(
+                f"phone did not answer within {int(timeout_s)}s -- {detail}"
+            ) from None
     finally:
         try:
             os.unlink(tmp)
@@ -464,11 +603,12 @@ def _selftest() -> int:  # noqa: C901 - deliberately one long linear script
             failures.append(label)
 
     # hermetic env: real .env / config.yaml must not leak into these checks
-    global _dotenv_cache, _probe_cache
+    global _dotenv_cache, _probe_cache, _serial_cache
     saved_env = {
         k: os.environ.get(k)
         for k in ("HERMES_HOME", "HERMES_FAILOVER", "HERMES_FAILOVER_PROBE",
-                  "HERMES_FAILOVER_ADB", "ACCESS_SHARED_SECRET", "TELEGRAM_BOT_TOKEN")
+                  "HERMES_FAILOVER_ADB", "HERMES_FAILOVER_SERIAL",
+                  "ACCESS_SHARED_SECRET", "TELEGRAM_BOT_TOKEN")
     }
     tmp_home = tempfile.mkdtemp(prefix="hermes-failover-selftest-")
     os.environ["HERMES_HOME"] = tmp_home
@@ -476,6 +616,10 @@ def _selftest() -> int:  # noqa: C901 - deliberately one long linear script
         os.environ.pop(key, None)
     _dotenv_cache = None
     _probe_cache = None
+    # Pin the serial to "no serial" so _adb_argv() cannot shell out to a real
+    # `adb devices` from an offline test, and so the argv checks below stay
+    # positional. Serial resolution gets its own checks further down.
+    _serial_cache = ""
 
     real_run, real_post, real_listen = _run, _post_json, _geniex_listening
     try:
@@ -579,6 +723,53 @@ def _selftest() -> int:  # noqa: C901 - deliberately one long linear script
             check("adb: shell timeout raises FailoverError", False)
         except FailoverError as err:
             check("adb: shell timeout raises FailoverError", "within 30s" in str(err))
+
+        # A timeout kills the local adb client; the phone-side genie-t2t-run
+        # survives it, holding the NPU. Prove we go back and clear it, and that
+        # we say which of the three outcomes happened.
+        cleanup_calls: list = []
+
+        def fake_run_timeout_cleanup(argv, timeout):
+            joined = " ".join(argv)
+            if argv[1] == "push":
+                return 0, "ok"
+            if "pkill" in joined:
+                cleanup_calls.append(joined)
+                return 0, ""
+            raise subprocess.TimeoutExpired(cmd="adb", timeout=timeout)
+
+        mod._run = fake_run_timeout_cleanup
+        try:
+            _phone_answer("q", 30.0)
+            check("timeout: still raises after cleanup", False)
+        except FailoverError as err:
+            check("timeout: kills the abandoned phone inference", len(cleanup_calls) == 1)
+            check("timeout: reports the cleanup outcome",
+                  "abandoned inference killed" in str(err))
+        # The bracket is the whole point: `pkill -f genie-t2t-run` over adb
+        # matches its own `sh -c` wrapper (verified on device -- the naive form
+        # returns a pid with nothing running), so the cleanup would kill the
+        # shell doing the cleaning and report a phantom success. Pinned here so
+        # a tidy-up edit cannot quietly drop it.
+        check("timeout: cleanup pattern cannot self-match",
+              bool(cleanup_calls)
+              and "genie-t2t-ru[n]" in cleanup_calls[0]
+              and "genie-t2t-run" not in cleanup_calls[0])
+
+        # Cleanup that cannot reach the phone must degrade, not mask the real
+        # failure with a traceback about cleanup.
+        def fake_run_all_timeout(argv, timeout):
+            if argv[1] == "push":
+                return 0, "ok"
+            raise subprocess.TimeoutExpired(cmd="adb", timeout=timeout)
+
+        mod._run = fake_run_all_timeout
+        try:
+            _phone_answer("q", 30.0)
+            check("timeout: unreachable phone still raises the real reason", False)
+        except FailoverError as err:
+            check("timeout: unreachable phone still raises the real reason",
+                  "within 30s" in str(err) and "could not reach the phone" in str(err))
 
         def fake_run_scripterr(argv, timeout):
             if argv[1] == "push":
@@ -698,6 +889,79 @@ def _selftest() -> int:  # noqa: C901 - deliberately one long linear script
               and tg_calls[0][1]["parse_mode"] == "HTML")
         os.environ.pop("TELEGRAM_BOT_TOKEN")
 
+        # -- serial pinning: the venue has TWO adb devices ------------------
+        # The UNO Q sensor board is an adb target as well as the phone. adb
+        # exits 1 with "more than one device/emulator" rather than choosing,
+        # so unpinned this hook stops working the moment the board is plugged
+        # in -- and reports it as an ordinary push failure.
+        two_devices = (
+            "List of devices attached\n"
+            "R3CXC07ZXZB\tdevice\n"
+            "0123456789ABCDEF\tdevice\n"
+        )
+        check("serial: parses only usable devices",
+              _parse_devices(two_devices) == ["R3CXC07ZXZB", "0123456789ABCDEF"])
+        check("serial: offline/unauthorized entries are not candidates",
+              _parse_devices("List of devices attached\n"
+                             "emulator-5554\toffline\n"
+                             "R3CXC07ZXZB\tdevice\n"
+                             "99999\tunauthorized\n") == ["R3CXC07ZXZB"])
+
+        def fake_run_devices(argv, timeout):
+            joined = " ".join(argv)
+            if argv[1] == "devices":
+                return 0, two_devices
+            if "test -d" in joined:
+                # only the phone carries the bundle
+                return (0, "") if "R3CXC07ZXZB" in joined else (1, "")
+            return 0, ""
+
+        mod._run = fake_run_devices
+        _serial_cache = None
+        check("serial: two devices -> picks the one carrying the bundle",
+              _pick_serial() == "R3CXC07ZXZB")
+        _serial_cache = None
+        check("serial: pinned serial reaches the adb argv",
+              _adb_argv()[1:3] == ["-s", "R3CXC07ZXZB"])
+
+        def fake_run_one_device(argv, timeout):
+            if argv[1] == "devices":
+                return 0, "List of devices attached\nR3CXC07ZXZB\tdevice\n"
+            raise AssertionError("must not probe when only one device is usable")
+
+        mod._run = fake_run_one_device
+        _serial_cache = None
+        check("serial: single device needs no probing and no -s",
+              _pick_serial() == "" and _adb_argv() == [_adb()])
+
+        def fake_run_ambiguous(argv, timeout):
+            if argv[1] == "devices":
+                return 0, two_devices
+            return 0, ""          # BOTH claim the bundle -- genuinely ambiguous
+
+        mod._run = fake_run_ambiguous
+        _serial_cache = None
+        try:
+            _pick_serial()
+            check("serial: ambiguous devices name themselves in the error", False)
+        except FailoverError as err:
+            text = str(err)
+            check("serial: ambiguous devices name themselves in the error",
+                  "R3CXC07ZXZB" in text and "0123456789ABCDEF" in text
+                  and "HERMES_FAILOVER_SERIAL" in text)
+
+        os.environ["HERMES_FAILOVER_SERIAL"] = "OVERRIDE1"
+
+        def run_must_not_list(argv, timeout):
+            raise AssertionError("override must short-circuit `adb devices`")
+
+        mod._run = run_must_not_list
+        _serial_cache = None
+        check("serial: explicit override wins without asking adb",
+              _pick_serial() == "OVERRIDE1")
+        os.environ.pop("HERMES_FAILOVER_SERIAL")
+        _serial_cache = ""
+
         # failure path also delivers (no token -> wall only)
         posts.clear()
         mod._run = fake_run_nodev
@@ -721,6 +985,7 @@ def _selftest() -> int:  # noqa: C901 - deliberately one long linear script
                 os.environ[key] = val
         _dotenv_cache = None
         _probe_cache = None
+        _serial_cache = None
 
     status = "PASS" if not failures else "FAIL"
     print(f"[selftest] {status} ({count} checks, {len(failures)} failures)")

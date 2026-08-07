@@ -235,17 +235,28 @@ All optional — defaults are the demo configuration. Set in `%LOCALAPPDATA%\her
 |---|---|---|
 | `HERMES_FAILOVER` | `1` | `0` disarms without uninstalling |
 | `HERMES_FAILOVER_ADB` | winget scrcpy adb, else `adb` on PATH | |
+| `HERMES_FAILOVER_SERIAL` | auto-detect | pin the phone when several adb devices are attached |
 | `HERMES_FAILOVER_TIMEOUT` | `90` | seconds; past it an honest failure line is sent |
 | `HERMES_FAILOVER_PROBE` | `model.base_url` host:port, else `127.0.0.1:18181` | override rarely |
 
 Phone prerequisites (demo dependencies through Friday): bundle staged at
 `/data/local/tmp/hermes-npu-bench`, USB debugging **on**, Samsung Auto Blocker **off**.
 
+**Two adb devices.** The UNO Q sensor board is an adb target as well as the phone, so
+during the demo two devices are attached and `adb` refuses to guess — it exits 1 with
+*"more than one device/emulator"* on every command. The hook resolves this itself: one
+usable device means no pinning at all, several means it picks the one carrying the genie
+bundle, and a genuine tie fails with both serials named rather than choosing wrong.
+`HERMES_FAILOVER_SERIAL` overrules the whole thing. Entries listed `offline` or
+`unauthorized` are never candidates — a stale `emulator-5554` stub appeared here the
+moment the adb server was restarted, and treating it as a device would have pinned a
+serial that cannot answer.
+
 ### Checking it without killing anything
 
 ```powershell
 $py = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe"
-& $py hermes-hooks\failover\handler.py --selftest              # offline: 41 checks, exit 0/1
+& $py hermes-hooks\failover\handler.py --selftest              # offline: 52 checks, exit 0/1
 & $py hermes-hooks\failover\handler.py --probe                 # one TCP probe: UP=0, DOWN=2
 & $py hermes-hooks\failover\handler.py --try "is rack B1 hot?" # real phone round-trip, print-only
 ```
