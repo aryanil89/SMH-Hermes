@@ -172,6 +172,7 @@ cannot disagree.
 | Risk score, confidence, evidence, cause, action | `assessIncident()` — the exact call behind `get_incident_assessment` | Rule-derived from the above |
 | Telegram thread | The watchdog's state file, the Hermes gateway's own transcript, plus anything posted to `/api/telegram` | **Real** — see the honesty rules below |
 | Access card | `AccessSentry.update()` — the same object the phone terminal talks to | **Real** decision over real presence/door edges; identity depends on the configured rung |
+| Pipeline stream / Sensor-log feed `activity` lines | `event: "activity"` lines in the sensor log — written by the UNO Q's own on-device LLM (SmolLM2-135M, CPU), not the laptop | **Real** — see [ONDEVICE_ACTIVITY.md](ONDEVICE_ACTIVITY.md). Distinct from the laptop's own inference above: the pipeline stream tags this `board-inference`, never `inference`, so the two are never conflated. There is no dedicated wall tile for this — a new inference is instead pushed to the phone as its own Telegram message (see the watchdog section below) |
 
 ### Access — who is at the rack
 

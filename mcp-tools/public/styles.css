@@ -820,6 +820,14 @@ svg {
   border-color: color-mix(in srgb, var(--series-hum) 45%, transparent);
 }
 
+/* The UNO Q's own on-device inference (docs/ONDEVICE_ACTIVITY.md) -- kept
+   visually distinct from the laptop's "inference" tag above, deliberately:
+   two different models on two different tiers of hardware. */
+.feed .src[data-source="board-inference"] {
+  color: var(--accent-violet);
+  border-color: color-mix(in srgb, var(--accent-violet) 45%, transparent);
+}
+
 .feed .body {
   min-width: 0;
 }

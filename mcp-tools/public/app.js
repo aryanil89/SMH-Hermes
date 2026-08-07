@@ -141,6 +141,32 @@ const EVENT_STATUS = {
   door_open: "warning",
 };
 
+/**
+ * `event: "activity"` lines (docs/ONDEVICE_ACTIVITY.md) carry their own label
+ * in `event.activity`, not a fixed string from EVENT_LABELS above -- this
+ * turns `activity-person_entered_room` into "Person entered room". Mirrors
+ * `humanizeActivity` in `src/common/activity.ts`; kept as a small
+ * frontend-local copy the same way EVENT_LABELS already duplicates
+ * DEVICE_EVENT_LABELS server-side, rather than round-tripping through an API
+ * call just to format a string.
+ */
+function humanizeActivity(activity) {
+  const words = activity.replace(/^activity-/, "").split("_").filter(Boolean);
+  if (words.length === 0) return activity;
+  return words.map((w, i) => (i === 0 ? w[0].toUpperCase() + w.slice(1) : w)).join(" ");
+}
+
+function activityStatus(activity) {
+  const lower = activity.toLowerCase();
+  if (lower.includes("fire") || lower.includes("leak")) return "critical";
+  if (lower.includes("risk")) return "warning";
+  return "ok";
+}
+
+/** Pipeline "src" tag text -- see PipelineEvent.source in src/dashboard/types.ts
+ * for why "inference" (laptop) and "board-inference" (UNO Q) are kept separate. */
+const PIPELINE_SOURCE_LABELS = { physical: "sensor", "board-inference": "board AI" };
+
 const RISK_STATUS = { low: "ok", medium: "warning", high: "serious", critical: "critical" };
 const STATUS_ICON = { ok: "#i-check", warning: "#i-warn", critical: "#i-crit", unknown: "#i-unknown" };
 
@@ -538,16 +564,19 @@ function renderDevice(snap) {
     (event) => event.id,
     (event) => {
       const li = document.createElement("li");
-      li.dataset.status = EVENT_STATUS[event.event] ?? "ok";
+      const isActivity = event.event === "activity" && event.activity;
+      li.dataset.status = isActivity ? activityStatus(event.activity) : (EVENT_STATUS[event.event] ?? "ok");
       const t = document.createElement("span");
       t.className = "t";
       t.textContent = clock(event.at);
       const label = document.createElement("span");
       label.className = "label";
-      label.textContent = EVENT_LABELS[event.event] ?? event.event;
+      label.textContent = isActivity ? `AI: ${humanizeActivity(event.activity)}` : (EVENT_LABELS[event.event] ?? event.event);
       const val = document.createElement("span");
       val.className = "val";
-      val.textContent = `${event.temperatureC.toFixed(1)}° · ${event.humidityPct.toFixed(1)}%`;
+      val.textContent = isActivity
+        ? (event.trigger ?? "")
+        : `${event.temperatureC.toFixed(1)}° · ${event.humidityPct.toFixed(1)}%`;
       li.append(t, label, val);
       return li;
     },
@@ -983,7 +1012,7 @@ function renderServer(snap) {
       setText(li.querySelector(".t"), clock(event.at));
       const src = li.querySelector(".src");
       src.dataset.source = event.source;
-      setText(src, event.source === "physical" ? "sensor" : event.source);
+      setText(src, PIPELINE_SOURCE_LABELS[event.source] ?? event.source);
       setText(li.querySelector(".label"), event.label);
       const detail = li.querySelector(".detail");
       detail.textContent = event.detail ?? "";

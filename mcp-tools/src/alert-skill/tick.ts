@@ -16,6 +16,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getEnvironmentalReading } from "../environmental/source.js";
+import { readLatestActivity } from "../environmental/file-source.js";
 import type { EnvironmentalResult } from "../environmental/types.js";
 import { readState, writeState, type AlertState } from "./state-store.js";
 import { decideAlert, type DecideAlertResult } from "./decide-alert.js";
@@ -24,6 +25,7 @@ import { summarizeReading } from "./summarize.js";
 import { runRuleTick } from "../rules/runner.js";
 import { readAccessState } from "../access/state.js";
 import { envPositive } from "../common/env.js";
+import { humanizeActivity } from "../common/activity.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // dist/alert-skill/tick.js -> package root is two levels up.
@@ -91,6 +93,26 @@ export async function runWatchTick(opts: WatchTickOptions = {}): Promise<WatchTi
 
   const reading = await getEnvironmentalReading();
   const previous = await readState(statePath);
+
+  // On-device activity inference (docs/ONDEVICE_ACTIVITY.md): the UNO Q's own
+  // small LLM correlates its recent sensor history into an `activity-*` line
+  // and writes it to the same log this watchdog already reads. This is a
+  // watermark comparison, not a threshold decision like decideAlert below --
+  // activity.py already edge-triggers and cooldowns its own inferences (120s
+  // before it will re-log the same activity), so the only question here is
+  // "have I already told the phone about this one". Deliberately NOT run
+  // through evaluateSuppression: "someone is at the rack" is not a reason to
+  // withhold "someone just entered the room" the way it is for an
+  // environmental threshold the responder is already looking at.
+  const sensorLogPath = process.env.UNOQ_SENSOR_LOG;
+  const latestActivity = sensorLogPath ? await readLatestActivity(sensorLogPath) : undefined;
+  const activityIsNew =
+    latestActivity !== undefined &&
+    (!previous.lastActivityAt || Date.parse(latestActivity.at) > Date.parse(previous.lastActivityAt));
+  const activityText = activityIsNew
+    ? `UNO Q detected a possible activity: ${humanizeActivity(latestActivity!.activity)}.`
+    : undefined;
+
   const decision = decideAlert({
     currentStatus: reading.status,
     previous,
@@ -233,6 +255,10 @@ export async function runWatchTick(opts: WatchTickOptions = {}): Promise<WatchTi
     delete nextState.ruleEngineErrorSince;
     delete nextState.ruleEngineReported;
   }
+  // Advances the watermark to the newest activity line seen, whether or not
+  // it was new THIS tick -- unconditional, unlike the held/error fields
+  // above, because there is no hold/suppress concept for this signal.
+  if (latestActivity !== undefined) nextState.lastActivityAt = latestActivity.at;
 
   if (!opts.dryRun) await writeState(statePath, nextState);
 
@@ -251,6 +277,6 @@ export async function runWatchTick(opts: WatchTickOptions = {}): Promise<WatchTi
     ruleMessages,
     nextState,
     released,
-    parts: [...(alertText ? [alertText] : []), ...ruleMessages],
+    parts: [...(alertText ? [alertText] : []), ...ruleMessages, ...(activityText ? [activityText] : [])],
   };
 }

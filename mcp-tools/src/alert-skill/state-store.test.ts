@@ -46,4 +46,12 @@ describe("state-store", () => {
     const state = await readState(path);
     expect(state).toEqual({ lastStatus: "ok" });
   });
+
+  it("round-trips the on-device activity watermark", async () => {
+    dir = await mkdtemp(join(tmpdir(), "smh-hermes-state-"));
+    const path = join(dir, "state.json");
+    await writeState(path, { lastStatus: "ok", lastActivityAt: "2026-08-06T00:04:38.783Z" });
+    const state = await readState(path);
+    expect(state.lastActivityAt).toBe("2026-08-06T00:04:38.783Z");
+  });
 });

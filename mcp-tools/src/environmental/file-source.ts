@@ -5,9 +5,13 @@ import type { EnvironmentalReading } from "./types.js";
 
 /**
  * One line of the JSON-lines history the UNO Q pushes to the laptop
- * (`push_sensor_log.sh`, see docs/UNOQ_SETUP.md). Lines are appended only on a
- * physical button press; `event` encodes which button (A/B/C ->
- * door_open/light_on/leak_detected).
+ * (`push_sensor_log.sh`, see docs/UNOQ_SETUP.md). `event` is one of: a button
+ * transition (A/B/C -> door_open/light_on/leak_detected, and their paired
+ * release events), a presence crossing (object_entered/object_left), the
+ * periodic `sensor_tick`, or -- since 2026-08-06 -- `activity`, written by the
+ * board's own on-device LLM (`uno-q/hermes-sensor-logger/python/activity.py`,
+ * see docs/ONDEVICE_ACTIVITY.md) when it correlates recent sensor history into
+ * an inferred `activity`/`trigger` pair.
  */
 export interface SensorLogLine {
   timestamp: string;
@@ -15,6 +19,10 @@ export interface SensorLogLine {
   temperature_c: number;
   humidity_pct: number;
   distance_mm?: number;
+  /** Present only on `event: "activity"` lines -- the normalized `activity-...` label. */
+  activity?: string;
+  /** Present only on `event: "activity"` lines -- what triggered the inference. */
+  trigger?: string;
 }
 
 export interface FileReading extends EnvironmentalReading {
@@ -68,6 +76,49 @@ export function parseSensorLogLine(line: string): SensorLogLine | undefined {
     }
   } catch {
     // Tolerated: scp can land mid-append, leaving a truncated trailing line.
+  }
+  return undefined;
+}
+
+export interface LatestActivity {
+  activity: string;
+  trigger?: string;
+  at: string;
+}
+
+/**
+ * Newest `event: "activity"` line in the log, if any -- used by the watchdog
+ * (alert-skill/tick.ts) to decide whether a fresh on-device inference needs a
+ * Telegram push. See docs/ONDEVICE_ACTIVITY.md.
+ *
+ * Deliberately separate from `readSensorLogReading`: that function fails
+ * "stale" once the newest line is older than `maxAgeSeconds`, but an activity
+ * line can be several minutes old on a quiet board (sensor_tick keeps the
+ * newest-line clock fresh) and is still worth reporting exactly once. "Is
+ * this newer than the last one I reported" is the caller's job (a persisted
+ * watermark), not this function's -- it just answers "what's the newest one
+ * in the file right now". Never throws: a missing or unreadable log means no
+ * activity to report, not an error.
+ */
+export async function readLatestActivity(path: string): Promise<LatestActivity | undefined> {
+  let raw: string;
+  try {
+    raw = await readFileWithRetry(path);
+  } catch {
+    return undefined;
+  }
+  const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (line === undefined) continue;
+    const parsed = parseSensorLogLine(line);
+    if (parsed && parsed.event === "activity" && parsed.activity) {
+      return {
+        activity: parsed.activity,
+        ...(parsed.trigger ? { trigger: parsed.trigger } : {}),
+        at: parsed.timestamp,
+      };
+    }
   }
   return undefined;
 }
