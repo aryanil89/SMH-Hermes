@@ -136,7 +136,7 @@ state machine.
 **Benchmark evidence:** [docs/EVIDENCE.md](docs/EVIDENCE.md) indexes every measured claim —
 NPU vs CPU throughput ([llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md)),
 joules-per-query, per-op Hexagon profiling ([docs/BENCHMARKS.md](docs/BENCHMARKS.md)).
-Test suite: **29 files / 333 tests, all passing** (verified 2026-08-06).
+Test suite: **29 files / 353 tests, all passing** (verified 2026-08-07).
 
 ## Run it yourself — the whole flow, in start order
 

@@ -55,7 +55,7 @@ mock/real split.
   dependency-free page in [public/](public/). `npm run start:dashboard` →
   `http://127.0.0.1:7788`. Full reference: [../docs/DASHBOARD.md](../docs/DASHBOARD.md).
 
-Run the tests with `npm test` (333 tests).
+Run the tests with `npm test` (353 tests).
 
 ### Thermal coupling — why the correlation is real
 

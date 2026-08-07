@@ -186,3 +186,106 @@ describe("end-to-end scenarios", () => {
     expect(a.risk.score).toBe(b.risk.score);
   });
 });
+
+describe("on-device activity is reported without being scored", () => {
+  // The whole point of the field. Activity is a 1.5B model's qualitative
+  // guess about a room; risk is a reproducible function of measurements. If
+  // one can move the other, "ask twice, get the same score" stops being true
+  // the moment the board narrates something, and a reviewer checking the
+  // arithmetic against the evidence list would find points they cannot source.
+  const withActivity = {
+    seed: 11,
+    environmentalOverride: reading({
+      temperatureC: 38,
+      status: "critical",
+      activity: {
+        activity: "activity-person_entered_room",
+        trigger: "motion",
+        at: new Date().toISOString(),
+        ageSeconds: 42,
+      },
+    }),
+  };
+  const withoutActivity = {
+    seed: 11,
+    environmentalOverride: reading({ temperatureC: 38, status: "critical" }),
+  };
+
+  it("leaves risk, confidence and evidence bit-for-bit identical", async () => {
+    const withA = await assessIncident(withActivity);
+    const without = await assessIncident(withoutActivity);
+    expect(withA.risk).toEqual(without.risk);
+    expect(withA.confidence).toEqual(without.confidence);
+    expect(withA.evidence).toEqual(without.evidence);
+    expect(withA.likelyCause).toBe(without.likelyCause);
+    expect(withA.recommendedAction).toBe(without.recommendedAction);
+    // and specifically: it did not smuggle itself into the evidence list
+    expect(withA.evidence.some((e) => /activity|person/i.test(e.signal))).toBe(false);
+  });
+
+  it("surfaces it humanized, with its age, on the assessment", async () => {
+    const a = await assessIncident(withActivity);
+    expect(a.observedActivity?.humanized).toBe("Person entered room");
+    expect(a.observedActivity?.activity).toBe("activity-person_entered_room");
+    expect(a.observedActivity?.ageSeconds).toBe(42);
+  });
+
+  it("labels it 'not scored' in the summary the model reads out", async () => {
+    const a = await assessIncident(withActivity);
+    // The model is told to relay `summary` verbatim, so the disclaimer has to
+    // live in the sentence itself -- not in a sibling field it may never read.
+    expect(a.summary).toContain('Also observed (not scored): the board\'s own model inferred "Person entered room" 42s ago.');
+    // ...and after the measured evidence, so it cannot be mistaken for it.
+    expect(a.summary.indexOf("Also observed")).toBeGreaterThan(a.summary.indexOf("Evidence:"));
+  });
+
+  it("says nothing at all when the board has inferred nothing", async () => {
+    const a = await assessIncident(withoutActivity);
+    expect(a.observedActivity).toBeUndefined();
+    expect(a.summary).not.toContain("Also observed");
+  });
+});
+
+describe("activity age is phrased for a person, not a log", () => {
+  const withAge = (ageSeconds: number) => ({
+    seed: 11,
+    environmentalOverride: reading({
+      activity: {
+        activity: "activity-person_left_room",
+        at: new Date().toISOString(),
+        ageSeconds,
+      },
+    }),
+  });
+
+  it("keeps exact seconds while the exact number is the point", async () => {
+    const a = await assessIncident(withAge(12));
+    expect(a.summary).toContain("12s ago");
+  });
+
+  it("rounds to minutes past a minute and a half", async () => {
+    const a = await assessIncident(withAge(1731));
+    expect(a.summary).toContain("29 minutes ago");
+    expect(a.summary).not.toContain("1731");
+  });
+
+  it("falls back to hours rather than reading out three digits of minutes", async () => {
+    const a = await assessIncident(withAge(7200));
+    expect(a.summary).toContain("about 2 hours ago");
+    // The minutes band deliberately runs to 90, so a flat hour is still spoken
+    // as minutes -- which is why the hours band never needs a singular form.
+    const anHour = await assessIncident(withAge(3600));
+    expect(anHour.summary).toContain("60 minutes ago");
+  });
+
+  it("says the inference without an age when the timestamp did not parse", async () => {
+    const a = await assessIncident({
+      seed: 11,
+      environmentalOverride: reading({
+        activity: { activity: "activity-person_left_room", at: "not-a-date" },
+      }),
+    });
+    expect(a.summary).toContain('inferred "Person left room".');
+    expect(a.summary).not.toMatch(/ago/);
+  });
+});

@@ -32,5 +32,38 @@ export interface EnvironmentalResult extends EnvironmentalReading {
   via?: "file" | "ssh";
   /** Present only when source === "mock" because a real read was unavailable or failed. */
   fallbackReason?: string;
+  /**
+   * Newest on-device activity inference from the board's own small LLM
+   * (`event: "activity"`, docs/ONDEVICE_ACTIVITY.md). Real file path only --
+   * the mock generator has no board to infer anything, and the SSH path reads
+   * sensors rather than the log.
+   *
+   * Carried on the reading rather than fetched separately by each consumer so
+   * that "what the board thinks is happening" travels with "what the board
+   * measured". The watchdog had this and the agent did not, which is how the
+   * wall could be showing a room-entry inference while the agent, asked about
+   * the same moment, knew only the temperature.
+   *
+   * Not scored, and it must stay that way -- see assess.ts.
+   */
+  activity?: ObservedActivity;
   generatedAt: string;
+}
+
+/**
+ * An on-device activity inference, with its age measured at read time.
+ *
+ * `ageSeconds` is computed here rather than left to the consumer because
+ * `at` is the board's clock: two processes deriving age from it independently
+ * is two chances to disagree about how old the same inference is.
+ */
+export interface ObservedActivity {
+  /** Raw label, e.g. "activity-person_entered_room". Humanize for display. */
+  activity: string;
+  /** What the board's model keyed off, when it recorded one. */
+  trigger?: string;
+  /** ISO timestamp of the inference (board clock). */
+  at: string;
+  /** Age in seconds at read time. Absent if `at` did not parse. */
+  ageSeconds?: number;
 }

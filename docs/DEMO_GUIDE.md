@@ -42,7 +42,7 @@ approval gate still holds; phone unreachable → the wall's approval panel does 
 | Sensor edge → phone | **15–30 s** via the watchdog (down from a measured 102 s worst case) |
 | Phone (8 Elite) NPU | **1,918 ± 16.9 tok/s prefill / 23.1 ± 1.3 decode** — different config, labeled, not 1:1 with the laptop row |
 | Phone failover | **12.0 s** message → delivered degraded answer |
-| Tests | **29 files / 333 tests**, all passing; strict TypeScript build |
+| Tests | **29 files / 353 tests**, all passing; strict TypeScript build |
 
 ## Where the rubric evidence lives
 

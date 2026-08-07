@@ -63,7 +63,7 @@ must demo to be eligible for a prize.**
 ## Recommended (optional per the deck — all present)
 
 - [x] **Tests and testing instructions** — `cd mcp-tools; npm test` → **29 files /
-  333 tests, all passing** (verified 2026-08-06). Full layer-by-layer procedure:
+  353 tests, all passing** (verified 2026-08-07). Full layer-by-layer procedure:
   [docs/E2E_TEST.md](docs/E2E_TEST.md).
 - [x] **Notes** — the [docs/](docs/) tree: architecture, runbook, watchdog, dashboard,
   positioning, workload placement, claims audit.

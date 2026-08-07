@@ -254,4 +254,103 @@ describe("getEnvironmentalReading with UNOQ_SENSOR_LOG", () => {
     expect(result.fallbackReason).toMatch(/not readable/);
     expect(result.fallbackReason).toMatch(/UNOQ_HOST is not set/);
   });
+  // ---- on-device activity rides along with the reading -------------------
+  // The board's own small LLM writes `event: "activity"` lines into this same
+  // log. The watchdog has read them for a while; the agent could not, so the
+  // wall could show "person entered room" while the agent, asked about that
+  // exact moment, knew only the temperature.
+
+  function sensorLine(secondsAgo: number, event = "sensor_tick"): string {
+    return JSON.stringify({
+      timestamp: new Date(Date.now() - secondsAgo * 1000).toISOString(),
+      event,
+      temperature_c: 24.1,
+      humidity_pct: 51.0,
+    });
+  }
+
+  // Shaped like the board actually writes them: activity lines carry the
+  // sensor values too (verified against arduino_uno_q-sensor_log.json), and
+  // parseSensorLogLine requires temperature_c/humidity_pct on every line --
+  // a fixture without them is silently dropped and the test passes vacuously.
+  function activityLine(secondsAgo: number, activity: string, trigger?: string): string {
+    return JSON.stringify({
+      timestamp: new Date(Date.now() - secondsAgo * 1000).toISOString(),
+      activity,
+      ...(trigger ? { trigger } : {}),
+      event: "activity",
+      temperature_c: 23.4,
+      humidity_pct: 60.2,
+    });
+  }
+
+  it("carries the newest activity inference, aged, onto the reading", async () => {
+    await writeFile(
+      logPath,
+      [
+        activityLine(300, "activity-door_left_open"),
+        activityLine(40, "activity-person_entered_room", "motion"),
+        sensorLine(2),
+      ].join("\n"),
+    );
+    process.env.UNOQ_SENSOR_LOG = logPath;
+    const result = await getEnvironmentalReading();
+    expect(result.source).toBe("real");
+    expect(result.activity?.activity).toBe("activity-person_entered_room");
+    expect(result.activity?.trigger).toBe("motion");
+    // Newest wins: the 300s-old inference must not be the one reported.
+    expect(result.activity?.ageSeconds).toBeGreaterThanOrEqual(39);
+    expect(result.activity?.ageSeconds).toBeLessThanOrEqual(45);
+  });
+
+  it("still reports an activity older than the staleness window", async () => {
+    // Deliberate asymmetry, and the reason readLatestActivity is a separate
+    // scan: a sensor line older than UNOQ_LOG_MAX_AGE_S is untrustworthy
+    // because it is a *sample* of a value that has since moved. An activity
+    // line is an *event* -- "someone entered the room" four minutes ago is
+    // still the last thing the board concluded, and suppressing it would tell
+    // the agent nothing had happened. The age is attached so it can judge.
+    await writeFile(
+      logPath,
+      [activityLine(600, "activity-person_entered_room"), sensorLine(2)].join("\n"),
+    );
+    process.env.UNOQ_SENSOR_LOG = logPath;
+    const result = await getEnvironmentalReading();
+    expect(result.activity?.activity).toBe("activity-person_entered_room");
+    expect(result.activity?.ageSeconds).toBeGreaterThanOrEqual(595);
+  });
+
+  it("omits the field entirely when the board has inferred nothing", async () => {
+    await writeFile(logPath, sensorLine(2));
+    process.env.UNOQ_SENSOR_LOG = logPath;
+    const result = await getEnvironmentalReading();
+    expect(result.source).toBe("real");
+    expect(result.activity).toBeUndefined();
+  });
+
+  it("never lets a bad activity timestamp cost us the reading or the activity", async () => {
+    // An unparseable timestamp yields an activity with no age -- not a failed
+    // read, and not a dropped inference. Losing a real temperature because the
+    // board's narration was malformed would be the worse trade by far, and so
+    // would discarding "someone entered the room" over a clock format.
+    await writeFile(
+      logPath,
+      [
+        JSON.stringify({
+          timestamp: "not-a-date",
+          activity: "activity-person_entered_room",
+          event: "activity",
+          temperature_c: 23.4,
+          humidity_pct: 60.2,
+        }),
+        sensorLine(2),
+      ].join("\n"),
+    );
+    process.env.UNOQ_SENSOR_LOG = logPath;
+    const result = await getEnvironmentalReading();
+    expect(result.source).toBe("real");
+    expect(result.temperatureC).toBe(24.1);
+    expect(result.activity?.activity).toBe("activity-person_entered_room");
+    expect(result.activity?.ageSeconds).toBeUndefined();
+  });
 });

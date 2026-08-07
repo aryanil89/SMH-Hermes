@@ -12,7 +12,14 @@ import {
 import { THERMAL_ZONE } from "../common/thermal.js";
 import { assessConfidence } from "./confidence.js";
 import { LEAK_POINTS, pointsFor, scoreRisk } from "./risk.js";
-import type { Evidence, Family, IncidentAssessment, Provenance } from "./types.js";
+import type {
+  Evidence,
+  Family,
+  IncidentAssessment,
+  ObservedActivityNote,
+  Provenance,
+} from "./types.js";
+import { humanizeActivity } from "../common/activity.js";
 
 /**
  * One call, one verdict.
@@ -188,7 +195,23 @@ export async function assessIncident(opts: AssessOptions = {}): Promise<Incident
 
   const { likelyCause, recommendedAction } = explain(risk.familiesInvolved, env.leakDetected);
 
-  const summary = buildSummary(risk, confidence.level, likelyCause, recommendedAction, evidence, env.source);
+  // Reported alongside the verdict, never folded into it. Deliberately built
+  // AFTER scoreRisk and assessConfidence so it is structurally impossible for
+  // this to change either number -- both have already been computed from
+  // `evidence`, which this never touches.
+  const observedActivity: ObservedActivityNote | undefined = env.activity
+    ? { ...env.activity, humanized: humanizeActivity(env.activity.activity) }
+    : undefined;
+
+  const summary = buildSummary(
+    risk,
+    confidence.level,
+    likelyCause,
+    recommendedAction,
+    evidence,
+    env.source,
+    observedActivity,
+  );
 
   return {
     generatedAt: new Date().toISOString(),
@@ -199,6 +222,7 @@ export async function assessIncident(opts: AssessOptions = {}): Promise<Incident
     likelyCause,
     recommendedAction,
     provenance,
+    ...(observedActivity ? { observedActivity } : {}),
     summary,
   };
 }
@@ -255,6 +279,20 @@ function explain(
   };
 }
 
+/**
+ * How long ago, in words. `summary` is read aloud to an on-call engineer, and
+ * "1731s ago" is not something a person says -- worse, it reads as precision
+ * about an inference that deserves none. Seconds are kept under 90s because
+ * that is the range where the exact number is the point ("it just happened").
+ * The minutes band runs to 90, so the hours band never has to say "1 hour".
+ */
+function agoPhrase(ageSeconds: number): string {
+  if (ageSeconds < 90) return `${ageSeconds}s ago`;
+  const minutes = Math.round(ageSeconds / 60);
+  if (minutes < 90) return `${minutes} minutes ago`;
+  return `about ${Math.round(ageSeconds / 3600)} hours ago`;
+}
+
 function buildSummary(
   risk: IncidentAssessment["risk"],
   confidence: IncidentAssessment["confidence"]["level"],
@@ -262,6 +300,7 @@ function buildSummary(
   action: string,
   evidence: Evidence[],
   source: "real" | "mock",
+  activity?: ObservedActivityNote,
 ): string {
   const top = evidence
     .filter((e) => e.status !== "ok")
@@ -272,10 +311,20 @@ function buildSummary(
     source === "mock"
       ? " NOTE: the physical reading is simulated, so this assessment is illustrative only."
       : "";
+  // Placed after the evidence and labelled "not scored" in the same breath.
+  // The model is instructed to relay this paragraph verbatim, so an unlabelled
+  // sentence here would be read out as though it had contributed to the risk
+  // number -- which is precisely the kind of claim this project does not make.
+  const observed = activity
+    ? ` Also observed (not scored): the board's own model inferred "${activity.humanized}"` +
+      (activity.ageSeconds !== undefined ? ` ${agoPhrase(activity.ageSeconds)}` : "") +
+      "."
+    : "";
   return (
     `Risk ${risk.level.toUpperCase()} (${risk.score}/100), confidence ${confidence}. ` +
     `${likelyCause}` +
     (top ? ` Evidence: ${top}.` : "") +
+    observed +
     ` Recommended: ${action}${caveat}`
   );
 }

@@ -1,10 +1,10 @@
 import { UnoQClient, type UnoQExec } from "./unoq-client.js";
-import { readSensorLogReading } from "./file-source.js";
+import { readSensorLogReading, readLatestActivity } from "./file-source.js";
 import { generateMockEnvironmentalReading } from "./mock-environmental.js";
 import { withTimeout } from "../common/timeout.js";
 import { statusForValue, worstStatus } from "../common/alerts.js";
 import { ENVIRONMENTAL_THRESHOLDS } from "../common/thresholds.js";
-import type { EnvironmentalReading, EnvironmentalResult } from "./types.js";
+import type { EnvironmentalReading, EnvironmentalResult, ObservedActivity } from "./types.js";
 import { envPositive } from "../common/env.js";
 
 export interface GetEnvironmentalOptions {
@@ -24,6 +24,32 @@ export function statusForReading(reading: EnvironmentalReading): EnvironmentalRe
     statusForValue(reading.temperatureC, ENVIRONMENTAL_THRESHOLDS.temperatureC, "high"),
     statusForValue(reading.humidityPct, ENVIRONMENTAL_THRESHOLDS.humidityPct, "high"),
   );
+}
+
+/**
+ * Newest on-device activity inference, stamped with its age at read time.
+ *
+ * Never throws and never blocks a reading: `readLatestActivity` already
+ * swallows every file error, and an unparseable timestamp yields an activity
+ * with no age rather than no activity at all. A sensor reading must not fail
+ * because the board's narration of it did.
+ */
+async function readObservedActivity(
+  path: string,
+  generatedAt: string,
+): Promise<ObservedActivity | undefined> {
+  const latest = await readLatestActivity(path);
+  if (!latest) return undefined;
+  const at = Date.parse(latest.at);
+  const ageSeconds = Number.isNaN(at)
+    ? undefined
+    : Math.max(0, Math.round((Date.parse(generatedAt) - at) / 1000));
+  return {
+    activity: latest.activity,
+    ...(latest.trigger ? { trigger: latest.trigger } : {}),
+    at: latest.at,
+    ...(ageSeconds !== undefined ? { ageSeconds } : {}),
+  };
 }
 
 /**
@@ -48,6 +74,13 @@ export async function getEnvironmentalReading(opts: GetEnvironmentalOptions = {}
       // 5-second-old reading and a 5-minute-old one very differently, and it can
       // only do that if the age survives this boundary. It used to be dropped here.
       const { ageSeconds, lastEventAt, lastEvent } = fileResult.reading;
+      // Same file, second scan: activity lines are edge-triggered and can be
+      // much older than the newest sensor tick, so they cannot be recovered
+      // from the reading above. Deliberately not gated on staleness -- an
+      // inference from four minutes ago is still the last thing the board
+      // concluded, and hiding it would tell the agent nothing had happened.
+      // Its age travels with it so the caller can weigh that itself.
+      const activity = await readObservedActivity(sensorLogPath, generatedAt);
       return {
         ...reading,
         status: statusForReading(reading),
@@ -56,6 +89,7 @@ export async function getEnvironmentalReading(opts: GetEnvironmentalOptions = {}
         ageSeconds,
         lastEventAt,
         lastEvent,
+        ...(activity ? { activity } : {}),
         generatedAt,
       };
     }

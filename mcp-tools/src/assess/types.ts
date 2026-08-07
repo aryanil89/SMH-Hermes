@@ -1,4 +1,5 @@
 import type { Status } from "../common/types.js";
+import type { ObservedActivity } from "../environmental/types.js";
 
 /**
  * Independent signal families. Scoring is per-family on purpose: a single root
@@ -70,6 +71,20 @@ export interface IncidentAssessment {
   likelyCause: string;
   recommendedAction: string;
   provenance: Provenance;
+  /**
+   * What the board's own model last inferred was happening in the room, if
+   * anything (docs/ONDEVICE_ACTIVITY.md). Reported, never scored -- it is a
+   * qualitative inference from a 1.5B model, not a threshold crossing, and
+   * folding it into `evidence` would put points on the board, pull `physical`
+   * into `familiesInvolved`, and move the correlation bonus. The risk number
+   * has to stay reproducible from measurements alone.
+   */
+  observedActivity?: ObservedActivityNote;
   /** One-paragraph brief the model can relay verbatim. */
   summary: string;
+}
+
+export interface ObservedActivityNote extends ObservedActivity {
+  /** Display form, e.g. "Person entered room". */
+  humanized: string;
 }

@@ -199,6 +199,35 @@ fresh activity line into the Telegram alert text (`alert-skill/tick.ts`).
 `npm test` in `mcp-tools/` (327/327 then, 333/333 with the activity tests)
 confirmed no regression.
 
+**And since 2026-08-07, the agent itself.** Until then the consumer list was
+the wall and the watchdog — both *push* surfaces. Ask the agent a question and
+it knew only the temperature, so the wall could be showing "person entered
+room" while the agent, asked about that same moment, could not mention it.
+`getEnvironmentalReading` now carries the newest inference on the reading
+(`environmental/source.ts`, field `activity`, real file path only) and
+`get_incident_assessment` reports it as `observedActivity` plus one sentence
+in `summary`.
+
+Three properties that are load-bearing, not incidental:
+
+1. **It is never scored.** The sentence is built *after* `scoreRisk` and
+   `assessConfidence` have already run over `evidence`, and it never touches
+   that array — so it is structurally incapable of moving the risk number,
+   pulling `physical` into `familiesInvolved`, or shifting the correlation
+   bonus. Risk stays a reproducible function of measurements; a 1.5B model's
+   guess about a room is not a measurement. A test asserts the whole verdict
+   is bit-for-bit identical with and without an activity present.
+2. **It says so out loud.** The summary reads `Also observed (not scored):
+   ...`, placed after the measured evidence. The agent is instructed to relay
+   `summary` verbatim, so a disclaimer anywhere else would be one the on-call
+   never hears.
+3. **It is not staleness-gated, and carries its age.** A sensor line older
+   than `UNOQ_LOG_MAX_AGE_S` is untrustworthy because it samples a value that
+   has since moved; an activity line is an *event*, and "someone entered the
+   room four minutes ago" is still the last thing the board concluded.
+   Suppressing it would tell the agent nothing had happened. The age travels
+   with it, phrased for a person ("30 minutes ago", not "1731s").
+
 ## Testing
 
 - `python3 uno-q/hermes-sensor-logger/python/test_activity.py` — pure-Python
