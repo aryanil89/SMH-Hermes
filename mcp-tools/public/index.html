@@ -278,9 +278,11 @@
                     <td>
                       Qwen3-4B-Instruct-2507 Q4_0 on the laptop's X Elite NPU via GenieX — measured,
                       serving the agent. Same model measured on the phone's 8 Elite NPU:
-                      1,918 tok/s prefill via <code>adb</code> (different quant/context, labeled)
+                      1,918 tok/s prefill via <code>adb</code> (different quant/context, labeled).
+                      Failover brain live: a dead GenieX routes the question to the phone NPU,
+                      answer labeled degraded, 12s end-to-end
                     </td>
-                    <td>On-phone serving, "failover brain" demo beat</td>
+                    <td>On-phone serving (persistent endpoint)</td>
                   </tr>
                   <tr>
                     <td>On-device inference</td>
@@ -306,9 +308,10 @@
                     <td>Phone's role</td>
                     <td>
                       Approval terminal + Telegram client + challenge notification (text only) +
-                      measured on-phone NPU benchmark
+                      measured on-phone NPU benchmark + failover brain (GenieX down → the phone's
+                      8 Elite answers, labeled degraded — compute failover, not offline)
                     </td>
-                    <td>On-phone serving, "failover brain" demo beat</td>
+                    <td>On-phone serving (persistent endpoint)</td>
                   </tr>
                   <tr>
                     <td>Energy</td>

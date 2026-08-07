@@ -461,8 +461,11 @@ suppression path silently degrades if the dashboard is not writing `access.json`
       WiFi) **with `ACCESS_SHARED_SECRET` set** — `demo-face-ON.ps1 -Secret <value>` does
       both — and the phone opens `…/phone.html?secret=<value>`. Off-loopback with no secret,
       enrol/approve are open to the venue network; the startup banner warns, listen to it.
-- [ ] Gateway: `hermes gateway status` — running, telegram connected — and the ack hook is
-      loaded (`Select-String "Loaded hook 'ack'" ...gateway-stdio.log`, §3).
+- [ ] Gateway: `hermes gateway status` — running, telegram connected — and both hooks are
+      loaded (`Select-String "Loaded hook" ...gateway-stdio.log`, §3): `ack`, then `failover`.
+- [ ] Failover phone (if the beat is scheduled): `adb devices` shows `device` — USB debugging
+      on, Samsung **Auto Blocker OFF** (it silently re-blocks after some updates), cable seated.
+      `python hermes-hooks\failover\handler.py --probe` should say UP right now.
 
 **T-15 min — the two live round-trips**
 
@@ -472,6 +475,13 @@ suppression path silently degrades if the dashboard is not writing `access.json`
       re-verify. Decide this now, not on stage.
 - [ ] **Sensor edge to phone**: press and release button C on the board; expect the alert
       within ~15–30s and a one-time recovery push after release.
+- [ ] **Failover rehearsal (if the beat is scheduled)** — the third round-trip:
+      `demo-failover-ON.ps1` (disables the supervisor: a killed GenieX now STAYS dead), then
+      `Get-Process geniex | Stop-Process -Force` (teardown takes a few seconds — re-check with
+      `handler.py --probe`, expect DOWN/exit 2), then a real Telegram question. Expect the
+      canned receipt in ~2s, the 📱-labeled phone answer in ~15s on both the phone and the
+      wall, then silence — the doomed gateway turn dies quietly, which is §3's documented
+      behavior. `demo-failover-OFF.ps1` restores; the next completion pays the model reload.
 
 **T-5 min — stage state**
 
@@ -480,6 +490,9 @@ suppression path silently degrades if the dashboard is not writing `access.json`
       ([llm-serving-bench/RESULTS.md](../llm-serving-bench/RESULTS.md) § Session token budget).
 - [ ] Warm the model: one throwaway message now. `--keepalive 3600` holds it after that;
       the first question on a cold model pays reload + prefill (§2).
+- [ ] Failover works-check (if the beat is scheduled):
+      `python hermes-hooks\failover\handler.py --try "warm rep"` — ~10s, prints the answer,
+      sends nothing. Confirms cable, bundle and phone thermal state minutes before stage.
 - [ ] Keep demo questions **one tool call each** — prefer `get_incident_assessment`; each
       extra call is a full re-prefill (§6).
 - [ ] Face rung per the consent decision: `demo-face-ON.ps1` with enrolled consenting

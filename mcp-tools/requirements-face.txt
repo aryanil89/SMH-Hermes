@@ -1,0 +1,17 @@
+# Python dependencies for the optional face-cpu identity rung
+# (scripts/face_vision.py, face_common.py, enroll.py). Python 3.11.
+#
+# Pinned to the exact versions the rung was built and calibrated with -- the
+# measured 0.43 match threshold (docs/EVIDENCE.md) was established under these.
+#
+#   python -m venv .venv-face
+#   .venv-face\Scripts\pip install -r mcp-tools\requirements-face.txt
+#
+# The InsightFace buffalo_s ONNX models are NOT installed by pip and NOT in this
+# repo (non-commercial research license -- never redistributed): fetch and
+# SHA256-verify them per README "Face recognition (face-cpu)". Without them, and
+# without this venv, the default ACCESS_IDENTITY_METHOD=stub keeps working.
+numpy==2.5.1
+onnxruntime==1.28.0
+pillow==12.3.0
+scikit-image==0.26.0

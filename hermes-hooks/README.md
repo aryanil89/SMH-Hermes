@@ -153,3 +153,102 @@ without bound.
   and the turn then fails with `model provider failed after retries`. The receipt narrows *"did it
   hear me?"* to *"it heard me and could not answer"* — which is the question that was actually
   unanswerable before.
+
+---
+
+## `failover` — when the laptop brain dies, the phone answers
+
+The ack hook's last known limit ends *"it heard me and could not answer."* This hook exists to
+delete that sentence when the reason is a dead GenieX: the question is answered anyway, by the
+**second Hexagon NPU in the room** — the Samsung S25 Ultra's Snapdragon 8 Elite, over `adb`,
+using the same `qualcomm/Qwen3-4B-Instruct-2507` model family the laptop serves (the phone runs
+the AI Hub w4a16 Genie bundle; every config difference is tabled in
+[`../llm-serving-bench/RESULTS.md`](../llm-serving-bench/RESULTS.md)).
+
+```
+> what should I check first if rack B1 runs hot?
+  Got it — the model server is down, so this may take a little longer.   (~2 s, ack, canned)
+  📱 phone-NPU failover — degraded mode, no tools:                        (~15 s)
+  In degraded failover mode I cannot read live telemetry, so I cannot
+  confirm current temperatures. Check fan operation and airflow first…
+```
+
+Hooks fire in `sorted()` directory order — `ack` < `failover` — so the receipt always precedes
+the failover answer. The directory name is load-bearing.
+
+### Down means *refused*, not slow — and never an HTTP probe
+
+The repo rule stands: **never probe GenieX over HTTP** (654 µs idle vs 1m42s queued behind one
+completion — README troubleshooting table). The probe here is a single stdlib TCP connect to the
+host:port from `config.yaml`'s `model.base_url`:
+
+- **connection refused → down.** Only a dead process refuses its own port.
+- **anything else → up.** Accepted, timeout, odd socket error — a busy or wedged-but-alive
+  GenieX still owns its listener, and a false failover during a long prefill would be worse
+  than no failover.
+
+One Windows-specific number worth keeping: a refused loopback connect takes **~2.03 s to
+surface** (measured — Windows retransmits the SYN before giving up), so the probe timeout is
+3 s. A shorter timeout turns "refused" into "timeout", which reads as UP, and the failover
+would never engage. Healthy-path cost is unchanged: one ~1 ms connect per Telegram message.
+
+### The phone path, honestly labeled
+
+Prompt file (UTF-8, LF — never `-p`: adb's quoting layers shred a multiline prompt into argv,
+learned during the benchmark) → `adb push` → `failover.sh` on the phone → `genie-t2t-run`
+against the staged bundle → parse `[BEGIN]:…[END]` → deliver to **both** surfaces via the
+existing plumbing: Telegram Bot API (HTML, one plain retry on a 400) and the wall's
+`POST /api/telegram` intake (`kind: "system"`, `x-access-secret` header iff
+`ACCESS_SHARED_SECRET` is set). Either surface failing is logged and never blocks the other.
+
+Every answer is prefixed `📱 phone-NPU failover — degraded mode, no tools:` and the system
+prompt forbids invented readings — same fabrication rule the ack hook enforces, because a
+confident fake "rack B1 is fine" from a phone would be worse than silence. Measured warm
+round-trip: **~10 s** (prefill 1,918 tok/s, decode 23.1 tok/s on the phone — RESULTS.md).
+
+Every failure sends an equally labeled, equally honest line instead — *phone not connected /
+unauthorized / bundle missing / genie exited N / timed out* — because silence is exactly what
+this hook replaces. An `asyncio.Lock` serializes phone runs: two concurrent questions must not
+start two genie processes on a 12 GB phone; the second waits, then runs.
+
+### What it does NOT claim
+
+- **Not an offline mode.** Telegram still needs internet; the wall still needs the laptop. This
+  is *compute* failover — the reasoning moves to the phone's NPU — not connectivity failover.
+- **One-shot, no tools.** No sensor reads, no incident state, ctx 4096. It answers what can be
+  answered from general knowledge and says so.
+- **The doomed turn still dies.** The gateway's own turn then times out against the dead server
+  (`model provider failed after retries`) and is discarded quietly — documented behavior this
+  hook layers on top of, not a bug it introduces.
+- **The demo beat needs the supervisor disabled.** `geniex-supervisor.ps1` resurrects a dead
+  GenieX within ~15 s — by design. `scripts\demo-failover-ON.ps1` stops **and disables** its
+  Scheduled Task (plus any manually started loops) and preflights the phone;
+  `scripts\demo-failover-OFF.ps1` restores it. Without arming, a killed GenieX races the
+  supervisor and usually loses.
+
+### Configuration
+
+All optional — defaults are the demo configuration. Set in `%LOCALAPPDATA%\hermes\.env`
+(template: [`hermes.env.example`](../hermes.env.example)) and restart the gateway.
+
+| Variable | Default | |
+|---|---|---|
+| `HERMES_FAILOVER` | `1` | `0` disarms without uninstalling |
+| `HERMES_FAILOVER_ADB` | winget scrcpy adb, else `adb` on PATH | |
+| `HERMES_FAILOVER_TIMEOUT` | `90` | seconds; past it an honest failure line is sent |
+| `HERMES_FAILOVER_PROBE` | `model.base_url` host:port, else `127.0.0.1:18181` | override rarely |
+
+Phone prerequisites (demo dependencies through Friday): bundle staged at
+`/data/local/tmp/hermes-npu-bench`, USB debugging **on**, Samsung Auto Blocker **off**.
+
+### Checking it without killing anything
+
+```powershell
+$py = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe"
+& $py hermes-hooks\failover\handler.py --selftest              # offline: 41 checks, exit 0/1
+& $py hermes-hooks\failover\handler.py --probe                 # one TCP probe: UP=0, DOWN=2
+& $py hermes-hooks\failover\handler.py --try "is rack B1 hot?" # real phone round-trip, print-only
+```
+
+`--try` runs the full production path (prompt file → adb → genie → parse) without sending a
+message anywhere, so it doubles as the pre-demo warm rep and the phone-staging check.

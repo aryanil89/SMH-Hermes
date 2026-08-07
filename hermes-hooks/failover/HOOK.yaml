@@ -1,0 +1,11 @@
+name: failover
+description: >-
+  When the laptop's GenieX server is down (a TCP connect to its port is
+  refused), answers the inbound Telegram question from the Samsung S25
+  Ultra's Snapdragon 8 Elite NPU over adb (one-shot genie-t2t-run, no tools,
+  ctx 4096), clearly labeled as a degraded failover answer and delivered to
+  both Telegram and the wall dashboard. NOTE the directory name is
+  load-bearing -- hooks fire in sorted order, "ack" < "failover", so the
+  receipt always precedes the failover answer.
+events:
+  - agent:start

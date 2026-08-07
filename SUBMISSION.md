@@ -21,6 +21,12 @@ must demo to be eligible for a prize.**
     rung is optional and **off by default** (`ACCESS_IDENTITY_METHOD=stub`).
 - [x] **Personal GitHub repository, public** — verified 2026-08-06:
   `gh repo view aryanil89/SMH-Hermes` reports `"visibility": "PUBLIC"`.
+  - Two synced mirrors exist, both verified public: **submit
+    `https://github.com/aryanil89/SMH-Hermes`** on the form; `chrisxgould/SMH-Hermes`
+    is the mirror teammates pull from, kept identical via PRs (#23, #24). Before
+    submitting, confirm the chosen URL holds the final commit:
+    `git ls-remote https://github.com/aryanil89/SMH-Hermes.git main` must match local
+    `git rev-parse main`.
 - **README contents** (all four are required):
   - [x] Application description — [README.md](README.md) intro.
   - [x] Names and emails of ALL team members — README team table: Indranil Acharya,
@@ -71,10 +77,10 @@ must demo to be eligible for a prize.**
 
 | Criterion | Where the evidence lives |
 |---|---|
-| Technical Implementation (40) — resource utilization, optimization, latency, energy | [docs/EVIDENCE.md](docs/EVIDENCE.md) — the one-stop index: NPU 382 tok/s vs CPU 35 prefill, 471 J/query NPU vs ~8.7× CPU energy/token, per-op Hexagon profiling, prompt-composition optimization, and the same model measured on a **second Hexagon NPU** (S25 Ultra 8 Elite: 1,918 tok/s prefill / 23.1 decode, w4a16 via `genie-t2t-run` over `adb` — labeled as a different config) |
+| Technical Implementation (40) — resource utilization, optimization, latency, energy | [docs/EVIDENCE.md](docs/EVIDENCE.md) — the one-stop index: NPU 382 tok/s vs CPU 35 prefill, 471 J/query NPU vs ~8.7× CPU energy/token, per-op Hexagon profiling, prompt-composition optimization, and the same model measured on a **second Hexagon NPU** (S25 Ultra 8 Elite: 1,918 tok/s prefill / 23.1 decode, w4a16 via `genie-t2t-run` over `adb` — labeled as a different config), now wired in as a live-verified **compute failover**: dead GenieX → the phone NPU answers in ~12 s, labeled degraded |
 | Use-Case and Innovation (25) | README intro + [docs/POSITIONING.md](docs/POSITIONING.md); the access sentry (presence → face-cpu → human approval → audit trail; known responder suppresses the page) |
 | Deployment and Accessibility (20) | [README § Judge quickstart](README.md#judge-quickstart--three-rungs-pick-your-hardware) — rung 1 runs on any Node 22+ machine in ~5 min |
-| Presentation and Documentation (15) | Candid built-vs-planned line ([README § Today vs. planned](README.md#today-vs-planned)), 327 passing tests, [docs/RUNBOOK.md](docs/RUNBOOK.md), troubleshooting tables from real incidents |
+| Presentation and Documentation (15) | [docs/JUDGE_GUIDE.md](docs/JUDGE_GUIDE.md) — the five-minute judge path (demo beats, real-vs-simulated, all measured numbers); candid built-vs-planned line ([README § Today vs. planned](README.md#today-vs-planned)), 327 passing tests, [docs/RUNBOOK.md](docs/RUNBOOK.md), troubleshooting tables from real incidents |
 
 ## Open decisions before the demo (not submission blockers, but demo blockers)
 

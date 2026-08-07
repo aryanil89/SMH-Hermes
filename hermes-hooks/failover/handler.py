@@ -1,0 +1,770 @@
+"""Failover hook: when the laptop's GenieX is down, answer from the phone's NPU.
+
+The gateway's `agent:start` event fires for every inbound Telegram message. This
+hook probes GenieX with a single stdlib TCP connect (NEVER an HTTP request --
+RUNBOOK "do not probe GenieX over HTTP": an idle server answers in microseconds
+but a mid-prefill server queues the probe for minutes). Only a *refused*
+connection means down; a timeout or any other socket error is treated as UP,
+because a busy-but-alive GenieX must never trigger a false failover.
+
+When GenieX is confirmed down, the user's question is answered by the Samsung
+S25 Ultra's Snapdragon 8 Elite NPU over adb: build a ChatML prompt file (LF
+only, UTF-8), `adb push` it, run `failover.sh` (a thin wrapper over
+genie-t2t-run -- always --prompt_file, never -p: adb's quoting layers shred a
+multiline prompt into argv), and parse the `[BEGIN]:...[END]` markers from
+stdout. The answer goes to BOTH Telegram and the wall dashboard, loudly labeled
+as a degraded one-shot answer with no tools. Failures send an equally honest
+failure line -- silence is exactly what this hook exists to replace.
+
+Ordering note: hooks load and fire in sorted() directory order, so "ack" <
+"failover" guarantees the canned receipt reaches the user before the failover
+answer. The directory name is load-bearing.
+
+An asyncio.Lock serializes phone runs: two concurrent questions must not start
+two genie processes on a 12 GB phone. The doomed gateway turn still times out
+against the dead GenieX afterwards and dies quietly; that is the documented
+behavior this hook is layered on top of, not a bug it introduces.
+
+Env knobs (process env first, then HERMES_HOME/.env):
+  HERMES_FAILOVER          kill switch, default on ("0" disarms the hook)
+  HERMES_FAILOVER_ADB      adb binary (default: the winget scrcpy adb, else PATH)
+  HERMES_FAILOVER_TIMEOUT  phone answer budget in seconds, default 90
+  HERMES_FAILOVER_PROBE    probe target "host:port" override (else config.yaml
+                           model.base_url, else 127.0.0.1:18181)
+
+CLI:
+  python handler.py --selftest      offline checks, exit 0/1 (installer gate)
+  python handler.py --probe         one probe: UP -> exit 0, DOWN -> exit 2
+  python handler.py --try [words]   real phone round-trip, print-only, no sends
+"""
+from __future__ import annotations
+
+import asyncio
+import html
+import json
+import os
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+from urllib.parse import urlsplit
+
+_TRUTHY = {"1", "true", "yes", "on"}
+
+_PHONE_BASE = "/data/local/tmp/hermes-npu-bench"
+_PHONE_PROMPT = _PHONE_BASE + "/failover-prompt.txt"
+_PHONE_SCRIPT = _PHONE_BASE + "/failover.sh"
+_DSP_ARCH = "v79"  # SM8750; the bundle's htp_backend_ext_config.json agrees
+
+_DEFAULT_ADB = (
+    Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+    / "Microsoft" / "WinGet" / "Packages"
+    / "Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe"
+    / "scrcpy-win64-v3.3.2" / "adb.exe"
+)
+
+_DEFAULT_TIMEOUT_S = 90.0
+_PUSH_TIMEOUT_S = 15.0
+# Windows loopback needs ~2.03s (measured) to surface ECONNREFUSED -- it
+# retransmits the SYN before giving up. A shorter timeout turns "refused"
+# into "timeout", which this hook deliberately reads as UP, and the failover
+# would never engage. Healthy-path cost is unchanged (~1 ms connect).
+_PROBE_TIMEOUT_S = 3.0
+_SEND_TIMEOUT_S = 6.0
+_WALL_TIMEOUT_S = 4.0
+
+_MAX_QUESTION_CHARS = 1800  # ctx is 4096 on the phone; leave room to answer
+_MAX_ANSWER_CHARS = 3500    # Telegram hard limit is 4096 incl. label
+
+_WALL_URL = "http://127.0.0.1:7788/api/telegram"
+
+_LABEL_HTML = "\U0001F4F1 <b>phone-NPU failover</b> — degraded mode, no tools:\n"
+_LABEL_PLAIN = "\U0001F4F1 phone-NPU failover (degraded mode, no tools):\n"
+
+_SYSTEM_PROMPT = (
+    "You are Hermes, the ops assistant for a small datacenter demo rack. You are "
+    "answering in DEGRADED FAILOVER mode from a phone NPU because the main model "
+    "server on the laptop is down. In this mode you have NO tools and NO live "
+    "telemetry: you cannot read sensors, logs, or incident state, so never invent "
+    "a reading and never claim to have checked anything. Answer from general "
+    "knowledge, note the limitation when it matters, and keep it under 120 words."
+)
+
+
+class FailoverError(RuntimeError):
+    """An honest, user-showable reason the phone could not answer."""
+
+
+# --------------------------------------------------------------------------
+# env / config plumbing (same shape as the ack hook)
+
+def _hermes_home() -> Path:
+    override = os.environ.get("HERMES_HOME")
+    if override:
+        return Path(override)
+    return Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))) / "hermes"
+
+
+_dotenv_cache: dict | None = None
+
+
+def _dotenv() -> dict:
+    global _dotenv_cache
+    if _dotenv_cache is None:
+        vals: dict = {}
+        try:
+            for raw in (_hermes_home() / ".env").read_text(encoding="utf-8").splitlines():
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, val = line.partition("=")
+                vals[key.strip()] = val.strip().strip("'\"")
+        except OSError:
+            pass
+        _dotenv_cache = vals
+    return _dotenv_cache
+
+
+def _env(name: str, default: str = "") -> str:
+    val = os.environ.get(name)
+    if val is None or val.strip() == "":
+        val = _dotenv().get(name)
+    if val is None or str(val).strip() == "":
+        return default
+    return str(val).strip()
+
+
+def _flag(name: str, default: bool = False) -> bool:
+    raw = _env(name)
+    if raw == "":
+        return default
+    return raw.lower() in _TRUTHY
+
+
+def _float_env(name: str, default: float) -> float:
+    raw = _env(name)
+    try:
+        return float(raw) if raw else float(default)
+    except ValueError:
+        return float(default)
+
+
+def _bot_token() -> str:
+    return _env("TELEGRAM_BOT_TOKEN")
+
+
+def _adb() -> str:
+    override = _env("HERMES_FAILOVER_ADB")
+    if override:
+        return override
+    if _DEFAULT_ADB.exists():
+        return str(_DEFAULT_ADB)
+    return "adb"
+
+
+_probe_cache: tuple | None = None
+
+
+def _probe_target() -> tuple:
+    """(host, port) of GenieX. HERMES_FAILOVER_PROBE > config.yaml > default."""
+    global _probe_cache
+    if _probe_cache is not None:
+        return _probe_cache
+    override = _env("HERMES_FAILOVER_PROBE")
+    if override and ":" in override:
+        host, _, port = override.rpartition(":")
+        try:
+            _probe_cache = (host or "127.0.0.1", int(port))
+            return _probe_cache
+        except ValueError:
+            pass
+    host, port = "127.0.0.1", 18181
+    try:
+        # plain-text scan, not yaml.load: this file must stay stdlib-only
+        for raw in (_hermes_home() / "config.yaml").read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if line.startswith("base_url:"):
+                parts = urlsplit(line.split(":", 1)[1].strip().strip("'\""))
+                if parts.hostname:
+                    host = parts.hostname
+                    port = parts.port or (443 if parts.scheme == "https" else 18181)
+                break
+    except OSError:
+        pass
+    _probe_cache = (host, port)
+    return _probe_cache
+
+
+# --------------------------------------------------------------------------
+# down detection
+
+def _geniex_listening(host: str, port: int, timeout: float = _PROBE_TIMEOUT_S) -> bool:
+    """TCP connect. Refused => down. Timeout/anything else => treat as UP:
+    a wedged or mid-prefill GenieX still owns the port, and a false failover
+    is worse than no failover."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except ConnectionRefusedError:
+        return False
+    except OSError:
+        return True
+
+
+# --------------------------------------------------------------------------
+# phone path
+
+def _build_prompt(message: str) -> str:
+    msg = str(message).replace("\r", "").strip()
+    if len(msg) > _MAX_QUESTION_CHARS:
+        msg = msg[:_MAX_QUESTION_CHARS] + " ..."
+    return (
+        "<|im_start|>system\n" + _SYSTEM_PROMPT + "<|im_end|>\n"
+        "<|im_start|>user\n" + msg + "<|im_end|>\n"
+        "<|im_start|>assistant\n"
+    )
+
+
+def _run(argv: list, timeout: float) -> tuple:
+    """Subprocess seam (monkeypatched by --selftest). Returns (rc, out+err)."""
+    proc = subprocess.run(
+        argv, capture_output=True, text=True, encoding="utf-8",
+        errors="replace", timeout=timeout,
+    )
+    return proc.returncode, (proc.stdout or "") + (proc.stderr or "")
+
+
+def _extract_answer(output: str) -> str:
+    idx = output.find("[BEGIN]:")
+    if idx < 0:
+        return ""
+    seg = output[idx + len("[BEGIN]:"):]
+    end = seg.find("[END]")
+    truncated = end < 0
+    if truncated:
+        marker = seg.find("\n=== exit_code")
+        if marker >= 0:
+            seg = seg[:marker]
+    else:
+        seg = seg[:end]
+    text = seg.replace("\r", "").strip()
+    if not text:
+        return ""
+    if truncated:
+        text += " ..."
+    if len(text) > _MAX_ANSWER_CHARS:
+        text = text[:_MAX_ANSWER_CHARS] + " ..."
+    return text
+
+
+def _classify_adb(rc: int, output: str) -> str:
+    low = output.lower()
+    if "no devices/emulators found" in low or "device not found" in low:
+        return "phone not connected over USB"
+    if "unauthorized" in low:
+        return "phone unauthorized -- accept the USB-debugging prompt on it"
+    if "device offline" in low:
+        return "phone shows as offline to adb"
+    for line in output.splitlines():
+        if line.startswith("[FAILOVER-ERROR]"):
+            return line[len("[FAILOVER-ERROR]"):].strip()
+    return f"genie-t2t-run exited {rc} with no [BEGIN] marker"
+
+
+def _phone_answer(message: str, timeout_s: float) -> str:
+    """Blocking: prompt file -> adb push -> failover.sh -> parsed answer.
+    Raises FailoverError with an honest reason on every failure path."""
+    deadline = time.monotonic() + timeout_s
+    prompt = _build_prompt(message)
+    fd, tmp = tempfile.mkstemp(prefix="hermes-failover-", suffix=".txt")
+    try:
+        with os.fdopen(fd, "wb") as fh:  # binary write: LF stays LF on Windows
+            fh.write(prompt.encode("utf-8"))
+        try:
+            rc, out = _run([_adb(), "push", tmp, _PHONE_PROMPT], timeout=_PUSH_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            raise FailoverError("adb push timed out -- phone/USB stalled") from None
+        except FileNotFoundError:
+            raise FailoverError(f"adb not found at '{_adb()}'") from None
+        if rc != 0:
+            raise FailoverError(_classify_adb(rc, out))
+        remaining = max(5.0, deadline - time.monotonic())
+        try:
+            rc, out = _run(
+                [_adb(), "shell", f"sh {_PHONE_SCRIPT} {_PHONE_PROMPT} {_DSP_ARCH}"],
+                timeout=remaining,
+            )
+        except subprocess.TimeoutExpired:
+            raise FailoverError(f"phone did not answer within {int(timeout_s)}s") from None
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+    answer = _extract_answer(out)
+    if not answer:
+        raise FailoverError(_classify_adb(rc, out))
+    return answer
+
+
+# --------------------------------------------------------------------------
+# composing + delivery
+
+def _compose(answer: str) -> tuple:
+    """(telegram_html, plain). Plain doubles as the 400-fallback text and the
+    wall text."""
+    return _LABEL_HTML + html.escape(answer), _LABEL_PLAIN + answer
+
+
+def _compose_failure(reason: str) -> tuple:
+    line = (
+        "\U0001F4F1 phone-NPU failover failed — the laptop model server is "
+        "down and the phone could not answer: " + reason
+    )
+    return html.escape(line), line
+
+
+def _post_json(url: str, payload: dict, timeout: float, headers: dict | None = None):
+    data = json.dumps(payload).encode("utf-8")
+    hdrs = {"Content-Type": "application/json"}
+    if headers:
+        hdrs.update(headers)
+    req = urllib.request.Request(url, data=data, headers=hdrs, method="POST")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.status, resp.read()
+
+
+def _send_blocking(token: str, chat_id, html_text: str, plain_text: str,
+                   thread_id, chat_type) -> bool:
+    """Telegram sendMessage; HTML first, one plain retry on a 400 (same
+    contract the ack hook uses)."""
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": html_text, "parse_mode": "HTML"}
+    if chat_type == "forum" and thread_id not in (None, "", 0):
+        try:
+            payload["message_thread_id"] = int(thread_id)
+        except (TypeError, ValueError):
+            pass
+    try:
+        _post_json(url, payload, _SEND_TIMEOUT_S)
+        return True
+    except urllib.error.HTTPError as err:
+        if err.code != 400:
+            raise
+    _post_json(url, {"chat_id": chat_id, "text": plain_text}, _SEND_TIMEOUT_S)
+    return True
+
+
+def _wall_post(text: str) -> bool:
+    """POST to the wall dashboard's existing /api/telegram intake. Header-only
+    auth: x-access-secret iff ACCESS_SHARED_SECRET is set (server checks the
+    header only when it has a secret). Never raises."""
+    headers = {}
+    secret = _env("ACCESS_SHARED_SECRET")
+    if secret:
+        headers["x-access-secret"] = secret
+    try:
+        _post_json(
+            _WALL_URL,
+            {"direction": "outbound", "kind": "system", "text": text},
+            _WALL_TIMEOUT_S,
+            headers,
+        )
+        return True
+    except Exception as err:
+        print(f"[hooks:failover] wall post failed (ignored): {err!r}", flush=True)
+        return False
+
+
+# --------------------------------------------------------------------------
+# the hook
+
+_LOCK = asyncio.Lock()  # one genie process on the phone at a time
+
+
+async def _on_start(context: dict) -> None:
+    message = str(context.get("message") or "").strip()
+    chat_id = context.get("chat_id")
+    if not message or chat_id in (None, ""):
+        return
+    host, port = _probe_target()
+    if _geniex_listening(host, port):
+        return  # the healthy path: one ~1 ms connect, nothing else
+    print(
+        f"[hooks:failover] GenieX refused TCP on {host}:{port} -- engaging phone-NPU failover",
+        flush=True,
+    )
+    timeout_s = _float_env("HERMES_FAILOVER_TIMEOUT", _DEFAULT_TIMEOUT_S)
+    async with _LOCK:
+        started = time.perf_counter()
+        try:
+            answer = await asyncio.wait_for(
+                asyncio.to_thread(_phone_answer, message, timeout_s),
+                timeout=timeout_s + 15.0,
+            )
+        except FailoverError as err:
+            print(f"[hooks:failover] phone path failed: {err}", flush=True)
+            tg_html, plain = _compose_failure(str(err))
+        except Exception as err:
+            print(f"[hooks:failover] phone path failed: {err!r}", flush=True)
+            tg_html, plain = _compose_failure("unexpected error in the adb path")
+        else:
+            elapsed = time.perf_counter() - started
+            print(
+                f"[hooks:failover] phone answered in {elapsed:.1f}s ({len(answer)} chars)",
+                flush=True,
+            )
+            tg_html, plain = _compose(answer)
+    token = _bot_token()
+    sends = [asyncio.to_thread(_wall_post, plain)]
+    if token:
+        sends.append(asyncio.to_thread(
+            _send_blocking, token, chat_id, tg_html, plain,
+            context.get("thread_id"), context.get("chat_type"),
+        ))
+    else:
+        print("[hooks:failover] TELEGRAM_BOT_TOKEN unset -- wall only", flush=True)
+    for res in await asyncio.gather(*sends, return_exceptions=True):
+        if isinstance(res, Exception):
+            print(f"[hooks:failover] delivery failed (ignored): {res!r}", flush=True)
+
+
+async def handle(event_type: str, context: dict) -> None:
+    """Gateway entry point. Must never raise and must never block the loop:
+    the phone run happens on a worker thread behind wait_for."""
+    try:
+        if event_type != "agent:start":
+            return
+        if not _flag("HERMES_FAILOVER", default=True):
+            return
+        if not isinstance(context, dict) or context.get("platform") != "telegram":
+            return
+        await _on_start(context)
+    except Exception as err:
+        print(f"[hooks:failover] swallowed hook error: {err!r}", flush=True)
+
+
+# --------------------------------------------------------------------------
+# CLI: --selftest / --probe / --try
+
+def _selftest() -> int:  # noqa: C901 - deliberately one long linear script
+    mod = sys.modules[__name__]
+    failures: list = []
+    count = 0
+
+    def check(label: str, ok: bool) -> None:
+        nonlocal count
+        count += 1
+        print(("  ok   " if ok else "  FAIL ") + label)
+        if not ok:
+            failures.append(label)
+
+    # hermetic env: real .env / config.yaml must not leak into these checks
+    global _dotenv_cache, _probe_cache
+    saved_env = {
+        k: os.environ.get(k)
+        for k in ("HERMES_HOME", "HERMES_FAILOVER", "HERMES_FAILOVER_PROBE",
+                  "HERMES_FAILOVER_ADB", "ACCESS_SHARED_SECRET", "TELEGRAM_BOT_TOKEN")
+    }
+    tmp_home = tempfile.mkdtemp(prefix="hermes-failover-selftest-")
+    os.environ["HERMES_HOME"] = tmp_home
+    for key in list(saved_env)[1:]:
+        os.environ.pop(key, None)
+    _dotenv_cache = None
+    _probe_cache = None
+
+    real_run, real_post, real_listen = _run, _post_json, _geniex_listening
+    try:
+        # -- probe semantics on real sockets ------------------------------
+        srv = socket.socket()
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(1)
+        port = srv.getsockname()[1]
+        check("probe: listening socket reads as UP", _geniex_listening("127.0.0.1", port) is True)
+        srv.close()
+        check("probe: refused connect reads as DOWN", _geniex_listening("127.0.0.1", port) is False)
+        check("probe: default target is 127.0.0.1:18181 without config",
+              _probe_target() == ("127.0.0.1", 18181))
+        os.environ["HERMES_FAILOVER_PROBE"] = "127.0.0.1:19999"
+        _probe_cache = None
+        check("probe: HERMES_FAILOVER_PROBE override wins",
+              _probe_target() == ("127.0.0.1", 19999))
+        os.environ.pop("HERMES_FAILOVER_PROBE")
+        _probe_cache = None
+
+        # -- prompt build --------------------------------------------------
+        prompt = _build_prompt("is rack B1 hot?\r\n")
+        check("prompt: ChatML skeleton in order",
+              prompt.index("<|im_start|>system") < prompt.index("<|im_start|>user")
+              < prompt.index("<|im_start|>assistant"))
+        check("prompt: ends with open assistant turn", prompt.endswith("<|im_start|>assistant\n"))
+        check("prompt: question present, CR stripped",
+              "is rack B1 hot?" in prompt and "\r" not in prompt)
+        check("prompt: degraded-mode contract in system text",
+              "NO tools" in prompt and "FAILOVER" in prompt)
+        check("prompt: long question capped",
+              len(_build_prompt("x" * 9000)) < 9000)
+
+        # -- answer extraction --------------------------------------------
+        fixture = (
+            "Using libGenie.so version 1.17.0\n\n[INFO] \"Using create From Binary\"\n"
+            "[PROMPT]: ...\n\n[BEGIN]: Rack B1 runs hot when airflow is blocked.[END]\n"
+            "=== exit_code 0\n"
+        )
+        check("extract: happy path",
+              _extract_answer(fixture) == "Rack B1 runs hot when airflow is blocked.")
+        check("extract: missing [END] -> tail kept + ellipsis",
+              _extract_answer("[BEGIN]: partial answer\n=== exit_code 124\n") == "partial answer ...")
+        check("extract: no markers -> empty", _extract_answer("garbage\n=== exit_code 1") == "")
+        long_out = "[BEGIN]: " + ("y" * 5000) + "[END]"
+        check("extract: capped for Telegram",
+              len(_extract_answer(long_out)) <= _MAX_ANSWER_CHARS + 4)
+
+        # -- failure classification ----------------------------------------
+        check("classify: no device",
+              _classify_adb(1, "adb: error: ... no devices/emulators found")
+              == "phone not connected over USB")
+        check("classify: unauthorized",
+              "unauthorized" in _classify_adb(1, "error: device unauthorized."))
+        check("classify: [FAILOVER-ERROR] line surfaces verbatim",
+              _classify_adb(3, "[FAILOVER-ERROR] bundle missing at /data/local/tmp/x\n")
+              == "bundle missing at /data/local/tmp/x")
+        check("classify: fallback names the exit code",
+              _classify_adb(9, "???") == "genie-t2t-run exited 9 with no [BEGIN] marker")
+
+        # -- adb orchestration (monkeypatched _run) -------------------------
+        calls: list = []
+        pushed: dict = {}
+
+        def fake_run_ok(argv, timeout):
+            calls.append(argv)
+            if argv[1] == "push":
+                pushed["path"] = argv[2]
+                pushed["content"] = Path(argv[2]).read_bytes()
+                return 0, "1 file pushed"
+            return 0, "noise\n[BEGIN]: hi from the phone[END]\n=== exit_code 0\n"
+
+        mod._run = fake_run_ok
+        answer = _phone_answer("ping?", 30.0)
+        check("adb: happy path returns parsed answer", answer == "hi from the phone")
+        check("adb: push then shell, adb argv[0]",
+              len(calls) == 2 and calls[0][1] == "push" and calls[1][1] == "shell"
+              and calls[1][2] == f"sh {_PHONE_SCRIPT} {_PHONE_PROMPT} {_DSP_ARCH}")
+        check("adb: prompt file was LF-only UTF-8 ChatML",
+              b"<|im_start|>assistant\n" in pushed["content"] and b"\r" not in pushed["content"])
+        check("adb: temp prompt file cleaned up", not Path(pushed["path"]).exists())
+
+        def fake_run_nodev(argv, timeout):
+            return 1, "adb: error: failed to get feature set: no devices/emulators found"
+
+        mod._run = fake_run_nodev
+        try:
+            _phone_answer("q", 30.0)
+            check("adb: no-device raises FailoverError", False)
+        except FailoverError as err:
+            check("adb: no-device raises FailoverError", "not connected" in str(err))
+
+        def fake_run_timeout(argv, timeout):
+            if argv[1] == "push":
+                return 0, "ok"
+            raise subprocess.TimeoutExpired(cmd="adb", timeout=timeout)
+
+        mod._run = fake_run_timeout
+        try:
+            _phone_answer("q", 30.0)
+            check("adb: shell timeout raises FailoverError", False)
+        except FailoverError as err:
+            check("adb: shell timeout raises FailoverError", "within 30s" in str(err))
+
+        def fake_run_scripterr(argv, timeout):
+            if argv[1] == "push":
+                return 0, "ok"
+            return 3, "[FAILOVER-ERROR] bundle missing at /data/local/tmp/hermes-npu-bench/bundle\n"
+
+        mod._run = fake_run_scripterr
+        try:
+            _phone_answer("q", 30.0)
+            check("adb: script error surfaces reason", False)
+        except FailoverError as err:
+            check("adb: script error surfaces reason", "bundle missing" in str(err))
+        mod._run = real_run
+
+        # -- compose ---------------------------------------------------------
+        tg, plain = _compose("a<b & c")
+        check("compose: label + HTML escape",
+              tg.startswith(_LABEL_HTML) and "a&lt;b &amp; c" in tg)
+        check("compose: plain keeps raw text", plain == _LABEL_PLAIN + "a<b & c")
+        ftg, fplain = _compose_failure("phone not connected over USB")
+        check("compose: failure line is honest and labeled",
+              "failover failed" in fplain and "phone not connected" in fplain)
+
+        # -- telegram payload (monkeypatched _post_json) ----------------------
+        posts: list = []
+
+        def fake_post(url, payload, timeout, headers=None):
+            posts.append((url, payload, headers))
+            return 200, b"{}"
+
+        mod._post_json = fake_post
+        _send_blocking("TOK", "42", "<b>x</b>", "plain x", "7", "forum")
+        check("telegram: HTML payload with forum thread id",
+              posts[-1][1] == {"chat_id": "42", "text": "<b>x</b>", "parse_mode": "HTML",
+                               "message_thread_id": 7})
+        _send_blocking("TOK", "42", "<b>x</b>", "plain x", "7", "group")
+        check("telegram: non-forum omits thread id",
+              "message_thread_id" not in posts[-1][1])
+
+        flaky: list = []
+
+        def fake_post_400(url, payload, timeout, headers=None):
+            flaky.append(payload)
+            if len(flaky) == 1:
+                raise urllib.error.HTTPError(url, 400, "Bad Request", None, None)
+            return 200, b"{}"
+
+        mod._post_json = fake_post_400
+        _send_blocking("TOK", "42", "<b>x</b>", "plain x", None, "private")
+        check("telegram: 400 -> plain retry, no parse_mode",
+              flaky[1] == {"chat_id": "42", "text": "plain x"})
+
+        # -- wall payload -----------------------------------------------------
+        posts.clear()
+        mod._post_json = fake_post
+        _wall_post("wall text")
+        url, payload, headers = posts[-1]
+        check("wall: endpoint + payload shape",
+              url == _WALL_URL
+              and payload == {"direction": "outbound", "kind": "system", "text": "wall text"})
+        check("wall: no secret -> no auth header", not headers)
+        os.environ["ACCESS_SHARED_SECRET"] = "s3cret"
+        _wall_post("wall text")
+        check("wall: secret -> x-access-secret header only",
+              posts[-1][2] == {"x-access-secret": "s3cret"})
+        os.environ.pop("ACCESS_SHARED_SECRET")
+
+        def fake_post_boom(url, payload, timeout, headers=None):
+            raise OSError("wall is down")
+
+        mod._post_json = fake_post_boom
+        check("wall: failure swallowed, returns False", _wall_post("x") is False)
+        mod._post_json = real_post
+
+        # -- gating through handle() -----------------------------------------
+        def probe_must_not_run(host, port, timeout=_PROBE_TIMEOUT_S):
+            raise AssertionError("probe ran despite gate")
+
+        ctx = {"platform": "telegram", "chat_id": "42", "message": "q",
+               "thread_id": None, "chat_type": "private"}
+
+        os.environ["HERMES_FAILOVER"] = "0"
+        mod._geniex_listening = probe_must_not_run
+        asyncio.run(handle("agent:start", ctx))
+        check("gate: HERMES_FAILOVER=0 disarms", True)
+        os.environ.pop("HERMES_FAILOVER")
+
+        asyncio.run(handle("agent:start", {**ctx, "platform": "cli"}))
+        check("gate: non-telegram platform skipped", True)
+        asyncio.run(handle("agent:end", ctx))
+        check("gate: wrong event skipped", True)
+
+        def run_must_not_run(argv, timeout):
+            raise AssertionError("adb ran while GenieX was up")
+
+        mod._geniex_listening = lambda h, p, timeout=_PROBE_TIMEOUT_S: True
+        mod._run = run_must_not_run
+        asyncio.run(handle("agent:start", ctx))
+        check("gate: GenieX up -> no phone run", True)
+
+        # -- full offline pass through handle() -------------------------------
+        posts.clear()
+        mod._geniex_listening = lambda h, p, timeout=_PROBE_TIMEOUT_S: False
+        mod._run = fake_run_ok
+        mod._post_json = fake_post
+        os.environ["TELEGRAM_BOT_TOKEN"] = "TESTTOKEN"
+        asyncio.run(handle("agent:start", {**ctx, "message": "is rack B1 hot?"}))
+        wall_calls = [p for p in posts if p[0] == _WALL_URL]
+        tg_calls = [p for p in posts if "TESTTOKEN" in p[0]]
+        check("e2e: wall got the labeled plain answer",
+              len(wall_calls) == 1
+              and wall_calls[0][1]["text"] == _LABEL_PLAIN + "hi from the phone"
+              and wall_calls[0][1]["kind"] == "system")
+        check("e2e: telegram got the labeled HTML answer",
+              len(tg_calls) == 1
+              and tg_calls[0][1]["text"] == _LABEL_HTML + "hi from the phone"
+              and tg_calls[0][1]["parse_mode"] == "HTML")
+        os.environ.pop("TELEGRAM_BOT_TOKEN")
+
+        # failure path also delivers (no token -> wall only)
+        posts.clear()
+        mod._run = fake_run_nodev
+        asyncio.run(handle("agent:start", ctx))
+        check("e2e: phone failure still posts honest line to wall",
+              len(posts) == 1 and posts[0][0] == _WALL_URL
+              and "failover failed" in posts[0][1]["text"]
+              and "not connected" in posts[0][1]["text"])
+    except Exception as err:  # a crashed block is a failed selftest, loudly
+        import traceback
+        traceback.print_exc()
+        failures.append(f"selftest crashed: {err!r}")
+    finally:
+        mod._run = real_run
+        mod._post_json = real_post
+        mod._geniex_listening = real_listen
+        for key, val in saved_env.items():
+            if val is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = val
+        _dotenv_cache = None
+        _probe_cache = None
+
+    status = "PASS" if not failures else "FAIL"
+    print(f"[selftest] {status} ({count} checks, {len(failures)} failures)")
+    return 0 if not failures else 1
+
+
+def _probe_cli() -> int:
+    host, port = _probe_target()
+    up = _geniex_listening(host, port)
+    state = ("UP (listening -- failover stays dormant)" if up
+             else "DOWN (connection refused -- failover would engage)")
+    print(f"GenieX {host}:{port} -> {state}")
+    return 0 if up else 2
+
+
+def _try_cli(question: str) -> int:
+    host, port = _probe_target()
+    up = _geniex_listening(host, port)
+    print(f"[try] probe {host}:{port}: {'UP' if up else 'DOWN'} (ignored -- running the phone path anyway)")
+    print(f"[try] adb: {_adb()}")
+    timeout_s = _float_env("HERMES_FAILOVER_TIMEOUT", _DEFAULT_TIMEOUT_S)
+    started = time.perf_counter()
+    try:
+        answer = _phone_answer(question, timeout_s)
+    except FailoverError as err:
+        print(f"[try] FAILED after {time.perf_counter() - started:.1f}s: {err}")
+        return 1
+    print(f"[try] answered in {time.perf_counter() - started:.1f}s ({len(answer)} chars); no messages sent")
+    print()
+    print(_LABEL_PLAIN + answer)
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except Exception:
+        pass
+    if "--selftest" in sys.argv:
+        raise SystemExit(_selftest())
+    if "--probe" in sys.argv:
+        raise SystemExit(_probe_cli())
+    if "--try" in sys.argv:
+        idx = sys.argv.index("--try")
+        q = " ".join(sys.argv[idx + 1:]).strip() or "Say hello from the failover brain."
+        raise SystemExit(_try_cli(q))
+    print(__doc__)
