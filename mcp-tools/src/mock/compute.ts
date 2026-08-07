@@ -13,9 +13,20 @@ export interface ComputeNode {
   memPct: number;
   uptimeSec: number;
   serviceState: ServiceState;
-  /** Hardware clock throttling from ambient heat -- see common/thermal.ts. */
-  thermalThrottle: boolean;
+  /**
+   * Hardware clock throttling from ambient heat -- see common/thermal.ts.
+   * Optional because it is derived from the simulated rack's ambient
+   * temperature: the one real node (real/host-compute.ts) has no counter Node
+   * can read for this, and omits the field rather than claiming `false`.
+   */
+  thermalThrottle?: boolean;
   status: Status;
+  /**
+   * Where the numbers came from. Every node carries it so a reader never has
+   * to know which module produced a row -- an unlabelled real number sitting
+   * next to five invented ones invites trust in all six.
+   */
+  source?: "real" | "mock";
 }
 
 export interface ComputeReport {
@@ -89,5 +100,6 @@ function buildNode(rng: Rng, id: string, ambientC?: number): ComputeNode {
     uptimeSec,
     serviceState,
     thermalThrottle: throttle,
-    status };
+    status,
+    source: "mock" };
 }

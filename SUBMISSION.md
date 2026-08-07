@@ -42,7 +42,7 @@ must demo to be eligible for a prize.**
 - [x] **Runnable using the provided instructions** — verified three ways: end to end on
   the demo laptop; quickstart rung 1 on 2026-08-06 **from a fresh `git clone` in a clean
   directory** (`npm install` → `npm run build` → full suite passing — 327/327 at that
-  verification, 333/333 since the activity feature landed — and the environmental
+  verification, 361/361 today — and the environmental
   smoke command returned the documented honest-mock fallback with its reason string);
   and **independently by a team member on a second machine** (John's 2026-08-06 review
   ran install/build/test from his own clone — it also caught a test-order flake in
@@ -62,8 +62,8 @@ must demo to be eligible for a prize.**
 
 ## Recommended (optional per the deck — all present)
 
-- [x] **Tests and testing instructions** — `cd mcp-tools; npm test` → **29 files /
-  353 tests, all passing** (verified 2026-08-07). Full layer-by-layer procedure:
+- [x] **Tests and testing instructions** — `cd mcp-tools; npm test` → **30 files /
+  361 tests, all passing** (verified 2026-08-07). Full layer-by-layer procedure:
   [docs/E2E_TEST.md](docs/E2E_TEST.md).
 - [x] **Notes** — the [docs/](docs/) tree: architecture, runbook, watchdog, dashboard,
   positioning, workload placement, claims audit.
@@ -79,7 +79,7 @@ must demo to be eligible for a prize.**
 | Technical Implementation (40) — resource utilization, optimization, latency, energy | [docs/EVIDENCE.md](docs/EVIDENCE.md) — the one-stop index: NPU 382 tok/s vs CPU 35 prefill, 471 J/query NPU vs ~8.7× CPU energy/token, per-op Hexagon profiling, prompt-composition optimization, and the same model measured on a **second Hexagon NPU** (S25 Ultra 8 Elite: 1,918 tok/s prefill / 23.1 decode, w4a16 via `genie-t2t-run` over `adb` — labeled as a different config), now wired in as a live-verified **compute failover**: dead GenieX → the phone NPU answers in ~12 s, labeled degraded |
 | Use-Case and Innovation (25) | README intro + [docs/POSITIONING.md](docs/POSITIONING.md); the access sentry (presence → face-cpu → human approval → audit trail; known responder suppresses the page) |
 | Deployment and Accessibility (20) | [README § Quickstart](README.md#quickstart--three-rungs-pick-your-hardware) — rung 1 runs on any Node 22+ machine in ~5 min |
-| Presentation and Documentation (15) | [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md) — the five-minute demo path (demo beats, real-vs-simulated, all measured numbers); candid built-vs-planned line ([README § Today vs. planned](README.md#today-vs-planned)), 333 passing tests, [docs/RUNBOOK.md](docs/RUNBOOK.md), troubleshooting tables from real incidents |
+| Presentation and Documentation (15) | [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md) — the five-minute demo path (demo beats, real-vs-simulated, all measured numbers); candid built-vs-planned line ([README § Today vs. planned](README.md#today-vs-planned)), 361 passing tests, [docs/RUNBOOK.md](docs/RUNBOOK.md), troubleshooting tables from real incidents |
 
 ## Open decisions before the demo (not submission blockers, but demo blockers)
 

@@ -8,7 +8,7 @@ categories, not tied to any specific tool like CI/CD:
 |---|---|
 | Network | Simulated — **deliberately uncoupled** from temperature (the control family) |
 | Storage | Simulated, **thermally coupled** to the real rack temperature |
-| Server / compute | Simulated, throttles above the real onset temperature |
+| Server / compute | Six simulated rack nodes (throttling above the real onset temperature) **plus `host-01`, which is real** — this laptop's CPU/memory/uptime via Node `os`. Every node carries `source: "real" \| "mock"` |
 | Environmental / physical | **Real** — Arduino UNO Q sensor, see [../uno-q](../uno-q) |
 | **Incident assessment** | Derived — correlates all four into one verdict (risk + confidence + evidence) |
 
@@ -46,6 +46,12 @@ mock/real split.
   Hermes launches.
 - Realistic mocks for network/storage/compute: rack topology, degraded-link probabilities, and
   threshold logic in [src/common/thresholds.ts](src/common/thresholds.ts).
+- One genuinely real infrastructure reading behind the same seam —
+  [src/real/host-compute.ts](src/real/host-compute.ts) reports this machine's CPU (sampled over a
+  200 ms interval, because `os.cpus()` counters are cumulative since boot and `os.loadavg()` is
+  `[0,0,0]` on Windows), memory and uptime as node `host-01`. It declines to report rather than
+  fabricate: an unreadable counter returns `undefined` and the fleet is simply all-simulated, and
+  `thermalThrottle` is **absent** rather than `false` because nothing here can measure it.
 - Edge-triggered alert logic with cooldown and recovery —
   [src/alert-skill/decide-alert.ts](src/alert-skill/decide-alert.ts).
 - The proactive watchdog: [cron/environmental-watch.py](cron/environmental-watch.py) (production,
@@ -55,7 +61,7 @@ mock/real split.
   dependency-free page in [public/](public/). `npm run start:dashboard` →
   `http://127.0.0.1:7788`. Full reference: [../docs/DASHBOARD.md](../docs/DASHBOARD.md).
 
-Run the tests with `npm test` (353 tests).
+Run the tests with `npm test` (361 tests).
 
 ### Thermal coupling — why the correlation is real
 

@@ -3,7 +3,7 @@ Project Hermes — Snapdragon Multiverse Hackathon 2026
 
 <!-- keep the tests badge in sync with the npm test count -->
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-333%20passing-brightgreen)](mcp-tools/#status)
+[![Tests](https://img.shields.io/badge/tests-361%20passing-brightgreen)](mcp-tools/#status)
 [![Node](https://img.shields.io/badge/node-%E2%89%A5%2022-339933)](README.md#quickstart--three-rungs-pick-your-hardware)
 [![Inference](https://img.shields.io/badge/inference-Hexagon%20NPU%2C%20on--device-E62E2E)](docs/EVIDENCE.md)
 
@@ -50,11 +50,19 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 | John Koch | `ghostboarder193@gmail.com` |
 
 
-> **Disclosure:** network, storage and compute telemetry are **simulated** with realistic data
-> patterns; the environmental path is **live** from an Arduino UNO Q. The MCP adapters are the seam —
-> the same tools can be pointed at real DCIM/BMS/SNMP without touching the reasoning layer. We
-> measured the simulator's own false-positive rate and recalibrated it — see
+> **Disclosure:** network and storage telemetry are **simulated** with realistic data patterns, as
+> is the six-node compute *rack*; the environmental path is **live** from an Arduino UNO Q, and one
+> compute node is live too — `host-01` in `get_compute_status` is this laptop's real CPU, memory and
+> uptime, read via Node's `os` and reported with its actual processor name (`Snapdragon(R) X Elite -
+> X1E80100`). **Every compute node carries a `source` field of `real` or `mock`**, because one
+> unlabelled real number sitting beside five invented ones is worse than no real number at all. The
+> MCP adapters are the seam — the same tools can be pointed at real DCIM/BMS/SNMP without touching
+> the reasoning layer. We measured the simulator's own false-positive rate and recalibrated it — see
 > [docs/REVIEW_3_2026-08-04.md](docs/REVIEW_3_2026-08-04.md) §2.
+>
+> `get_incident_assessment` deliberately scores the **simulated** fleet only: its risk number has to
+> be reproducible for a given seed, and a live CPU reading would make the same question return a
+> different score each time it is asked.
 >
 > **On identity:** automated identity match is live — `face-cpu` (InsightFace **buffalo_s**:
 > SCRFD-500MF detector + ArcFace MobileFaceNet recognizer, both ONNX, CPU-only via onnxruntime) —
@@ -104,7 +112,7 @@ higher rungs need specific hardware. Every step says what "worked" looks like.
 cd mcp-tools
 npm install
 npm run build
-npm test                       # expect: Test Files 29 passed (29), Tests 333 passed (333)
+npm test                       # expect: Test Files 30 passed (30), Tests 361 passed (361)
 npm run start:dashboard        # then open http://127.0.0.1:7788
 ```
 
@@ -136,7 +144,7 @@ state machine.
 **Benchmark evidence:** [docs/EVIDENCE.md](docs/EVIDENCE.md) indexes every measured claim —
 NPU vs CPU throughput ([llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md)),
 joules-per-query, per-op Hexagon profiling ([docs/BENCHMARKS.md](docs/BENCHMARKS.md)).
-Test suite: **29 files / 353 tests, all passing** (verified 2026-08-07).
+Test suite: **30 files / 361 tests, all passing** (verified 2026-08-07).
 
 ## Run it yourself — the whole flow, in start order
 
@@ -186,7 +194,7 @@ for anywhere else.
 & "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" ls          # expect the Q4_0 precision listed
 
 # 2. MCP tool servers
-cd mcp-tools; npm install; npm run build; npm test      # expect 333/333 passing
+cd mcp-tools; npm install; npm run build; npm test      # expect 361/361 passing
 cd ..
 
 # 3. Hermes Agent — install.ps1 comes from the hermes-agent release page

@@ -27,8 +27,8 @@ approval gate still holds; phone unreachable → the wall's approval panel does 
 
 | Status | What |
 |---|---|
-| **Real, measured** | NPU LLM serving (GenieX), energy/latency benchmarks, environmental sensors (UNO Q push log), face-cpu identity, access flow + audit trail, 15 s watchdog, phone-NPU failover, on-board activity inference (SmolLM2-135M running **on the UNO Q itself**, surfaced on the wall and folded into Telegram alerts) |
-| **Simulated, labeled** | Network / storage / compute telemetry (mock MCP servers; the assessment sets `simulatedInputs: true` and the wall says so) |
+| **Real, measured** | NPU LLM serving (GenieX), energy/latency benchmarks, environmental sensors (UNO Q push log), face-cpu identity, access flow + audit trail, 15 s watchdog, phone-NPU failover, on-board activity inference (SmolLM2-135M running **on the UNO Q itself**, surfaced on the wall, folded into Telegram alerts, and — since 2026-08-07 — reported by the agent itself in `get_incident_assessment`), and **this laptop's own CPU/memory/uptime** as compute node `host-01` |
+| **Simulated, labeled** | Network / storage telemetry and the six-node compute *rack* (mock MCP servers; the assessment sets `simulatedInputs: true` and the wall says so). Every compute node carries `source: "real"` or `"mock"`, so `host-01` is never confusable with the invented ones |
 | **Planned, not built** | `face-npu` (same models on Hexagon), phone *serving* endpoint (today: one-shot failover, no tools), level-based leak threshold (demoted — Button C is the leak trigger) |
 | **Unsupported today** | GPU tool-calling — fails in GenieX (`SDKError`), reproduced twice; capability matrix in [WORKLOAD_PLACEMENT.md](WORKLOAD_PLACEMENT.md) |
 
@@ -42,7 +42,7 @@ approval gate still holds; phone unreachable → the wall's approval panel does 
 | Sensor edge → phone | **15–30 s** via the watchdog (down from a measured 102 s worst case) |
 | Phone (8 Elite) NPU | **1,918 ± 16.9 tok/s prefill / 23.1 ± 1.3 decode** — different config, labeled, not 1:1 with the laptop row |
 | Phone failover | **12.0 s** message → delivered degraded answer |
-| Tests | **29 files / 353 tests**, all passing; strict TypeScript build |
+| Tests | **30 files / 361 tests**, all passing; strict TypeScript build |
 
 ## Where the rubric evidence lives
 
