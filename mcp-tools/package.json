@@ -5,7 +5,7 @@
   "description": "MCP servers exposing datacenter-health tools (network/storage/compute mocked, environmental real via Arduino UNO Q) for Hermes Agent, plus the local live operations wall.",
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

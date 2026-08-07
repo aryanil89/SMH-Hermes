@@ -143,6 +143,10 @@ $env:ACCESS_VISION_TIMEOUT_MS = '20000'
 if ($Threshold -ne '') { $env:ACCESS_MATCH_THRESHOLD = $Threshold } else { $env:ACCESS_MATCH_THRESHOLD = $null }
 if ($Secret -ne '')    { $env:ACCESS_SHARED_SECRET   = $Secret }    else { $env:ACCESS_SHARED_SECRET   = $null }
 $env:DASHBOARD_OPEN_BROWSER   = '0'
+# Staleness guard: match the gateway's config.yaml (180s). Without this the wall
+# runs on the code default (3600s) and calls an hour-dead board "real" while the
+# agent, whose env server gets 180 from config.yaml, says "mock".
+$env:UNOQ_LOG_MAX_AGE_S       = '180'
 
 # ── 3. Relaunch ──────────────────────────────────────────────────────────
 Say 'RUN' 'starting dashboard (face-cpu identity)'

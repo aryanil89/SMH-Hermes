@@ -262,7 +262,11 @@ elseif (-not (Test-Path $WallEntry)) {
   # Quoting is load-bearing: powershell.exe's command-line tokenizer strips bare
   # double quotes before -Command reassembles the text, so paths with spaces
   # must ride as single quotes inside ONE double-quoted payload.
-  $inner = '"& ''{0}'' ''{1}'' *>> ''{2}''"' -f $node, $WallEntry, $WallLog
+  # UNOQ_LOG_MAX_AGE_S rides inside the payload: the task launches bare node with
+  # no env block, so without this the wall runs on the code default (3600s) and
+  # calls an hour-dead board "real" while the agent, whose env server gets 180
+  # from config.yaml, says "mock" -- a live on-stage contradiction.
+  $inner = '"$env:UNOQ_LOG_MAX_AGE_S=''180''; & ''{0}'' ''{1}'' *>> ''{2}''"' -f $node, $WallEntry, $WallLog
 
   Invoke-Step "register scheduled task '$WallTask'" {
     $action = New-ScheduledTaskAction -Execute $PsExe `
@@ -345,8 +349,10 @@ elseif (-not (Test-Path $WatchEntry)) {
     Say 'WARN' 'Set them as MACHINE or USER environment variables so the scheduled task inherits them.'
   }
 
-  # Same quoting constraint as the wall display's $inner above.
-  $innerWatch = '"& ''{0}'' ''{1}'' *>> ''{2}''"' -f $node, $WatchEntry, $WatchLog
+  # Same quoting constraint as the wall display's $inner above, and the same
+  # staleness-guard reasoning: the watchdog must judge freshness on the same
+  # 180s the gateway's env server uses, or the two disagree about "real".
+  $innerWatch = '"$env:UNOQ_LOG_MAX_AGE_S=''180''; & ''{0}'' ''{1}'' *>> ''{2}''"' -f $node, $WatchEntry, $WatchLog
 
   Invoke-Step "register scheduled task '$WatchTask'" {
     $action = New-ScheduledTaskAction -Execute $PsExe `

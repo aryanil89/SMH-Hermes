@@ -159,7 +159,7 @@ for anywhere else.
 | Need | Note |
 |---|---|
 | **Windows on ARM64** (Snapdragon X Elite / Copilot+) | The GenieX NPU path is win-arm64 only. An x64 machine can run everything *except* NPU inference |
-| **Node 22+** | For the MCP tool servers (`package.json` floor is 20, but the dashboard's `node:sqlite` needs 22.5+; verified on v24.18) |
+| **Node 22+** | For the MCP tool servers (`package.json` engines floor is 22; the dashboard's optional transcript bridge wants 22.5+ for `node:sqlite` and degrades gracefully below it; verified on v24.18) |
 | **`adb`** | Only for flashing/configuring the board (sketch + app deploy, initial WiFi/Tailscale setup, clock sync) — it carries no sensor traffic. Ships inside the scrcpy package: `winget install Genymobile.scrcpy` — this is not obvious |
 | **Telegram bot token** | From [@BotFather](https://t.me/BotFather); your numeric id from @userinfobot |
 | QAIRT SDK 2.32+ *(optional)* | Only to re-run the NPU profiling in `bench/` |
@@ -669,12 +669,17 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
   *"recovered to OK"* of 2026-08-05 and the two defences against it, and the two staleness
   thresholds that look like a bug and are not
 - **Phone compute plan (2026-08-05, superseded)** — planned an on-phone Qwen3 NPU benchmark over
-  `adb` (no app) and a face-embedding identity rung on a Hexagon NPU. The on-phone LLM benchmark
-  remains **not built**, a stretch goal. The identity rung shipped instead as `face-cpu` — CPU
-  inference on the laptop, not the phone NPU this plan described — built and verified live
-  2026-08-06, see [phone/README.md](phone/README.md#the-identity-ladder). Its
-  challenge-notification item landed separately, in basic form: text to Telegram, no photo. The
-  built-vs-planned line lives in [Today vs. planned](#today-vs-planned)
+  `adb` (no app) and a face-embedding identity rung on a Hexagon NPU. Both halves have since
+  landed, each in a different shape than planned: the on-phone benchmark was **measured
+  2026-08-06** (prefill 1,918 ± 16.9 tok/s —
+  [RESULTS.md § Phone benchmark](llm-serving-bench/RESULTS.md#phone-benchmark-snapdragon-8-elite--2026-08-06))
+  and then wired in as the live **phone-NPU failover** (dead GenieX → the phone answers in
+  ~12 s, labeled degraded — [hermes-hooks/README.md](hermes-hooks/README.md)); the identity
+  rung shipped instead as `face-cpu` — CPU inference on the laptop, not the phone NPU this
+  plan described — built and verified live 2026-08-06, see
+  [phone/README.md](phone/README.md#the-identity-ladder). Its challenge-notification item
+  landed separately, in basic form: text to Telegram, no photo. The built-vs-planned line
+  lives in [Today vs. planned](#today-vs-planned)
 - **[The access terminal — the phone](phone/README.md)** — what the phone actually does: the
   authorisation surface, why the *notification* may be cloud but the *decision* may not, the
   four-rung identity ladder and which rungs work today, why capture uses `<input capture>`
@@ -742,5 +747,7 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
   stock file can stay untouched
 - `phone/` — Samsung Galaxy S25 Ultra (Snapdragon 8 Elite). **No app to build**: the phone runs
   Telegram plus the access terminal served from the laptop at `/phone.html` — the authorisation
-  surface, the rack camera, and roster enrolment. Its NPU is **not** in use yet; the on-phone
-  Qwen3-4B benchmark remains the stretch goal ([phone/README.md](phone/README.md#still-not-implemented))
+  surface, the rack camera, and roster enrolment. Its NPU is measured **and on call**: the
+  Qwen3-4B benchmark ran 2026-08-06 (prefill 1,918 ± 16.9 tok/s over `adb`) and now backs the
+  live phone-NPU failover — dead GenieX → the phone answers, labeled degraded
+  ([phone/README.md](phone/README.md), [hermes-hooks/README.md](hermes-hooks/README.md))

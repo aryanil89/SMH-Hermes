@@ -119,6 +119,9 @@ $env:ACCESS_VISION_TIMEOUT_MS = $null
 $env:ACCESS_MATCH_THRESHOLD   = $null
 if ($Secret -ne '') { $env:ACCESS_SHARED_SECRET = $Secret } else { $env:ACCESS_SHARED_SECRET = $null }
 $env:DASHBOARD_OPEN_BROWSER   = '0'
+# Staleness guard: match the gateway's config.yaml (180s) -- same reasoning as
+# demo-face-ON.ps1: the wall must not call a dead board "real" for an hour.
+$env:UNOQ_LOG_MAX_AGE_S       = '180'
 
 # ── 3. Relaunch ──────────────────────────────────────────────────────────
 Say 'RUN' 'starting dashboard (stub identity)'
