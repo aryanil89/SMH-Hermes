@@ -266,7 +266,7 @@ serial that cannot answer.
 
 ```powershell
 $py = "$env:LOCALAPPDATA\hermes\hermes-agent\venv\Scripts\python.exe"
-& $py hermes-hooks\failover\handler.py --selftest              # offline: 52 checks, exit 0/1
+& $py hermes-hooks\failover\handler.py --selftest              # offline: 55 checks, exit 0/1
 & $py hermes-hooks\failover\handler.py --probe                 # one TCP probe: UP=0, DOWN=2
 & $py hermes-hooks\failover\handler.py --try "is rack B1 hot?" # real phone round-trip, print-only
 ```

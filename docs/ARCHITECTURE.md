@@ -84,7 +84,8 @@ Telegram (and only Telegram) needs the internet.
 > each addition has its own doc). **(1) Phone-NPU failover** — the S25 Ultra is no longer only
 > the Telegram surface: when GenieX dies (TCP connect refused, never an HTTP probe), the
 > inbound question is answered by the phone's 8 Elite NPU over `adb` (one-shot
-> `genie-t2t-run`, no tools, labeled degraded; measured **12.0 s** message→delivered —
+> `genie-t2t-run`, no tools, labeled degraded; **12.0 s** message→delivered, n=1, of which the
+> phone leg is 7.1 ± 0.7 s over n=5 —
 > [../hermes-hooks/README.md](../hermes-hooks/README.md)). **(2) On-board activity inference**
 > — the UNO Q itself runs SmolLM2-135M on its CPU, correlating its recent sensor history into
 > `activity-*` lines that ride the same push pipeline; the watchdog folds fresh ones into the

@@ -289,7 +289,8 @@ starts here"** below it.
 - ~~**The phone's 8 Elite NPU is idle.**~~ ✅ **closed 2026-08-06** — measured (prefill
   1,918 ± 16.9 tok/s, decode 23.1 ± 1.3, `genie-t2t-run` over `adb`) and then wired in as the
   live **compute failover**: dead GenieX (TCP connect refused) → the phone's NPU answers the
-  Telegram question, labeled degraded, **12.0 s** message→delivered
+  Telegram question, labeled degraded, **12.0 s** message→delivered (n=1; the phone leg alone
+  is **7.1 ± 0.7 s** over n=5, 54% of it model load — 2026-08-07)
   ([hermes-hooks/README.md](hermes-hooks/README.md)). (The identity rung that plan also
   proposed shipped separately, as `face-cpu` on the laptop's CPU, not the phone's NPU — see
   [phone/README.md](phone/README.md#the-identity-ladder).)
