@@ -55,6 +55,7 @@ That leaves exactly one real AI/LLM workload to place: GenieX.
 | **NPU** | 382 ± 8.3 tok/s | 14.2 tok/s | **pass** | production |
 | Hybrid | 203 tok/s | 17.3 tok/s | pass | runner-up, not an upgrade (82% of an agent turn is prefill, where NPU wins outright) |
 | GPU | ≈650 tok/s prefill, ≈110 tok/s decode — **but only in a tool-free request** | — | **fails**: `SDKError(Model loading failed)` / HTTP 500 on any `tools`-bearing call | **disqualified for this workload** |
+| CPU | 35 ± 7.2 tok/s | — | pass | last-resort fallback — runs anywhere (x64 included) but ~11× slower prefill and ~8.7× more energy per prompt-token |
 
 The GPU failure is reproduced twice — `llm-serving-bench/serve-Q4_0-gpu.log` and the archived
 `archive/RESULTS-20260805-103522.md` — and every real agent turn on this project uses tools, so

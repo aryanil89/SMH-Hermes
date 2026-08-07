@@ -623,21 +623,26 @@ function openInBrowser(url: string): void {
 }
 
 async function main(): Promise<void> {
+  // Fail closed, before binding: off loopback with the write routes open,
+  // anyone who can reach the port can enrol themselves onto the roster and
+  // then badge in as a known person. This used to be a warning, which is a
+  // thing people scroll past; refusing to start is a thing people fix.
+  if (HOST !== "127.0.0.1" && HOST !== "localhost" && !SHARED_SECRET) {
+    console.error(
+      `[dashboard] refusing to bind ${HOST} without ACCESS_SHARED_SECRET set.\n` +
+        "[dashboard] Either set ACCESS_SHARED_SECRET (scripts/demo-face-ON.ps1 generates and\n" +
+        "[dashboard] persists one), or bind loopback (DASHBOARD_HOST=127.0.0.1) and reach it\n" +
+        "[dashboard] through a tailscale-serve proxy as documented in docs/RUNBOOK.md.",
+    );
+    process.exit(1);
+  }
+
   await tick();
   const timer = setInterval(() => void tick(), TICK_MS);
   timer.unref?.();
 
   server.listen(PORT, HOST, () => {
     console.log(`[dashboard] http://${HOST}:${PORT}`);
-    // Loud, because the failure is silent: bound to a network with the write
-    // routes open, anyone who can reach the port can enrol themselves onto the
-    // roster and then badge in as a known person.
-    if (HOST !== "127.0.0.1" && HOST !== "localhost" && !SHARED_SECRET) {
-      console.warn(
-        `[dashboard] WARNING: bound to ${HOST} with NO ACCESS_SHARED_SECRET set.\n` +
-          "[dashboard]          /api/access/enroll and /approve are open to anyone who can reach this port.",
-      );
-    }
     console.log(`[dashboard] sensor log : ${SENSOR_LOG}`);
     console.log(`[dashboard] alert state: ${STATE_PATH}`);
     console.log(`[dashboard] tick        : ${TICK_MS}ms`);

@@ -23,6 +23,10 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 > **runs on** Nous Research's Hermes Agent runtime (MIT). It is not affiliated with, endorsed by, or
 > a product of Nous Research; their Hermes *model* family is not used here (the model is Qwen3).
 
+> **Judges: start at [docs/JUDGE_GUIDE.md](docs/JUDGE_GUIDE.md)** — the five-minute version:
+> demo sequence with expected outcomes, the real-vs-simulated table, every measured number,
+> and where each rubric category's evidence lives. This README is the long-form reference.
+
 ## Team
 
 | Name | Email |
@@ -547,7 +551,17 @@ Get-FileHash mcp-tools\models\buffalo_s\det_500m.onnx -Algorithm SHA256
 Get-FileHash mcp-tools\models\buffalo_s\w600k_mbf.onnx -Algorithm SHA256
 ```
 
-**2. Enroll people** — offline, from photo files, via `mcp-tools/scripts/enroll.py` (the phone
+**2. Install the Python environment** — Python 3.11, pinned versions in
+[`mcp-tools/requirements-face.txt`](mcp-tools/requirements-face.txt) (the measured 0.43
+threshold below was calibrated under exactly these). The venv lives **next to** the checkout —
+that is where the demo kill-switch scripts look for it:
+
+```powershell
+python -m venv ..\.venv-face
+..\.venv-face\Scripts\pip install -r mcp-tools\requirements-face.txt
+```
+
+**3. Enroll people** — offline, from photo files, via `mcp-tools/scripts/enroll.py` (the phone
 page's own "enrol" form stays disabled for the demo):
 
 ```powershell
@@ -558,13 +572,13 @@ Per-photo embeddings are L2-normalized, averaged, then re-normalized into one ro
 `mcp-tools/.state/roster.json`. `mcp-tools/scripts/probe.py` is the standalone tool used to check
 genuine-vs-impostor separation before picking a threshold.
 
-**3. Set the match threshold** — `ACCESS_MATCH_THRESHOLD` (cosine similarity). The current value,
+**4. Set the match threshold** — `ACCESS_MATCH_THRESHOLD` (cosine similarity). The current value,
 **0.43, is provisional**: measured 2026-08-06 on a 3-person roster enrolled from laptop-webcam
 photos (genuine n=23, min cosine 0.7702; impostor n=46, max cosine 0.1026; threshold = the midpoint
 rounded down), then validated live the same day against phone-camera captures — known-person
 matches scored **0.85** and **0.79**. Small n — re-measure for any larger roster.
 
-**4. Turn it on or off** — kill switches, ~5s, both live-tested 2026-08-06:
+**5. Turn it on or off** — kill switches, ~5s, both live-tested 2026-08-06:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\demo-face-ON.ps1    # ACCESS_IDENTITY_METHOD=face-cpu

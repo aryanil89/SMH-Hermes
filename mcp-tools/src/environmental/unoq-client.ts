@@ -17,8 +17,12 @@ export interface UnoQClientOptions {
 /**
  * Client for the Arduino UNO Q's environmental sensor (temperature/humidity/leak).
  *
- * TODO(uno-q board bring-up, see ../../uno-q/README.md and
- * QUAD-Client-main/.claude/skills/quad-unoq/SKILL.md): the board is not provisioned yet. The
+ * UNIMPLEMENTED ALTERNATIVE TRANSPORT -- nothing routes through this client in production.
+ * The board IS provisioned, and the real environmental path is the push log
+ * (`./file-source.ts` reading `UNOQ_SENSOR_LOG`; see ../../uno-q/hermes-sensor-logger/).
+ * This SSH pull path is kept only as a possible future fallback and has never been wired
+ * to a live board: every real call fails fast (unreachable host / missing command / bad
+ * payload) and `./source.ts` falls back to labeled mock data. If it is ever implemented, the
  * intended transport is SSH -- the same OS `ssh` binary + ~/.ssh/config convention documented in
  * the quad-unoq skill (no paramiko, no extra client deps), NOT the `quad-client unoq` CLI itself,
  * since that CLI has no "read sensors" subcommand -- it is scoped to app deploy/status/perf/logs.

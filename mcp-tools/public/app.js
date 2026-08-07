@@ -1489,13 +1489,19 @@ function demoStorageCompute(progress) {
   const remediating = progress > DEMO_STORAGE_SPLIT;
   const score = status === "critical" ? 74 : status === "warning" ? 38 : remediating ? 12 : 0;
   const level = status === "critical" ? "critical" : status === "warning" ? "medium" : "low";
+  // Wording matters: Hermes is read-only and never executes remediation itself,
+  // so even this scripted demo scenario must say "recommended" and "operator",
+  // never claim the system cleared logs or restarted services on its own.
   const cause =
     pct <= 5
-      ? "Storage capacity critical — automated remediation in progress."
+      ? "Storage capacity critical — remediation recommended, operator action required."
       : remediating
-        ? "Storage capacity recovering after automated remediation."
+        ? "Storage capacity recovering in this simulated scenario after operator remediation."
         : "Storage capacity trending down.";
-  const action = pct <= 5 || remediating ? "Log files cleared; services restarted." : "Monitoring storage trend.";
+  const action =
+    pct <= 5 || remediating
+      ? "Recommended: clear log files and restart services. Hermes advises; the operator acts."
+      : "Monitoring storage trend.";
   return { pct, status, remediating, score, level, cause, action };
 }
 
