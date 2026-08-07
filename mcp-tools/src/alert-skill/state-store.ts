@@ -48,6 +48,16 @@ export interface AlertState {
     heldStatus: Status;
     reason: string;
   };
+  /**
+   * ISO timestamp of the newest UNO Q on-device activity inference
+   * (`event: "activity"`, see docs/ONDEVICE_ACTIVITY.md) already pushed to
+   * the phone. A watermark, not a cooldown: activity lines are already
+   * edge-triggered and deduped at the source (activity.py's own 120s
+   * cooldown before re-logging the same activity), so the watchdog doesn't
+   * need a second rate limit -- it only needs to know whether it has already
+   * reported the newest one.
+   */
+  lastActivityAt?: string;
 }
 
 const DEFAULT_STATE: AlertState = { lastStatus: "ok" };
@@ -84,6 +94,7 @@ export async function readState(path: string): Promise<AlertState> {
         // next write -- which for a held page would mean quietly forgetting an
         // alert someone is still owed.
         ...(parseHeldPage(parsed.heldPage) ? { heldPage: parseHeldPage(parsed.heldPage) } : {}),
+        ...(typeof parsed.lastActivityAt === "string" ? { lastActivityAt: parsed.lastActivityAt } : {}),
       };
     }
     return { ...DEFAULT_STATE };

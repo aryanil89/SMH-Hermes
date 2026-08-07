@@ -1,6 +1,7 @@
 import { hostname } from "node:os";
 import type { AccessSentry } from "../access/sentry.js";
 import { assessIncident } from "../assess/assess.js";
+import { activityStatus, humanizeActivity } from "../common/activity.js";
 import { statusForValue } from "../common/alerts.js";
 import { windowSeed } from "../common/rng.js";
 import { THERMAL_ZONE } from "../common/thermal.js";
@@ -61,6 +62,7 @@ const DEVICE_EVENT_LABELS: Record<string, { label: string; status: Status }> = {
   object_entered: { label: "Presence detected", status: "ok" },
   object_left: { label: "Presence cleared", status: "ok" },
 };
+
 
 /**
  * Verdict wording for the pipeline stream. Spelled out rather than slugged: the
@@ -291,6 +293,22 @@ export class SnapshotBuilder {
 
     this.linesIngested += fresh.length;
     for (const event of fresh.slice(-NEW_EVENTS_PER_TICK)) {
+      if (event.event === "activity" && event.activity) {
+        // source: "board-inference", not "physical" or "inference" -- this
+        // line was written by the board's own on-device LLM correlating the
+        // raw physical events, not read directly off a sensor, and not the
+        // laptop's own risk assessment either. Kept as its own value (see
+        // PipelineEvent.source) so the wall can tell a judge which tier
+        // produced which line.
+        this.pushEvent({
+          at: event.at,
+          source: "board-inference",
+          label: humanizeActivity(event.activity),
+          detail: event.trigger ?? `${event.temperatureC.toFixed(1)} C · ${event.humidityPct.toFixed(1)}% RH`,
+          status: activityStatus(event.activity),
+        });
+        continue;
+      }
       const mapped = DEVICE_EVENT_LABELS[event.event];
       if (!mapped) continue; // sensor_tick and anything unrecognised: counted, not streamed
       this.pushEvent({

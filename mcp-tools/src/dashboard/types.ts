@@ -49,6 +49,10 @@ export interface SensorEvent {
   temperatureC: number;
   humidityPct: number;
   distanceMm?: number;
+  /** Present only when `event === "activity"` -- the normalized `activity-...` label. */
+  activity?: string;
+  /** Present only when `event === "activity"` -- what triggered the inference. */
+  trigger?: string;
 }
 
 /** Left column: the UNO Q playing the environmental monitoring device. */
@@ -130,7 +134,15 @@ export interface FamilySummary {
 export interface PipelineEvent {
   id: string;
   at: string;
-  source: Family | "inference" | "telegram";
+  /**
+   * "inference" is the laptop's own risk assessment (Qwen3-4B, see
+   * `recordInference`). "board-inference" is deliberately a separate value,
+   * not reused, for the UNO Q's own on-device correlation (SmolLM2-135M, see
+   * docs/ONDEVICE_ACTIVITY.md) -- two different models on two different
+   * tiers of hardware, and the wall should say which one produced a given
+   * line rather than lumping them under one "inference" tag.
+   */
+  source: Family | "inference" | "board-inference" | "telegram";
   label: string;
   detail?: string;
   status: Status;

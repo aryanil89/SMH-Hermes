@@ -248,6 +248,9 @@ export async function readSensorLogView(opts: ReadSensorLogViewOptions): Promise
       ...(typeof line.distance_mm === "number" && line.distance_mm >= 0
         ? { distanceMm: round1(line.distance_mm) }
         : {}),
+      ...(line.event === "activity" && line.activity
+        ? { activity: line.activity, ...(line.trigger ? { trigger: line.trigger } : {}) }
+        : {}),
     }))
     .reverse();
 

@@ -217,7 +217,10 @@
             <p>
               Network, storage and compute telemetry are <strong>simulated</strong>; the
               environmental path is <strong>live</strong> from an Arduino UNO Q. The MCP adapters are
-              the seam to real DCIM/BMS/SNMP.
+              the seam to real DCIM/BMS/SNMP. The UNO Q's own activity inference is likewise
+              <strong>live</strong> — a real SmolLM2-135M model, running on the board's CPU, not
+              simulated or scripted — and is pushed to the on-call phone the same way an
+              environmental threshold crossing is, rather than sitting on a wall tile.
             </p>
           </article>
         </div>
@@ -274,6 +277,17 @@
                     <td>LLM inference</td>
                     <td>Qwen3-4B-Instruct-2507 (Q4_0) on the laptop's X Elite NPU via GenieX</td>
                     <td>Same model on the phone's 8 Elite NPU, over adb</td>
+                  </tr>
+                  <tr>
+                    <td>On-device inference</td>
+                    <td>
+                      A second, much smaller LLM (SmolLM2-135M) runs on the UNO Q itself, on CPU —
+                      correlating its own recent sensor history into short <code>activity-*</code> labels
+                      (e.g. a person entering the room, a possible fire-risk pattern). Live-verified on
+                      real hardware; the board's Adreno 702 GPU was tried and measured to lose to CPU for
+                      this workload
+                    </td>
+                    <td>—</td>
                   </tr>
                   <tr>
                     <td>Physical access</td>
@@ -367,20 +381,24 @@
           <article class="card">
             <header class="card-head">
               <h3><svg class="head-icon" aria-hidden="true"><use href="#i-temp" /></svg>Arduino UNO Q</h3>
-              <span class="badge">sensing</span>
+              <span class="badge">sensing + on-device AI</span>
             </header>
             <p class="arch-does">
               Samples temperature, humidity, distance and button state, and pushes readings to the
-              laptop over WiFi + Tailscale every 10 seconds.
+              laptop over WiFi + Tailscale every 10 seconds. Since 2026-08-06 it also runs a small
+              LLM of its own (SmolLM2-135M, CPU) to correlate that history into short
+              <code>activity-*</code> labels before the log ever leaves the board — see
+              <code>docs/ONDEVICE_ACTIVITY.md</code>.
             </p>
             <h4 class="sub-head">Components on this device</h4>
             <ul class="arch-components">
               <li><span class="arch-comp-name">Modulino Thermo + Distance + Buttons</span> — temperature, humidity, presence, edge events</li>
               <li><span class="arch-comp-name">sketch.ino → main.py</span> — reads the bus, writes <code>sensor_log.jsonl</code></li>
+              <li><span class="arch-comp-name">activity.py</span> — SmolLM2-135M on CPU, correlates recent history into <code>activity-*</code> lines in the same log</li>
               <li><span class="arch-comp-name">push_sensor_log.sh</span> — ships the log to the laptop every 10s</li>
             </ul>
             <dl class="kv">
-              <dt>Sends to</dt><dd>Laptop, one-way telemetry</dd>
+              <dt>Sends to</dt><dd>Laptop, one-way telemetry (now including its own activity inferences)</dd>
             </dl>
           </article>
 
@@ -471,8 +489,14 @@
             <h3>Physical signal → log line</h3>
             <ul class="flow-items">
               <li>Thermo, distance and button edges, written to <code>sensor_log.jsonl</code> every 10s</li>
+              <li>
+                A second, smaller correlation happens right here, on the board: SmolLM2-135M
+                (CPU) turns a run of recent events into an <code>activity-*</code> line — a
+                distinct tier from stage 4's laptop-side Qwen3-4B assessment below, not the same
+                step twice
+              </li>
             </ul>
-            <p class="flow-out"><span>carries</span> climate tick ~10s · edge events on change</p>
+            <p class="flow-out"><span>carries</span> climate tick ~10s · edge events on change · occasional on-device activity inference</p>
           </li>
 
           <li class="flow-stage" data-tier="ingest">
