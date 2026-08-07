@@ -34,6 +34,26 @@ and [FEASIBILITY.md](FEASIBILITY.md) §Telegram. Nothing here overstates what is
 
 The distinction to hold on to: **the innovation is reasoning over signals, not collecting them.**
 
+### Where the model earns its keep
+
+If asked "isn't the LLM just a narration layer over deterministic plumbing?" — the honest answer
+is that the deterministic floor is a **safety property, not the absence of AI**, and the model
+does four jobs the plumbing cannot:
+
+1. **Tool orchestration** — for an open-ended question the agent decides which adapters to
+   consult and in what order; the one-call assessment exists as an optimization of that loop,
+   not a replacement for it.
+2. **Receipts and narrated diagnosis** — every verdict arrives as an explanation with evidence
+   attached, written by the model from live tool outputs, not filled into a template.
+3. **Live Q&A** — the on-call interrogates the incident in free text from the phone and gets
+   answers grounded in current tool state; no rule engine answers questions it wasn't shaped for.
+4. **A second, smaller intelligence at the edge** — the UNO Q's on-board SmolLM2 labels activity
+   patterns before they reach the laptop; the wall and Telegram surface its inferences.
+
+The risk/confidence arithmetic stays deterministic **on purpose**: numbers a reviewer can
+recompute are the part you want falsifiable. The model reasons; the arithmetic keeps the
+reasoning honest.
+
 ## 3. The offline claim — say it precisely
 
 This is the word that wins or loses credibility. The strongest *true* version is very strong; the
@@ -84,7 +104,7 @@ adapter, currently selected.
 ```
 Physical Signal Layer     Arduino UNO Q — temperature, water level (ToF), presence, door, buttons
 Telemetry Layer           Simulated storage / network / compute adapters
-MCP Tool Layer            Four stdio servers — the swappable seam to real systems
+MCP Tool Layer            Five stdio servers — the swappable seam to real systems
 Reasoning Layer           Hermes Agent + Qwen3-4B-Instruct-2507 on the Hexagon NPU via GenieX
 Decision Layer            Risk (severity index) + confidence (ordinal) + evidence + recommendation
 Authorization Layer       Access verdict + human approve/deny — LOCAL ONLY, never over the relay

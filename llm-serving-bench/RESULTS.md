@@ -29,6 +29,7 @@ prefill rate — valid for comparing configs, optimistic in absolute terms (see 
 |---|---|---|---|
 | 3,867 (bench mean) | 10.1 s | 382 | 5 reps, ± 8.3 |
 | 12,543 | 60.9 s | 206 | the real Hermes request shape |
+| 12,545 / 12,543 | 72.6 s / 64.5 s | 173 / 194 | re-capture 2026-08-07 (cold-ish, then warm) — raw rows in `prefill-long-results.json`; the spread corroborates the row above and the cache-probe range below |
 | 31,775 | 293.0 s | 108 | = Hermes compression threshold (0.5 × 65,536) |
 | ~60,000 | **crash** | — | `ggml-hex: dspqueue_read failed: 0x00000072` |
 

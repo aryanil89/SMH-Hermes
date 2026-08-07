@@ -29,8 +29,8 @@ must demo to be eligible for a prize.**
     `git rev-parse main`.
 - **README contents** (all four are required):
   - [x] Application description — [README.md](README.md) intro.
-  - [x] Names and emails of ALL team members — README team table: Indranil Acharya,
-    Christopher Gould, John Koch (completed 2026-08-06).
+  - [x] Names and emails of ALL team members — README team table: Indranil Acharya
+    (team lead), Christopher Gould, John Koch (completed 2026-08-06; lead marked 2026-08-07).
   - [x] Setup instructions from scratch, including dependencies —
     [README §0. Setting this up on a fresh machine](README.md#0-setting-this-up-on-a-fresh-machine).
   - [x] Run and usage instructions —
@@ -83,10 +83,10 @@ must demo to be eligible for a prize.**
 
 ## Open decisions before the demo (not submission blockers, but demo blockers)
 
-- [ ] **Face-roster consent policy** — OPEN, and it blocks any face capture
-  ([PROGRESS.md](PROGRESS.md) item 12). Options on the table: enrol volunteers live (consent
-  as a visible act), pre-enrol consenting team members, or badge-free `stub` mode (the
-  working default — the full loop, matrix, and audit trail run either way).
+- [x] **Face-roster consent policy** — resolved 2026-08-07: three consenting team members
+  pre-enrolled (2026-08-06); `stub` mode stays the default for anyone unenrolled, and live
+  volunteer enrolment remains an optional demo beat with consent as a visible act
+  ([PROGRESS.md](PROGRESS.md) item 12).
 - [ ] **Benchmark screenshots** — capture list and instructions in
   [docs/EVIDENCE.md](docs/EVIDENCE.md).
 - [ ] **Venue preflight** — run [docs/RUNBOOK.md §9](docs/RUNBOOK.md#9-venue-preflight--the-pre-demo-checklist)

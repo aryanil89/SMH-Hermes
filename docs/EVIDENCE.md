@@ -10,10 +10,10 @@ disqualifies configs that cannot tool-call, regardless of speed.
 | Claim | Number | Measured | Source |
 |---|---|---|---|
 | NPU vs CPU prefill throughput | **382 ± 8.3 tok/s vs 35 ± 7.2** (~11×) | 2026-08-05, 5 reps, nonce-prefixed | [llm-serving-bench/RESULTS.md](../llm-serving-bench/RESULTS.md) main table |
-| Real agent turn at the production request shape (12.5K tokens) | **~68 s** on NPU (direct-measured; the modeled 41 s is labeled optimistic) vs **~371 s** modeled on CPU | 2026-08-05 | RESULTS.md § Long-context prefill curve |
+| Real agent iteration at the production request shape (12.5K tokens) | **~68 s** on NPU — 60.9 s measured prefill + ~7 s decode (the modeled 41 s is labeled optimistic) — vs **~371 s** modeled on CPU; a full tool-calling turn chains 2+ iterations (2–4 min) | 2026-08-05 | RESULTS.md § Long-context prefill curve |
 | Energy per query | NPU **471 J** (n=5) vs CPU 1,278 J at a *smaller* shape; **~8.7× more CPU energy per prompt-token** (0.327 vs 0.0375 J) | 2026-08-05, HWiNFO system rail, trapezoidal integration, idle-subtracted | RESULTS.md § Energy |
 | System power lift under inference | NPU **+6.3 W** over idle vs CPU **+21.3 W** — and CPU still takes ~7× longer | 2026-08-05 | RESULTS.md § Energy |
-| CPU load during NPU decode | **12.1% mean across 12 cores** vs 56–74% on CPU fallback | 2026-08-03 | [NPU_SPIKE_RESULTS.md](NPU_SPIKE_RESULTS.md) |
+| CPU load during NPU decode | **12–17%** vs 33%+ on the benchmarked Q4_0 CPU run and 56–74% under the Q4_K_M silent fallback | 2026-08-03 | [NPU_SPIKE_RESULTS.md](NPU_SPIKE_RESULTS.md) |
 | Per-op NPU execution | All 8 graphs of the W4A16 bundle profiled on Hexagon, rc=0 | 2026-08-03 | [BENCHMARKS.md](BENCHMARKS.md), harness in `bench/` |
 | Prompt-composition optimization | 78% of a request is fixed overhead; cutting the skills catalogue saved a measured **1,535 tok/call** (~7.5–10 s per call) | 2026-08-05 | RESULTS.md § Prompt composition |
 | Sensor-edge-to-phone latency | ~15–30 s via the 15 s watchdog loop, from a measured 102 s worst case on the cron path | 2026-08-05 | [WATCHDOG.md](WATCHDOG.md) |
@@ -21,13 +21,19 @@ disqualifies configs that cannot tool-call, regardless of speed.
 | Phone (8 Elite) NPU — same model on the second Hexagon | **prefill 1,918.0 ± 16.9 tok/s, decode 23.1 ± 1.3** (w4a16, ctx 4096, 1,248-tok prompt, TTFT 0.65 s) | 2026-08-06, 5 reps + warmup, nonce-prefixed, `genie-t2t-run` over `adb` — config differs from the laptop row (quant/context/runner), not a 1:1 comparison | [llm-serving-bench/RESULTS.md](../llm-serving-bench/RESULTS.md#phone-benchmark-snapdragon-8-elite--2026-08-06) |
 | Phone-NPU failover — dead GenieX → labeled degraded answer from the phone | **12.0 s** message→delivered answer (phone inference 9.3 s of it, ~2 s refused-probe detection); warm `--try` reps 9.6 s and 9.3 s | 2026-08-06, live E2E (**n=1**): GenieX killed with its supervisor disabled, TCP-refuse detected, the installed hook fired with the real chat context, answer delivered to Telegram + the wall feed. The gateway-inbound seam itself is exercised via the identical mechanism the ack hook uses in production; a full Telegram-inbound rehearsal is the T-15 runbook step | [hermes-hooks/README.md](../hermes-hooks/README.md) § failover; arm/disarm: `scripts/demo-failover-ON/OFF.ps1` |
 
-Raw artifacts: `llm-serving-bench/energy-results.json`, `llm-serving-bench/cache-probe-results.json`,
+Raw artifacts: `llm-serving-bench/energy-results.json`, `llm-serving-bench/prefill-long-results.json`,
+`llm-serving-bench/cache-probe-results.json`,
 `llm-serving-bench/phone/` (per-rep logs + `--profile` JSONs + `phone-results.json`),
 `bench/` harness output. Reproduction commands are at the end of each RESULTS.md section.
 
-## Screenshots — to capture (owner: team, before Friday demo)
+## Screenshots
 
-None captured yet. Place them in `docs/evidence/` with the names below and link them from
+**Captured — dashboard UI** (2026-08-06): seven screenshots covering every wall tab are in
+[`evidence/wall/`](evidence/wall/). These are UI shots of the tabs described in README §6 —
+they are **not** measurement evidence and do not fill any slot below.
+
+**To capture — the three benchmark shots (owner: team, before Friday demo).** None captured
+yet. Place them in `docs/evidence/` with the names below and link them from
 the table above. Capture all three during **one** NPU query
 (`hermes -z "assess the current incident"` — gives 60+ s of sustained load, enough time to
 frame each window):

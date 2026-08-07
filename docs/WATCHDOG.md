@@ -27,6 +27,9 @@ writers means the on-call gets every page twice and the cooldowns race.
 `scripts/install-autostart.ps1` refuses to install the loop while the cron job is
 enabled, and will not override that without `-Force`.
 
+**Live on the demo laptop (2026-08-07): the Task-Scheduler loop.** The cron variant
+is retired there — documented as the fallback, not running.
+
 ---
 
 ## 2. Why the loop exists: the cron path cannot go fast

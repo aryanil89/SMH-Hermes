@@ -49,7 +49,8 @@ units `active`; the health endpoint answering with `lastSource: "real"` and `fai
 double-pages the on-call); one `Loaded hook 'ack'` line per gateway start.
 
 The watchdog has its own page: **[WATCHDOG.md](WATCHDOG.md)** — cadence, health endpoint,
-cutover, and the measured latency budget.
+cutover, and the measured latency budget. Live path on the demo laptop (2026-08-07): the
+Scheduled-Task loop `SMH-Hermes-Watchdog`; the Hermes-cron variant is retired there.
 
 ### ⚠️ Never health-check GenieX over HTTP
 
@@ -92,13 +93,13 @@ the API call, resolved against `%USERPROFILE%\.cache\geniex\models\`. Hermes sen
 | Flag | Value | Why |
 |---|---|---|
 | `--nctx` | `65536` | **Must equal `context_length` in `config.yaml`.** Hermes builds prompts up to its declared context; if GenieX allocated less, the overflow lands on the server. |
-| `--compute` | `npu` | Offloads to Hexagon. Measured 12.1% mean CPU across 12 cores vs 56–74% on CPU fallback ([NPU_SPIKE_RESULTS.md](NPU_SPIKE_RESULTS.md)). Do **not** use `gpu` — faster prefill, but reproducibly fails tool-enabled requests. |
+| `--compute` | `npu` | Offloads to Hexagon. Measured 12–17% CPU during NPU generation vs 33%+ on the benchmarked Q4_0 CPU run and 56–74% under the Q4_K_M silent fallback ([NPU_SPIKE_RESULTS.md](NPU_SPIKE_RESULTS.md)). Do **not** use `gpu` — faster prefill, but reproducibly fails tool-enabled requests. |
 | `--keepalive` | `3600` | Default is **300** — the model unloads after 5 min idle. See below. |
 
 **Default `--nctx` is 4096**, nowhere near Hermes's 64K minimum. Omitting the flag does not
 give you a smaller working setup; it gives you a broken one.
 
-`--compute` unset auto-selects, and on this laptop it *did* pick NPU (measured 12.1% CPU).
+`--compute` unset auto-selects, and on this laptop it *did* pick NPU (measured 12–17% CPU).
 Set it anyway — auto-selection is not a contract.
 
 ### `--keepalive 300` is why the first reply is slow

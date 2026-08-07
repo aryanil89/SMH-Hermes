@@ -143,8 +143,10 @@ touches the server, the sensor log, or any file `/api/stream` reads from.
   3. **Storage remediation** — "if available storage drops below 5%, clear
      log files and restart services, then tell me what happened"; the
      storage card drops to a simulated 3%, recovers to ~92% within the same
-     10s window, then an alert reports the drop, the remediation taken, and
-     the recovered figure.
+     10s window, then an alert reports the drop, the remediation it
+     recommends, and the recovered figure (the live agent is read-only by
+     design — it recommends and a human acts; the scripted demo copy says
+     the same).
   Only the active scenario's channel deviates — the other tiles hold a calm
   baseline throughout, so the tab never shows more than one thing happening
   at once. A one-time 10s quiet beat runs before scenario 1 the first time

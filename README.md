@@ -45,7 +45,7 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 
 | Name | Email |
 |---|---|
-| Indranil Acharya | `aryanil89@gmail.com` |
+| Indranil Acharya (team lead) | `aryanil89@gmail.com` |
 | Christopher Gould | `chrisxgould@gmail.com` |
 | John Koch | `ghostboarder193@gmail.com` |
 
@@ -178,7 +178,10 @@ for anywhere else.
 
 ```powershell
 # 1. GenieX + the model. Q4_0 is load-bearing: Q4_K_M silently falls back to CPU.
-#    Installer → %LOCALAPPDATA%\GenieX CLI\geniex.exe
+#    Preview installer → %LOCALAPPDATA%\GenieX CLI\geniex.exe. Pin CLI v0.3.18 — the
+#    version every number in this repo was measured against. The preview channel moves
+#    weekly, and the phone/bench stack borrows its QAIRT 2.45 backend libs
+#    (PROGRESS.md), so upgrading breaks more than this README.
 & "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" pull unsloth/Qwen3-4B-Instruct-2507-GGUF
 & "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" ls          # expect the Q4_0 precision listed
 
@@ -186,12 +189,22 @@ for anywhere else.
 cd mcp-tools; npm install; npm run build; npm test      # expect 333/333 passing
 cd ..
 
-# 3. Hermes Agent — native ARM64 installer → %LOCALAPPDATA%\hermes\  (this is HERMES_HOME;
-#    there is NO ~/.hermes on Windows). Then apply the non-streaming patch, see step 5.
-.\install.ps1                                            # from the hermes-agent release
+# 3. Hermes Agent — install.ps1 comes from the hermes-agent release page
+#    (https://github.com/NousResearch/hermes-agent, MIT), NOT from this repo. Native
+#    ARM64; wants Node 26 for itself (this repo's own floor stays Node 22) — that
+#    requirement landed 2026-08-02, so pin the release you installed rather than
+#    tracking latest. Lands in %LOCALAPPDATA%\hermes\  (this is HERMES_HOME; there is
+#    NO ~/.hermes on Windows.)
+.\install.ps1                                            # downloaded from the release above
 
-# 4. Secrets
-copy hermes.env.example "$env:LOCALAPPDATA\hermes\.env"  # then edit in your token + user id
+# 4. Secrets — the installer ships a stock .env at %LOCALAPPDATA%\hermes\.env full of
+#    commented cloud keys you should keep. APPEND the template (a plain copy would
+#    clobber that stock file), then edit in your token + user id:
+Get-Content hermes.env.example | Add-Content "$env:LOCALAPPDATA\hermes\.env"
+
+# 4b. The non-streaming patch — REQUIRED, or Hermes retries every completed reply
+#     forever (GenieX streams end without a finish frame). The diff is committed:
+.\hermes-hooks\patches\apply-nonstream.ps1               # idempotent; pairs with HERMES_FORCE_NONSTREAM=1 from the template
 ```
 
 **5. Wire Hermes to GenieX and register the tools** — edit `%LOCALAPPDATA%\hermes\config.yaml`.
@@ -227,6 +240,13 @@ mcp_servers:                              # absolute paths — see "Paths to cha
     env:
       UNOQ_SENSOR_LOG: "<REPO>\\arduino_uno_q-sensor_log.json"
       UNOQ_LOG_MAX_AGE_S: "180"           # it reads the sensor path too - keep these in sync
+
+tools:
+  tool_search:
+    enabled: "off"                        # Qwen3-4B never completes the tool_search →
+                                          # tool_describe → tool_call discovery dance; with
+                                          # search on it answers from memory and calls no
+                                          # tools. "off" inlines the schemas (troubleshooting)
 ```
 
 ⚠️ **Register `assessment` — it is easy to miss and it is the one that matters on stage.** Each
@@ -258,6 +278,9 @@ hermes cron create --schedule "every 1m" --name "Environmental watch" `
 Shares the same tick code, but fires every ~2 minutes no matter what schedule it is given
 (measured 120s × 415 executions at `every 1m`). **Run one watchdog, not both** — both persist
 `.state/environmental-watch.json`, so two means every page arrives twice.
+
+*Status on the demo laptop (2026-08-07): the Scheduled-Task loop `SMH-Hermes-Watchdog` is the
+live alerting path; this cron variant is retired there and kept only as the documented fallback.*
 </details>
 
 **7. UNO Q app** — deploy `uno-q/hermes-sensor-logger/` to the board (see
@@ -265,13 +288,14 @@ Shares the same tick code, but fires every ~2 minutes no matter what schedule it
 
 #### Paths to change when moving machines
 
-Every absolute path lives in exactly four places — grep for `C:\Users\qc_de` to find them all:
+Every absolute path lives in exactly five places — grep for `C:\Users\qc_de` to find them all:
 
 | Where | What |
 |---|---|
 | `%LOCALAPPDATA%\hermes\config.yaml` | 5 × `mcp_servers` args + 2 × `UNOQ_SENSOR_LOG` |
 | `%LOCALAPPDATA%\hermes\scripts\environmental-watch.py` | `REPO_ROOT` (or set `SMH_HERMES_ROOT` instead of editing) |
 | `bench/bench.py` | `SDK`, `GX`, `BUNDLE` constants — only if profiling |
+| `llm-serving-bench/bench.py` + `run_cpu_energy.py` | `GENIEX` exe path, HWiNFO CSV path — only if re-running the serving bench |
 | `docs/` | Illustrative paths in prose; harmless if left |
 
 ### 1. Model server — GenieX on the Hexagon NPU
@@ -308,8 +332,9 @@ Why these flags:
 - **`--nctx 65536`** — Hermes hard-requires 64K. This **must equal `context_length` in
   `config.yaml`**: Hermes builds prompts up to its declared context, so if GenieX allocated
   less, the overflow lands on the server. (The default is 4096, nowhere near enough.)
-- **`--compute npu`** — offloads to Hexagon; measured **12.1% mean CPU** across 12 cores vs
-  56–74% on CPU fallback ([docs/NPU_SPIKE_RESULTS.md](docs/NPU_SPIKE_RESULTS.md)). Leaving it
+- **`--compute npu`** — offloads to Hexagon; measured **12–17% CPU** during NPU generation vs
+  **33%+** on the benchmarked Q4_0 CPU run and 56–74% under the Q4_K_M silent CPU fallback
+  ([docs/NPU_SPIKE_RESULTS.md](docs/NPU_SPIKE_RESULTS.md)). Leaving it
   unset auto-selects, and did pick NPU on this laptop — set it anyway, auto-selection is not a
   contract. Don't use `--compute gpu`: faster prefill, but reproducibly fails tool-enabled
   requests (GenieX preview bug).
@@ -476,7 +501,9 @@ compute telemetry — and the inference it draws from them — in the middle, an
 thread on the right, **both directions** — pages the server sent on the left rail, questions the
 phone sent on the right. Three static tabs sit alongside the live one: the executive overview, the
 conceptual architecture (what the parts are) and the logical architecture (what moves, stage by
-stage).
+stage). Screenshots of every tab (captured 2026-08-06) live in
+[docs/evidence/wall/](docs/evidence/wall/) — dashboard UI shots, distinct from the benchmark
+captures indexed in [docs/EVIDENCE.md](docs/EVIDENCE.md).
 
 ```powershell
 cd mcp-tools

@@ -4,8 +4,9 @@
 # Pinned to the exact versions the rung was built and calibrated with -- the
 # measured 0.43 match threshold (docs/EVIDENCE.md) was established under these.
 #
-#   python -m venv .venv-face
-#   .venv-face\Scripts\pip install -r mcp-tools\requirements-face.txt
+#   python -m venv ..\.venv-face          # NEXT TO the checkout, not inside it --
+#   ..\.venv-face\Scripts\pip install -r mcp-tools\requirements-face.txt
+#   (same location README §face and scripts/demo-face-ON.ps1 default to)
 #
 # The InsightFace buffalo_s ONNX models are NOT installed by pip and NOT in this
 # repo (non-commercial research license -- never redistributed): fetch and

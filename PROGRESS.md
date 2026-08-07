@@ -248,12 +248,13 @@ starts here"** below it.
        now."* It was deferred, never dropped.
     5. Optional kicker: escalate while they stand there — **it pages anyway.**
     Rehearse the enrol step; it is the only part touching a stranger's data.
-    **Blocked on the consent decision below.**
+    **Unblocked 2026-08-07 — consent resolved below.**
 
-12. **Consent policy for the roster — OPEN, blocking any face capture.** Nobody is enrolled and no
-    consent has been obtained. Badge mode needs no biometrics and is the working default, so
-    nothing else is blocked. Decide before Friday: enrol volunteers live (better beat, consent is
-    visible), pre-enrol consenting team members, or badge-only.
+12. **Consent policy for the roster — RESOLVED 2026-08-07.** Three consenting team members were
+    pre-enrolled on 2026-08-06 (the roster behind the live 0.85/0.79 validation matches); stub
+    mode remains the default for anyone unenrolled, and live volunteer enrolment stays optional
+    as a demo beat (consent as a visible act). No stranger's biometrics are captured without the
+    on-stage consent step.
 
 ## Open risks still live
 

@@ -1,0 +1,4 @@
+# The diff is deliberately pure-LF (it targets the LF git blob of the
+# installed hermes-agent checkout). Keep git from CRLF-converting it on
+# Windows checkouts; apply-nonstream.ps1 handles EOLs itself either way.
+nonstream.diff -text

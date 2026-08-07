@@ -1,0 +1,46 @@
+# SMH-Hermes non-streaming patch for the hermes-agent runtime.
+#
+# Target file : agent/conversation_loop.py   (path relative to the hermes-agent
+#               install root; on a native Windows install that root is
+#               %LOCALAPPDATA%\hermes\hermes-agent)
+# Applies to  : hermes-agent 0.20.0 (pyproject.toml), installed from
+#               git@github.com:NousResearch/hermes-agent.git
+#               commit 91937a6dc3ffbbe2f3be91a500f0ecf962c4cf53 (origin/main,
+#               2026-08-03); pristine blob of the target file:
+#               dd8529800aef8f9ac1fd7c4a2cb5a703695c0c36
+#
+# What it does: GenieX serve's SSE streaming responses end without a
+# finish_reason / tool_call frame, so Hermes misreads every completed turn as
+# a mid-stream drop and retries forever. This patch makes the streaming
+# decision honor HERMES_FORCE_NONSTREAM=1 (set in %LOCALAPPDATA%\hermes\.env),
+# forcing the non-streaming request path, which GenieX handles correctly.
+# It is a no-op when the variable is unset.
+#
+# Recovered 2026-08-07 from the live install with
+#   git diff --ignore-cr-at-eol -- agent/conversation_loop.py
+# (the only uncommitted hunk in that file; the install checkout is CRLF, the
+# git blob is LF, hence the EOL-normalized diff).
+#
+# NOTE for Windows deployers: the installed checkout uses CRLF line endings,
+# so `git apply` / `patch` against this LF diff will fail on whitespace.
+# Use apply-nonstream.ps1 (same directory) instead - it does the equivalent
+# targeted string replacement and preserves the file's own line endings.
+# Remember: `hermes update` reverts this patch; re-apply afterwards.
+diff --git a/agent/conversation_loop.py b/agent/conversation_loop.py
+index dd85298..1744cb7 100644
+--- a/agent/conversation_loop.py
++++ b/agent/conversation_loop.py
+@@ -2332,7 +2332,12 @@ def run_conversation(
+                     if agent.thinking_callback:
+                         agent.thinking_callback("")
+ 
+-                _use_streaming = True
++                # Local patch (SMH-Hermes hackathon): GenieX serve's streaming
++                # responses end without a finish_reason / tool_call frame, so
++                # every completed turn is misread as a mid-stream drop and
++                # retried forever. HERMES_FORCE_NONSTREAM=1 forces the
++                # non-streaming request path, which GenieX handles correctly.
++                _use_streaming = not os.environ.get("HERMES_FORCE_NONSTREAM")
+                 # Provider signaled "stream not supported" on a previous
+                 # attempt — switch to non-streaming for the rest of this
+                 # session instead of re-failing every retry.

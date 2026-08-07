@@ -10,5 +10,29 @@
         "finish_reason": "stop"
       }
     ]
+  },
+  {
+    "base": "http://127.0.0.1:18181/v1",
+    "runs": [
+      {
+        "label": "agent-shape-12.7K",
+        "prompt_tokens": 12545,
+        "seconds": 72.6,
+        "prefill_tok_s": 173,
+        "finish_reason": "stop"
+      }
+    ]
+  },
+  {
+    "base": "http://127.0.0.1:18181/v1",
+    "runs": [
+      {
+        "label": "agent-shape-12.7K-warm",
+        "prompt_tokens": 12543,
+        "seconds": 64.5,
+        "prefill_tok_s": 194,
+        "finish_reason": "stop"
+      }
+    ]
   }
 ]
