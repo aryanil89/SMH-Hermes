@@ -14,7 +14,8 @@ disqualifies configs that cannot tool-call, regardless of speed.
 | Energy per query | NPU **471 J** (n=5) vs CPU 1,278 J at a *smaller* shape; **~8.7× more CPU energy per prompt-token** (0.327 vs 0.0375 J) | 2026-08-05, HWiNFO system rail, trapezoidal integration, idle-subtracted | RESULTS.md § Energy |
 | System power lift under inference | NPU **+6.3 W** over idle vs CPU **+21.3 W** — and CPU still takes ~7× longer | 2026-08-05 | RESULTS.md § Energy |
 | CPU load during NPU decode | **12–17%** vs 33%+ on the benchmarked Q4_0 CPU run and 56–74% under the Q4_K_M silent fallback | 2026-08-03 | [NPU_SPIKE_RESULTS.md](NPU_SPIKE_RESULTS.md) |
-| Per-op NPU execution | All 8 graphs of the W4A16 bundle profiled on Hexagon, rc=0 | 2026-08-03 | [BENCHMARKS.md](BENCHMARKS.md), harness in `bench/` |
+| Per-op NPU execution (laptop) | All 8 graphs of the W4A16 bundle profiled on Hexagon, rc=0 | 2026-08-03 | [BENCHMARKS.md](BENCHMARKS.md), harness in `bench/` |
+| Per-op NPU execution (phone) | `prompt_ar128_cl512_2_of_4` profiled op-by-op on the 8 Elite Hexagon, 20 inferences, `burst` — rendered in QAIRT Visualizer's Performance panel | 2026-08-07 | [evidence/qairt-visualizer.png](evidence/qairt-visualizer.png); harness [bench/phone_profile.py](../bench/phone_profile.py); see § *How shot 3 was produced* |
 | Prompt-composition optimization | 78% of a request is fixed overhead; cutting the skills catalogue saved a measured **1,535 tok/call** (~7.5–10 s per call) | 2026-08-05 | RESULTS.md § Prompt composition |
 | Sensor-edge-to-phone latency | ~15–30 s via the 15 s watchdog loop, from a measured 102 s worst case on the cron path | 2026-08-05 | [WATCHDOG.md](WATCHDOG.md) |
 | Energy methodology precedent | arXiv 2606.11257 reports 315 vs 1,251 J/query (4.0×) on this SoC with a decode-heavier mix | — | cited in RESULTS.md § Energy |
@@ -28,25 +29,53 @@ Raw artifacts: `llm-serving-bench/energy-results.json`, `llm-serving-bench/prefi
 
 ## Screenshots
 
-**Captured — dashboard UI** (2026-08-06): seven screenshots covering every wall tab are in
+**Dashboard UI** (2026-08-06): seven screenshots covering every wall tab are in
 [`evidence/wall/`](evidence/wall/). These are UI shots of the tabs described in README §6 —
 they are **not** measurement evidence and do not fill any slot below.
 
-**To capture — the three benchmark shots (owner: team, before Friday demo).** None captured
-yet. Place them in `docs/evidence/` with the names below and link them from
-the table above. Capture all three during **one** NPU query
-(`hermes -z "assess the current incident"` — gives 60+ s of sustained load, enough time to
-frame each window):
+**The three benchmark shots — all captured 2026-08-07:**
 
-1. `docs/evidence/task-manager-npu.png` — Task Manager → Performance → **NPU** pane showing
-   utilization during prefill, with the CPU pane visible (low) in the same frame. This is
-   the one-glance "it really is the NPU" shot.
-2. `docs/evidence/hwinfo-power.png` — HWiNFO sensor window on the **System [W]** rail
-   during the same query: idle ~11.7 W → load ~18 W. This is the +6.3 W story in one image.
-   (For contrast, an optional second shot during a CPU-server query showing ~32 W.)
-3. `docs/evidence/qairt-visualizer.png` — QAIRT Visualizer per-op view of the profiled
-   W4A16 bundle (see [BENCHMARK_PLAN.md](BENCHMARK_PLAN.md) / `bench/` for the profile
-   artifacts it opens).
+1. [`evidence/task-manager-npu.png`](evidence/task-manager-npu.png) — Task Manager →
+   Performance → **NPU** during prefill of `hermes -z "assess the current incident"`, with
+   the CPU pane in the same frame at 11%. The one-glance "it really is the NPU" shot.
+2. [`evidence/hwinfo-power.png`](evidence/hwinfo-power.png) — HWiNFO on the same system
+   power rail used for the energy benchmark: the load period peaks near 32 W and settles to
+   11.4 W current / 11.3 W minimum, corroborating the 11.66 W idle baseline the +6.3 W
+   figure is measured against.
+3. [`evidence/qairt-visualizer.png`](evidence/qairt-visualizer.png) — QAIRT Visualizer
+   **Performance** panel over per-op Hexagon execution of `prompt_ar128_cl512_2_of_4`
+   (20 inferences, `burst`). The y axis is cycles; the twelve repeating spike groups are
+   the transformer blocks in bundle part 2.
+
+### How shot 3 was produced, and why it is a phone capture
+
+Worth stating plainly, because it is not the obvious route and a judge may ask.
+
+The Visualizer chooses a panel by regex-matching an `artifact_type` key in the report. Of
+the QAIRT profiling readers, the only one emitting a report its performance parser accepts
+is `libQnnJsonProfilingReader`, which ships in **QAIRT 2.45**. This laptop has QAIRT 2.32,
+whose `qnn-profile-viewer` cannot load the 2.45 reader — it fails silently and writes a
+zero-byte file. The 2.45 SDK available here is the `aarch64-android` build, so the capture
+chain runs **on the phone** (Snapdragon 8 Elite, `hexagon-v79`), where tool and reader
+versions match. Harness: [`bench/phone_profile.py`](../bench/phone_profile.py).
+
+Two paths were tried first and are genuinely unavailable for this model: the **optrace** and
+**chrometrace** readers both require a schematic file that is only emitted when you generate
+the context binary yourself. This is a prebuilt Qualcomm AI Hub Genie bundle loaded through
+`--retrieve_context`, so no schematic exists and both readers refuse with *"No Valid Input
+Schematics"* — on the laptop and on the phone alike.
+
+The reader's JSON carries `{metadata, messages}` and no `artifact_type`, so the Visualizer
+would not classify it even though its own performance parser consumes exactly that shape.
+[`bench/tag_qnn_profile.py`](../bench/tag_qnn_profile.py) adds that **one key** and changes
+nothing else — every number rendered in the screenshot is the reader's own output. The
+tagged report is committed at
+`bench/artifacts/phone-profile/prompt_ar128_cl512_2_of_4-qnn-profile-tagged.json.gz`, so the
+screenshot can be reproduced by opening that file in the Visualizer.
+
+Per-op evidence for the **laptop** NPU is not screenshot-based: it is the 41 profiled graphs
+under `bench/artifacts/out/` (`profile.csv` per graph), summarised in
+[BENCHMARKS.md](BENCHMARKS.md).
 
 Use **PNG, under `docs/`** — `.gitignore` blocks all image formats repo-wide
 (face-capture safety) and re-allows only `docs/**/*.png` (`.gitignore:31-33`). A JPG, or a
