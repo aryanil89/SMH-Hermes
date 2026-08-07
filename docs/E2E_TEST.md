@@ -296,13 +296,20 @@ Telegram panel:
    probed from the loop's health endpoint. If it reads *"queued · next watchdog tick"* with the
    **Watchdog process** row showing `no loop detected`, the loop is down — that is layer 7a
    failing, and the wall is telling you so rather than guessing.)
-2. When the real tick fires, that same bubble turns solid and marked *"watchdog · sent"* — with
-   **identical text** to what landed on the phone. Compare them character for character; both are
-   built from `src/alert-skill/summarize.ts`.
-3. On recovery, one *"recovered to OK"* bubble, same rules.
+2. When the real tick fires, the bubble is re-posted as a record of that page — still greyed and
+   dashed, now tagged *"not delivered"* with the text ending *"[sending — delivery not yet
+   confirmed]"*. This is the correct intermediate state, not a fault: the watchdog writes its state
+   file before it attempts the send.
+3. Within one tick it turns **solid** and marked *"watchdog · sent"* — with **identical text** to
+   what landed on the phone. Compare them character for character; both are built from
+   `src/alert-skill/summarize.ts`. If instead it stays greyed with a bracketed reason (*"[not
+   delivered: …]"*), the send genuinely failed and the reason is the loop's own error string —
+   that is the correct display, and the phone will have nothing.
+4. On recovery, one *"recovered to OK"* bubble, same rules.
 
-**If a bubble says `sent` and the phone has nothing**, the watchdog state file moved without a
-delivery — check `cron\jobs.json` `last_status`, not the wall.
+**If a bubble says `sent` and the phone has nothing**, the health endpoint's `lastMessageAt`
+advanced without the message arriving — that is a Telegram-side delivery gap, not a wall bug.
+Check `delivered`/`undelivered` on `http://127.0.0.1:7789/health`.
 
 ---
 

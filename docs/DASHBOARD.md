@@ -313,15 +313,41 @@ The panel must never claim a delivery that has not happened. Three things can pu
 a message on it, and each bubble says which:
 
 1. **`watchdog · sent`** — the watchdog's state file changed, which only happens
-   when a tick actually decided to send. Evidence of a real delivery, observed
-   after the fact. A threshold alert bumps `lastAlertedAt`; a recovery clears it
-   and drops `lastStatus` to `ok`, so recovery is detected from the status
-   transition instead.
+   when a tick actually decided to send. A threshold alert bumps `lastAlertedAt`;
+   a recovery clears it and drops `lastStatus` to `ok`, so recovery is detected
+   from the status transition instead.
+
+   A changed state file is evidence of a **decision, not a delivery**.
+   `tick.ts` writes the state atomically *before* `watch-loop.ts` awaits the
+   Telegram send, and that send swallows its own failures — so if the wall
+   treated the state file as proof, every page would render delivered even with
+   the WiFi off, which is the exact beat the demo turns off the WiFi to show.
+   So a page enters the panel as recorded-but-unconfirmed (greyed, dashed,
+   tagged `not delivered`, text ending *"[sending — delivery not yet
+   confirmed]"*) and is promoted to a solid `watchdog · sent` bubble only when
+   the health endpoint's `lastMessageAt` advances past the moment the page was
+   recorded. That timestamp is written by `deliver()` *after* the Telegram call
+   returns, so it is the only positive delivery evidence observable from outside
+   the watchdog process.
+
+   When promotion cannot happen the bubble says which of the three reasons
+   applies rather than sitting silently grey: `lastDeliveryError` from the loop
+   is quoted verbatim (*"[not delivered: …]"*, and it keeps retrying since the
+   next send clears the error); a loop with `canDeliver: false` is terminal
+   (*"[not delivered: watchdog has no Telegram credentials]"*); and if nothing
+   answers the health port at all the wall admits the gap instead of inventing a
+   verdict (*"[recorded by the watchdog; delivery not confirmed — no watch loop
+   on the health port to report it]"*), because on the cron path there is no
+   process that reports send outcomes.
 2. **`queued · next tick ≤ 15s`** — running the *same* `decideAlert` the watchdog
    runs says an alert is due right now. The wall ticks every 2s, so it knows
    before the phone does. Rendered greyed, dashed and explicitly labelled. When
-   the watchdog then fires, that exact queued text is promoted to a delivered
-   bubble.
+   the watchdog then fires, that exact queued text is re-posted as a recorded
+   page and follows the promotion rule in (1) — it does not jump straight to a
+   delivered bubble. The queued prediction is the one bubble in the thread with
+   the fixed id `pending`; that is how the renderer tells "has not been sent
+   yet" apart from "was sent, not yet confirmed", since both are `delivered:
+   false`.
 
    The cadence in that tag is **measured, not assumed**: the server probes
    `http://127.0.0.1:7789/health` (cached 5s) and reports whatever interval the

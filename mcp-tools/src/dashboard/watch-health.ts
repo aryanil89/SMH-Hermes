@@ -25,6 +25,16 @@ export interface WatchRunner {
   ticks?: number;
   /** False when the loop is up but has no Telegram credentials -- it cannot page. */
   canDeliver?: boolean;
+  /**
+   * When the loop last completed a Telegram send. This is the only positive
+   * evidence of delivery available from outside the watchdog process: the alert
+   * state file is written when a tick *decides* to alert (tick.ts), before
+   * delivery is attempted (watch-loop.ts), so a changed state file proves a
+   * decision and not a delivery. See telegram-feed.ts.
+   */
+  lastMessageAt?: string;
+  /** Set while the most recent send attempt failed; cleared on the next success. */
+  lastDeliveryError?: string;
   /** Why the probe came back empty, for the panel to show instead of a guess. */
   detail?: string;
 }
@@ -34,6 +44,8 @@ interface HealthPayload {
   lastTickAt?: unknown;
   ticks?: unknown;
   canDeliver?: unknown;
+  lastMessageAt?: unknown;
+  lastDeliveryError?: unknown;
 }
 
 const DEFAULT_PORT = 7789;
@@ -89,6 +101,10 @@ async function probe(): Promise<WatchRunner> {
       ...(typeof body.lastTickAt === "string" ? { lastTickAt: body.lastTickAt } : {}),
       ...(typeof body.ticks === "number" ? { ticks: body.ticks } : {}),
       ...(typeof body.canDeliver === "boolean" ? { canDeliver: body.canDeliver } : {}),
+      ...(typeof body.lastMessageAt === "string" ? { lastMessageAt: body.lastMessageAt } : {}),
+      ...(typeof body.lastDeliveryError === "string"
+        ? { lastDeliveryError: body.lastDeliveryError }
+        : {}),
     };
   } catch {
     // Connection refused is the normal, expected answer on a rig running the

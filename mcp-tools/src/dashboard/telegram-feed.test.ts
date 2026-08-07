@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { TelegramFeed } from "./telegram-feed.js";
+import type { WatchRunner } from "./watch-health.js";
 import type { EnvironmentalResult } from "../environmental/types.js";
 
 function reading(overrides: Partial<EnvironmentalResult> = {}): EnvironmentalResult {
@@ -23,10 +24,19 @@ describe("TelegramFeed", () => {
   let dir: string;
   let statePath: string;
   let feed: TelegramFeed;
+  /**
+   * What the watchdog's health endpoint reports this tick. Mutable because the
+   * delivery verdict on a watchdog page is drawn from here, not from the state
+   * file, so the tests have to be able to move it between ticks.
+   */
+  let runner: WatchRunner;
 
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "hermes-tg-"));
     statePath = join(dir, "environmental-watch.json");
+    // A healthy loop that has delivered everything up to the far future, so the
+    // tests that are not about delivery see pages settle as delivered.
+    runner = { mode: "loop", canDeliver: true, lastMessageAt: "2099-01-01T00:00:00.000Z" };
     feed = new TelegramFeed({
       statePath,
       botLabel: "Hermes Ops",
@@ -35,7 +45,7 @@ describe("TelegramFeed", () => {
       // Stubbed: the real probe opens a loopback socket, so without this the
       // suite's answer would depend on whether the developer happens to have a
       // watch loop running on port 7789.
-      watchRunner: async () => ({ mode: "unknown" as const, detail: "stubbed" }),
+      watchRunner: async () => runner,
     });
   });
 
@@ -91,6 +101,106 @@ describe("TelegramFeed", () => {
     expect(alert?.delivered).toBe(true);
     expect(alert?.text).toBe(queued?.text);
     expect(alert?.origin).toBe("watchdog");
+  });
+
+  /**
+   * The regression this whole delivery-confirmation path exists for.
+   *
+   * runWatchTick writes the state file before watch-loop attempts the send, and
+   * the send failure path is swallowed so the loop survives a WiFi drop. Marking
+   * the bubble delivered off the state file therefore paged nobody while the
+   * wall said the on-call had been paged -- a false all-clear during exactly the
+   * incident the panel exists for.
+   */
+  it("does not claim delivery when the watchdog's send failed", async () => {
+    const now = new Date("2026-08-04T19:10:00.000Z");
+    runner = {
+      mode: "loop",
+      canDeliver: true,
+      lastDeliveryError: "fetch failed: ENOTFOUND api.telegram.org",
+    };
+    await feed.update(reading(), now);
+
+    await writeFile(
+      statePath,
+      JSON.stringify({ lastStatus: "critical", lastAlertedAt: "2026-08-04T19:11:00.000Z" }),
+    );
+    const view = await feed.update(
+      reading({ status: "critical", leakDetected: true }),
+      new Date("2026-08-04T19:11:30.000Z"),
+    );
+
+    const alert = view.messages.find((m) => m.kind === "alert");
+    expect(alert?.delivered).toBe(false);
+    expect(alert?.text).toContain("[not delivered: fetch failed: ENOTFOUND api.telegram.org]");
+  });
+
+  it("promotes the page to delivered once the watchdog reports the send completed", async () => {
+    const now = new Date("2026-08-04T19:10:00.000Z");
+    runner = { mode: "loop", canDeliver: true };
+    await feed.update(reading(), now);
+
+    await writeFile(
+      statePath,
+      JSON.stringify({ lastStatus: "critical", lastAlertedAt: "2026-08-04T19:11:00.000Z" }),
+    );
+    const inflight = await feed.update(
+      reading({ status: "critical", leakDetected: true }),
+      new Date("2026-08-04T19:11:00.500Z"),
+    );
+    // The send is still in flight: recorded, but not asserted as delivered.
+    expect(inflight.messages.find((m) => m.kind === "alert")?.delivered).toBe(false);
+    expect(inflight.messages.find((m) => m.kind === "alert")?.text).toContain("not yet confirmed");
+
+    runner = { mode: "loop", canDeliver: true, lastMessageAt: "2026-08-04T19:11:01.000Z" };
+    const settled = await feed.update(
+      reading({ status: "critical", leakDetected: true }),
+      new Date("2026-08-04T19:11:02.000Z"),
+    );
+
+    const alert = settled.messages.find((m) => m.kind === "alert");
+    expect(alert?.delivered).toBe(true);
+    // Promoted verbatim -- the confirmation suffix is gone, not left stranded.
+    expect(alert?.text).not.toContain("not yet confirmed");
+    expect(alert?.text).toContain("CRITICAL");
+  });
+
+  it("says the loop cannot page rather than showing a delivered bubble", async () => {
+    const now = new Date("2026-08-04T19:10:00.000Z");
+    runner = { mode: "loop", canDeliver: false };
+    await feed.update(reading(), now);
+
+    await writeFile(
+      statePath,
+      JSON.stringify({ lastStatus: "critical", lastAlertedAt: "2026-08-04T19:11:00.000Z" }),
+    );
+    const view = await feed.update(
+      reading({ status: "critical", leakDetected: true }),
+      new Date("2026-08-04T19:11:30.000Z"),
+    );
+
+    const alert = view.messages.find((m) => m.kind === "alert");
+    expect(alert?.delivered).toBe(false);
+    expect(alert?.text).toContain("no Telegram credentials");
+  });
+
+  it("admits it cannot confirm delivery when no watch loop answers", async () => {
+    const now = new Date("2026-08-04T19:10:00.000Z");
+    runner = { mode: "unknown", detail: "nothing on the health port" };
+    await feed.update(reading(), now);
+
+    await writeFile(
+      statePath,
+      JSON.stringify({ lastStatus: "critical", lastAlertedAt: "2026-08-04T19:11:00.000Z" }),
+    );
+    const view = await feed.update(
+      reading({ status: "critical", leakDetected: true }),
+      new Date("2026-08-04T19:11:30.000Z"),
+    );
+
+    const alert = view.messages.find((m) => m.kind === "alert");
+    expect(alert?.delivered).toBe(false);
+    expect(alert?.text).toContain("delivery not confirmed");
   });
 
   it("detects recovery from the status transition, not from lastAlertedAt", async () => {
@@ -235,6 +345,7 @@ describe("TelegramFeed", () => {
   });
 
   it("does not claim a loop is running when nothing answers the health port", async () => {
+    runner = { mode: "unknown", detail: "nothing on the health port" };
     const view = await feed.update(reading(), new Date("2026-08-04T19:10:00.000Z"));
 
     // "unknown", never a guessed interval: the alert path might be hermes cron,

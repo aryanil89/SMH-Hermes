@@ -12,9 +12,16 @@ import { probeWatchRunner, type WatchRunner } from "./watch-health.js";
  *
  * There are three ways a message gets onto this panel, and the panel says which:
  *
- *  1. `watchdog`, delivered -- the watchdog's persisted state file changed, which
- *     only happens when a tick actually decided to send. This is evidence of a
- *     real delivery, observed after the fact.
+ *  1. `watchdog`, recorded -- the watchdog's persisted state file changed, which
+ *     means a tick *decided* to send. It is deliberately NOT rendered as
+ *     delivered on that basis: the tick writes its state file before it attempts
+ *     delivery (tick.ts, then watch-loop.ts), and the send failure path is
+ *     swallowed so the loop survives a WiFi drop. So a changed state file with
+ *     the venue WiFi down would otherwise have the wall reporting that the
+ *     on-call was paged when nothing left the machine -- the exact false
+ *     all-clear this panel exists to prevent. The bubble is posted unconfirmed
+ *     and promoted to delivered only once the watchdog's own health endpoint
+ *     reports a completed send at or after that message. See confirmDeliveries().
  *  2. `watchdog`, queued -- running the *same* `decideAlert` the watchdog runs
  *     says an alert is due right now. The wall ticks every 2s and the watchdog
  *     every 15s (watch-loop.ts) or every ~2 min (hermes cron), so the wall knows
@@ -31,6 +38,11 @@ import { probeWatchRunner, type WatchRunner } from "./watch-health.js";
 const MESSAGE_LIMIT = 40;
 /** Stable id so the queued bubble does not re-animate on every 2s tick. */
 const PENDING_ID = "pending";
+/**
+ * Shown on a watchdog page between the state file changing and the watchdog
+ * confirming the send. Normally a second or two; permanent if the send failed.
+ */
+const AWAITING_SUFFIX = "[sending -- delivery not yet confirmed]";
 
 export interface TelegramFeedOptions {
   statePath: string;
@@ -85,6 +97,13 @@ export class TelegramFeed {
   private observedStatus: AlertState["lastStatus"] = "ok";
   /** Text of the alert we last predicted, promoted verbatim once the watchdog fires. */
   private queuedText: string | undefined;
+  /**
+   * Watchdog pages posted but not yet evidenced as delivered, oldest first.
+   *
+   * `text` is kept verbatim so the rendered suffix can be rewritten as the
+   * verdict firms up, without ever mutating what the watchdog actually said.
+   */
+  private awaitingDelivery: { id: string; atMs: number; text: string }[] = [];
 
   constructor(private readonly opts: TelegramFeedOptions) {}
 
@@ -168,6 +187,9 @@ export class TelegramFeed {
     const lastAlertMs = state.lastAlertedAt ? Date.parse(state.lastAlertedAt) : Number.NaN;
     const runner = await (this.opts.watchRunner ?? probeWatchRunner)(now);
 
+    // After the probe, so this tick's verdict uses this tick's health reading.
+    this.confirmDeliveries(runner);
+
     return {
       botLabel: this.opts.botLabel,
       chatTitle: this.opts.chatTitle,
@@ -219,11 +241,16 @@ export class TelegramFeed {
   }
 
   /**
-   * Turn a change in the watchdog's state file into a delivered message.
+   * Turn a change in the watchdog's state file into a recorded -- not yet
+   * delivered -- message.
    *
    * A threshold alert bumps `lastAlertedAt`; a recovery clears it and drops
    * `lastStatus` back to ok, so recovery has to be detected from the status
    * transition instead -- watching `lastAlertedAt` alone would miss it.
+   *
+   * Both are posted with `delivered: false`. The state file only evidences that
+   * a tick decided to send; confirmDeliveries() promotes the bubble once the
+   * watchdog reports the send actually completed.
    */
   private reconcile(state: AlertState, summary: string, now: Date): void {
     const alertedAtChanged =
@@ -231,7 +258,7 @@ export class TelegramFeed {
     const recovered = this.observedStatus !== "ok" && state.lastStatus === "ok";
 
     if (alertedAtChanged) {
-      this.push({
+      this.recordUndelivered({
         at: state.lastAlertedAt ?? now.toISOString(),
         direction: "outbound",
         origin: "watchdog",
@@ -242,10 +269,10 @@ export class TelegramFeed {
         text:
           this.queuedText ??
           `Environmental status is now ${state.lastStatus.toUpperCase()}. ${summary}`,
-        delivered: true,
+        delivered: false,
       });
     } else if (recovered) {
-      this.push({
+      this.recordUndelivered({
         at: now.toISOString(),
         direction: "outbound",
         origin: "watchdog",
@@ -254,12 +281,74 @@ export class TelegramFeed {
         text:
           this.queuedText ??
           `Environmental status has recovered to OK (was ${this.observedStatus.toUpperCase()}). ${summary}`,
-        delivered: true,
+        delivered: false,
       });
     }
 
     this.observedAlertAt = state.lastAlertedAt;
     this.observedStatus = state.lastStatus;
+  }
+
+  /** Post a watchdog page and put it in the queue awaiting delivery evidence. */
+  private recordUndelivered(message: Omit<TelegramMessage, "id">): void {
+    const posted = this.push({ ...message, text: `${message.text}\n\n${AWAITING_SUFFIX}` });
+    const atMs = Date.parse(message.at);
+    this.awaitingDelivery.push({
+      id: posted.id,
+      atMs: Number.isNaN(atMs) ? Date.now() : atMs,
+      text: message.text,
+    });
+  }
+
+  /**
+   * Settle the delivery verdict on watchdog pages, from the watchdog's own
+   * health endpoint rather than from the state file.
+   *
+   * `lastMessageAt` is set only after `sendTelegramMessage` resolves, so a value
+   * at or after the page's timestamp is positive evidence that this page (or one
+   * after it) left the machine. `lastDeliveryError` is set on failure and cleared
+   * on the next success, so it is the current verdict, not a historical counter.
+   *
+   * Where the loop is not reachable at all -- the hermes cron path, or nothing
+   * running -- there is no way to observe delivery from here, and the bubble
+   * keeps saying so instead of guessing in either direction.
+   */
+  private confirmDeliveries(runner: WatchRunner): void {
+    if (!this.awaitingDelivery.length) return;
+
+    const sentUpTo = runner.lastMessageAt ? Date.parse(runner.lastMessageAt) : Number.NaN;
+    const still: typeof this.awaitingDelivery = [];
+
+    for (const entry of this.awaitingDelivery) {
+      const found = this.messages.find((m) => m.id === entry.id);
+      if (!found) continue; // aged out of the ring buffer
+
+      if (!Number.isNaN(sentUpTo) && sentUpTo >= entry.atMs) {
+        found.delivered = true;
+        found.text = entry.text;
+        continue;
+      }
+      if (runner.mode === "loop" && runner.canDeliver === false) {
+        found.text = `${entry.text}\n\n[not delivered: watchdog has no Telegram credentials]`;
+        continue; // terminal: credentials do not appear mid-run
+      }
+      if (runner.lastDeliveryError) {
+        found.text = `${entry.text}\n\n[not delivered: ${runner.lastDeliveryError}]`;
+        still.push(entry); // a later retry can still succeed
+        continue;
+      }
+      if (runner.mode !== "loop") {
+        found.text =
+          `${entry.text}\n\n[recorded by the watchdog; delivery not confirmed -- ` +
+          `no watch loop on the health port to report it]`;
+        still.push(entry);
+        continue;
+      }
+      found.text = `${entry.text}\n\n${AWAITING_SUFFIX}`;
+      still.push(entry);
+    }
+
+    this.awaitingDelivery = still;
   }
 
   private push(message: Omit<TelegramMessage, "id">): TelegramMessage {

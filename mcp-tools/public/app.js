@@ -1062,7 +1062,13 @@ function watchCadence() {
 function bubbleTag(message) {
   if (message.kind === "system") return "wall";
   if (!message.delivered) {
-    if (message.origin !== "watchdog") return "not delivered";
+    // Exactly one bubble is a prediction rather than a record: the feed's
+    // pending alert, appended with the fixed id "pending". Every other
+    // undelivered watchdog bubble is a page that has already fired and whose
+    // delivery the watchdog has not confirmed — tagging that "queued" would
+    // claim it is still coming when it has in fact been attempted. The bubble
+    // text carries the specific reason (in flight, failed, or unobservable).
+    if (message.origin !== "watchdog" || message.id !== "pending") return "not delivered";
     const cadence = watchCadence();
     return cadence ? `queued · next tick ≤ ${cadence}` : "queued · next watchdog tick";
   }
