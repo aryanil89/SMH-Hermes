@@ -76,7 +76,7 @@ claims score zero, so the line between them is part of the submission, not a foo
 
 ## Judge quickstart — three rungs, pick your hardware
 
-The fastest path to seeing something real. Rung 1 needs any machine with Node 18+; the
+The fastest path to seeing something real. Rung 1 needs any machine with Node 22+; the
 higher rungs need specific hardware. Every step says what "worked" looks like.
 
 **Rung 1 — code, tests, and the wall display (any OS/arch, ~5 minutes, no hardware):**
@@ -149,7 +149,7 @@ for anywhere else.
 | Need | Note |
 |---|---|
 | **Windows on ARM64** (Snapdragon X Elite / Copilot+) | The GenieX NPU path is win-arm64 only. An x64 machine can run everything *except* NPU inference |
-| **Node 18+** | For the MCP tool servers (verified on v24.18) |
+| **Node 22+** | For the MCP tool servers (`package.json` floor is 20, but the dashboard's `node:sqlite` needs 22.5+; verified on v24.18) |
 | **`adb`** | Only for flashing/configuring the board (sketch + app deploy, initial WiFi/Tailscale setup, clock sync) — it carries no sensor traffic. Ships inside the scrcpy package: `winget install Genymobile.scrcpy` — this is not obvious |
 | **Telegram bot token** | From [@BotFather](https://t.me/BotFather); your numeric id from @userinfobot |
 | QAIRT SDK 2.32+ *(optional)* | Only to re-run the NPU profiling in `bench/` |

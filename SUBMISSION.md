@@ -19,8 +19,8 @@ must demo to be eligible for a prize.**
     model zoo and verify SHA256 hashes per
     [README § Face recognition](README.md#face-recognition-face-cpu). The `face-cpu`
     rung is optional and **off by default** (`ACCESS_IDENTITY_METHOD=stub`).
-- [ ] **Personal GitHub repository, public** — confirm the repo is public under a personal
-  account before submitting the link.
+- [x] **Personal GitHub repository, public** — verified 2026-08-06:
+  `gh repo view aryanil89/SMH-Hermes` reports `"visibility": "PUBLIC"`.
 - **README contents** (all four are required):
   - [x] Application description — [README.md](README.md) intro.
   - [x] Names and emails of ALL team members — README team table: Indranil Acharya,
@@ -33,12 +33,14 @@ must demo to be eligible for a prize.**
     [README § Run it yourself](README.md#run-it-yourself--the-whole-flow-in-start-order)
     (the full seven-piece flow).
 - [x] **An open-source license** — Apache-2.0.
-- [ ] **Runnable using the provided instructions** — verified end to end on the demo
-  laptop; quickstart rung 1 verified 2026-08-06 **from a fresh `git clone` in a clean
-  directory**: `npm install` → `npm run build` → 327/327 tests, and the environmental
-  smoke command returned the documented honest-mock fallback with its reason string.
-  Still recommended before submission: one walkthrough of the full README §0 provisioning
-  (rungs 2–3) by a team member who did not write it.
+- [x] **Runnable using the provided instructions** — verified three ways: end to end on
+  the demo laptop; quickstart rung 1 on 2026-08-06 **from a fresh `git clone` in a clean
+  directory** (`npm install` → `npm run build` → 327/327 tests, and the environmental
+  smoke command returned the documented honest-mock fallback with its reason string);
+  and **independently by a team member on a second machine** (John's 2026-08-06 review
+  ran install/build/test from his own clone — it also caught a test-order flake in
+  `notify.test.ts`, fixed same day). Rungs 2–3 need the specific hardware and are
+  covered by the demo-laptop verification.
 - [x] **Installs and runs on the intended Copilot+ PC** — the Snapdragon X Elite demo
   laptop is the target machine; all instructions are written for it, with the x64 CPU
   fallback documented.
@@ -48,8 +50,10 @@ must demo to be eligible for a prize.**
 - [ ] **Submit the GitHub link via the Microsoft Form by Friday 12:00 PM PST** — one
   submission per team. The plan of record ([PROGRESS.md](PROGRESS.md)) says **submit
   early** — do not wait for the deadline.
-- [ ] **Every team member submits the feedback form by Friday noon** — survey link arrives
-  by email Thursday morning. Mandatory, per deck p.7 and p.9.
+- [ ] **Every team member submits the feedback form by Friday noon** — one member's
+  submission confirmed 2026-08-06; still needs an explicit "submitted" from each of the
+  other two. Mandatory per deck p.7 and p.9 — a missing survey risks eligibility, not
+  points.
 
 ## Recommended (optional per the deck — all present)
 
@@ -69,7 +73,7 @@ must demo to be eligible for a prize.**
 |---|---|
 | Technical Implementation (40) — resource utilization, optimization, latency, energy | [docs/EVIDENCE.md](docs/EVIDENCE.md) — the one-stop index: NPU 382 tok/s vs CPU 35 prefill, 471 J/query NPU vs ~8.7× CPU energy/token, per-op Hexagon profiling, prompt-composition optimization, and the same model measured on a **second Hexagon NPU** (S25 Ultra 8 Elite: 1,918 tok/s prefill / 23.1 decode, w4a16 via `genie-t2t-run` over `adb` — labeled as a different config) |
 | Use-Case and Innovation (25) | README intro + [docs/POSITIONING.md](docs/POSITIONING.md); the access sentry (presence → face-cpu → human approval → audit trail; known responder suppresses the page) |
-| Deployment and Accessibility (20) | [README § Judge quickstart](README.md#judge-quickstart--three-rungs-pick-your-hardware) — rung 1 runs on any Node 18+ machine in ~5 min |
+| Deployment and Accessibility (20) | [README § Judge quickstart](README.md#judge-quickstart--three-rungs-pick-your-hardware) — rung 1 runs on any Node 22+ machine in ~5 min |
 | Presentation and Documentation (15) | Candid built-vs-planned line ([README § Today vs. planned](README.md#today-vs-planned)), 327 passing tests, [docs/RUNBOOK.md](docs/RUNBOOK.md), troubleshooting tables from real incidents |
 
 ## Open decisions before the demo (not submission blockers, but demo blockers)
