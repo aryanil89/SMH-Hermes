@@ -23,6 +23,24 @@
   All run at logon with restart-on-failure (1 min interval, 999 attempts) and
   no execution time limit.
 
+  A Scheduled Task action has no environment block, so every setting the wall
+  and watchdog need is written INTO the command line here. That is not a detail:
+  anything left out is simply absent at boot, with no warning and no failure --
+  the component comes up missing a feature and looks healthy. A registration
+  that predated this carried nothing, so a reboot produced a wall with face
+  recognition off, approve/deny unauthenticated on the tailnet, and the
+  staleness guard back on its 3600s code default. The wall task now carries
+  UNOQ_LOG_MAX_AGE_S, the ACCESS_* face-identity settings (when the venv and
+  vision script are both present -- otherwise it says so and runs
+  detection-only), and ACCESS_SHARED_SECRET; the watchdog carries
+  UNOQ_LOG_MAX_AGE_S. Keep this in step with scripts\demo-face-ON.ps1, which
+  brings up the same dashboard by hand.
+
+  Re-running this script REPLACES the registrations but cannot replace a running
+  process: Stop-ScheduledTask kills the powershell wrapper and orphans the node
+  grandchild, which keeps the port and the old environment. Anything still
+  serving is reported by pid; -Force kills it and starts the new one.
+
   THE WATCHDOG TASK REPLACES THE `hermes cron` ENVIRONMENTAL WATCH. Hermes cron
   cannot fire faster than ~2 minutes on this rig, so sensor-edge-to-Telegram was
   measured at 14-102s with ~86% of it spent waiting for the next tick. The loop
@@ -55,7 +73,15 @@
   Print what would happen and change nothing.
 
 .PARAMETER Force
-  Proceed even if the gateway reports active agents (an in-flight turn).
+  Proceed even if the gateway reports active agents (an in-flight turn), and
+  kill a stale wall/watchdog still holding its port so the new registration
+  actually takes effect. Without it those are reported and left running.
+
+.PARAMETER NoSecret
+  Register the wall with its write routes OPEN (no ACCESS_SHARED_SECRET).
+  Loopback-only rehearsal rigs may want this. A machine whose dashboard is
+  reachable over the tailnet must not: approve/deny/enroll are the routes that
+  grant physical access.
 
 .EXAMPLE
   # Preview:
@@ -84,7 +110,11 @@ param(
   [ValidateSet('all', 'gateway', 'supervisor', 'wall', 'watch')]
   [string] $Only = 'all',
   [switch] $DryRun,
-  [switch] $Force
+  [switch] $Force,
+  # Register the wall task with the write routes OPEN. Loopback-only rehearsal
+  # rigs may want this; a machine whose dashboard is reachable over the tailnet
+  # must not, which is why locked is the default and this is an explicit opt-out.
+  [switch] $NoSecret
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +134,17 @@ $WatchTask      = 'SMH-Hermes-Watchdog'
 $WatchLog       = "$HermesHome\watch-loop.log"
 $WatchPort      = 7789
 $PsExe          = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+
+# Face identity + write-route lock, resolved exactly the way demo-face-ON.ps1
+# resolves them so the autostart task and the manual kill-switch bring up the
+# SAME dashboard. They diverged once and it cost a live demo beat: the task
+# action carried no env block at all, so a reboot produced a wall with face
+# recognition off, approve/deny unauthenticated on the tailnet, and the
+# staleness guard back on its 3600s code default -- none of it announced.
+$WorkDir        = Split-Path $RepoRoot -Parent
+$VisionScript   = Join-Path $McpTools 'scripts\face_vision.py'
+$FacePython     = Join-Path $WorkDir '.venv-face\Scripts\python.exe'
+$SecretFile     = Join-Path $HermesHome 'access-secret.txt'
 
 function Say([string]$Level, [string]$Message) {
   $color = switch ($Level) { 'OK' {'Green'} 'WARN' {'Yellow'} 'FAIL' {'Red'} default {'Gray'} }
@@ -262,11 +303,59 @@ elseif (-not (Test-Path $WallEntry)) {
   # Quoting is load-bearing: powershell.exe's command-line tokenizer strips bare
   # double quotes before -Command reassembles the text, so paths with spaces
   # must ride as single quotes inside ONE double-quoted payload.
-  # UNOQ_LOG_MAX_AGE_S rides inside the payload: the task launches bare node with
-  # no env block, so without this the wall runs on the code default (3600s) and
+  # Everything the dashboard needs rides inside the payload, because the task
+  # launches bare node with no env block of its own. Anything omitted here is
+  # silently absent at boot -- there is no warning, the wall just comes up with
+  # the feature missing, which is how a reboot once produced an unauthenticated,
+  # face-blind wall that nobody noticed until someone tried to use it.
+
+  # Same secret file demo-face-ON.ps1 uses, and reused rather than rotated: a
+  # fresh key here would 401 the phone's already-open page.
+  $wallSecret = ''
+  if ($NoSecret) {
+    Say 'WARN' 'wall write routes OPEN (-NoSecret) -- approve/deny/enroll unauthenticated'
+  } elseif (Test-Path $SecretFile) {
+    $wallSecret = (Get-Content $SecretFile -Raw).Trim()
+    Say 'OK'   "reusing shared secret -> $SecretFile"
+  } elseif ($DryRun) {
+    # A dry run must not mint a real key: writing one here would silently become
+    # the key every later run reuses, so -DryRun would have configured the rig.
+    $wallSecret = '<generated-on-first-real-run>'
+    Say 'DRY'  "would generate a shared secret -> $SecretFile"
+  } else {
+    $rngBytes = New-Object byte[] 18
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($rngBytes)
+    $wallSecret = [Convert]::ToBase64String($rngBytes) -replace '[+/=]', ''
+    New-Item -ItemType Directory -Force (Split-Path $SecretFile -Parent) | Out-Null
+    Set-Content -Path $SecretFile -Value $wallSecret -Encoding ascii
+    Say 'OK'   "generated shared secret -> $SecretFile"
+  }
+
+  # Face identity only when BOTH halves exist. Pointing the dashboard at a
+  # missing interpreter spawns a failing process per capture and arrives at the
+  # same detection-only outcome by a noisier route.
+  $faceOk = (Test-Path $FacePython) -and (Test-Path $VisionScript)
+  if (-not $faceOk) {
+    Say 'WARN' 'face identity OFF -- wall will run detection-only (everyone reads as unknown)'
+    if (-not (Test-Path $FacePython))   { Say 'WARN' "  missing: $FacePython" }
+    if (-not (Test-Path $VisionScript)) { Say 'WARN' "  missing: $VisionScript" }
+  }
+
+  # UNOQ_LOG_MAX_AGE_S: without it the wall runs on the code default (3600s) and
   # calls an hour-dead board "real" while the agent, whose env server gets 180
   # from config.yaml, says "mock" -- a live on-stage contradiction.
-  $inner = '"$env:UNOQ_LOG_MAX_AGE_S=''180''; & ''{0}'' ''{1}'' *>> ''{2}''"' -f $node, $WallEntry, $WallLog
+  $envParts = @("`$env:UNOQ_LOG_MAX_AGE_S='180'")
+  if ($faceOk) {
+    $envParts += "`$env:ACCESS_IDENTITY_METHOD='face-cpu'"
+    $envParts += "`$env:ACCESS_PYTHON='$FacePython'"
+    $envParts += "`$env:ACCESS_VISION_SCRIPT='$VisionScript'"
+    $envParts += "`$env:ACCESS_VISION_TIMEOUT_MS='20000'"
+  }
+  # Lands in the task XML, which is readable by this user -- the same user who
+  # can already read the secret file in plaintext, so no ground is given up.
+  if ($wallSecret -ne '') { $envParts += "`$env:ACCESS_SHARED_SECRET='$wallSecret'" }
+
+  $inner = '"{0}; & ''{1}'' ''{2}'' *>> ''{3}''"' -f ($envParts -join '; '), $node, $WallEntry, $WallLog
 
   Invoke-Step "register scheduled task '$WallTask'" {
     $action = New-ScheduledTaskAction -Execute $PsExe `
@@ -285,10 +374,46 @@ elseif (-not (Test-Path $WallEntry)) {
 
   # Starting a second listener would just EADDRINUSE-crash and then be retried
   # 999 times by the task, so only start when the port is actually free.
-  if (Get-NetTCPConnection -LocalPort 7788 -State Listen -ErrorAction SilentlyContinue) {
-    Say 'WARN' 'something already listening on 7788 -- task registered but not started'
-  } else {
+  #
+  # Loopback only. tailscale serve publishes this port on the tailnet addresses,
+  # so an unfiltered lookup finds tailscaled's listeners whether or not the wall
+  # is up -- and this branch would then decline to start the task FOREVER on any
+  # machine where the phone can reach the wall at all, which is every machine
+  # that matters. demo-face-ON.ps1 filters correctly; this did not.
+  $wallListeners = @(Get-NetTCPConnection -LocalPort 7788 -State Listen -ErrorAction SilentlyContinue |
+    Where-Object { $_.LocalAddress -eq '127.0.0.1' })
+
+  if ($wallListeners.Count -eq 0) {
     Invoke-Step "start '$WallTask' now" { Start-ScheduledTask -TaskName $WallTask }
+  } else {
+    # A registration that is not running is not in effect, and the process
+    # holding the port was started from the PREVIOUS registration -- so it has
+    # the old env, which is the whole reason to re-run this script. Saying only
+    # "not started" reads as success and leaves the stale wall serving.
+    $stale = @($wallListeners | ForEach-Object { Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue } |
+      Where-Object { $_ -and $_.ProcessName -eq 'node' })
+    if ($stale.Count -eq 0) {
+      Say 'WARN' 'loopback 7788 held by a non-node process -- task registered but not started'
+    } elseif ($Force) {
+      foreach ($p in $stale) {
+        $pid_ = $p.Id
+        Invoke-Step "stop stale dashboard pid $pid_ (started from the previous registration)" {
+          Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue
+        }
+      }
+      if (-not $DryRun) { Start-Sleep -Seconds 1 }
+      Invoke-Step "start '$WallTask' now" { Start-ScheduledTask -TaskName $WallTask }
+    } else {
+      Say 'WARN' "task registered but NOT started -- pid $($stale[0].Id) still serving 7788 with the OLD environment"
+      Say 'WARN' '  it will keep serving until killed; Stop-ScheduledTask does not reach it'
+      Say 'WARN' '  (it kills the powershell wrapper and orphans this node grandchild)'
+      Say 'WARN' "  re-run with -Force, or: Stop-Process -Id $($stale[0].Id) -Force; Start-ScheduledTask -TaskName '$WallTask'"
+    }
+  }
+
+  if ($wallSecret -ne '') {
+    Say 'INFO' "wall:  http://127.0.0.1:7788/?secret=$wallSecret"
+    Say 'INFO' "phone: append ?secret=$wallSecret to the tailnet phone.html URL"
   }
 }
 }
@@ -343,10 +468,27 @@ elseif (-not (Test-Path $WatchEntry)) {
   # Delivery needs a bot. Without one the loop still ticks and persists state --
   # the wall keeps working -- but nothing reaches the phone, so say so loudly
   # rather than letting a silent thread read as a quiet night.
-  if (-not $env:TELEGRAM_BOT_TOKEN -or -not $env:TELEGRAM_CHAT_ID) {
-    Say 'WARN' 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are not set in this environment.'
+  #
+  # Ask the MACHINE and USER scopes, not $env:. The task action carries no env
+  # block, so what it gets at logon is the persisted environment -- and $env: is
+  # the installing shell, which is a different question with two ways to be
+  # wrong. A shell that never inherited them warns about a watchdog that will
+  # page perfectly well; worse, a shell where someone typed `$env:TELEGRAM_...`
+  # by hand reports all-clear for a task that will be MUTE at every logon. The
+  # second is the one that costs an unanswered page at 3am.
+  # No ?? here: this script runs under Windows PowerShell 5.1, which has no
+  # null-coalescing operator.
+  $tgToken = [Environment]::GetEnvironmentVariable('TELEGRAM_BOT_TOKEN','Machine')
+  if (-not $tgToken) { $tgToken = [Environment]::GetEnvironmentVariable('TELEGRAM_BOT_TOKEN','User') }
+  $tgChat  = [Environment]::GetEnvironmentVariable('TELEGRAM_CHAT_ID','Machine')
+  if (-not $tgChat)  { $tgChat  = [Environment]::GetEnvironmentVariable('TELEGRAM_CHAT_ID','User') }
+  if (-not $tgToken -or -not $tgChat) {
+    Say 'WARN' 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID are not set at MACHINE or USER scope.'
     Say 'WARN' 'The loop will tick and persist state but CANNOT page the phone.'
-    Say 'WARN' 'Set them as MACHINE or USER environment variables so the scheduled task inherits them.'
+    Say 'WARN' 'A value set only in this shell does NOT count -- the task inherits the persisted'
+    Say 'WARN' 'environment at logon. Set them with [Environment]::SetEnvironmentVariable(..,''User'').'
+  } else {
+    Say 'OK'   'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID found at USER/MACHINE scope -- task will inherit them'
   }
 
   # Same quoting constraint as the wall display's $inner above, and the same
@@ -371,10 +513,32 @@ elseif (-not (Test-Path $WatchEntry)) {
 
   # The loop binds $WatchPort as its own single-instance mutex and exits 1 if it
   # is taken, which the task would then retry 999 times. Only start when free.
-  if (Get-NetTCPConnection -LocalPort $WatchPort -State Listen -ErrorAction SilentlyContinue) {
-    Say 'WARN' "something already listening on $WatchPort -- task registered but not started"
-  } else {
+  # Same loopback filter and same stale-process handling as the wall above --
+  # a watchdog running on the previous registration's env is exactly the failure
+  # this script exists to prevent, and it is the one nobody would look for.
+  $watchListeners = @(Get-NetTCPConnection -LocalPort $WatchPort -State Listen -ErrorAction SilentlyContinue |
+    Where-Object { $_.LocalAddress -eq '127.0.0.1' })
+
+  if ($watchListeners.Count -eq 0) {
     Invoke-Step "start '$WatchTask' now" { Start-ScheduledTask -TaskName $WatchTask }
+  } else {
+    $staleWatch = @($watchListeners | ForEach-Object { Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue } |
+      Where-Object { $_ -and $_.ProcessName -eq 'node' })
+    if ($staleWatch.Count -eq 0) {
+      Say 'WARN' "loopback $WatchPort held by a non-node process -- task registered but not started"
+    } elseif ($Force) {
+      foreach ($p in $staleWatch) {
+        $pid_ = $p.Id
+        Invoke-Step "stop stale watchdog pid $pid_ (started from the previous registration)" {
+          Stop-Process -Id $pid_ -Force -ErrorAction SilentlyContinue
+        }
+      }
+      if (-not $DryRun) { Start-Sleep -Seconds 1 }
+      Invoke-Step "start '$WatchTask' now" { Start-ScheduledTask -TaskName $WatchTask }
+    } else {
+      Say 'WARN' "task registered but NOT started -- pid $($staleWatch[0].Id) still on $WatchPort with the OLD environment"
+      Say 'WARN' "  re-run with -Force, or: Stop-Process -Id $($staleWatch[0].Id) -Force; Start-ScheduledTask -TaskName '$WatchTask'"
+    }
   }
 }
 }
@@ -392,13 +556,19 @@ Get-ScheduledTask -TaskName 'Hermes_Gateway*', $SupervisorTask, $WallTask, $Watc
 & $HermesExe gateway status
 
 $componentStatus = @()
+# Loopback only, for the same reason as the start checks above -- and here it
+# matters more. `tailscale serve` publishes 7788 on the tailnet addresses, so an
+# unfiltered lookup reports "wall display: up" (with tailscaled's pid) even when
+# the wall is dead. A false green in the final verification is worse than no
+# verification: it is the line an operator reads before walking away.
 foreach ($p in @(@{Port=18181; What='geniex'}, @{Port=7788; What='wall display'}, @{Port=$WatchPort; What='watchdog loop'})) {
-  $l = @(Get-NetTCPConnection -LocalPort $p.Port -State Listen -ErrorAction SilentlyContinue)
+  $l = @(Get-NetTCPConnection -LocalPort $p.Port -State Listen -ErrorAction SilentlyContinue |
+    Where-Object { $_.LocalAddress -eq '127.0.0.1' })
   if ($l) {
     Say 'OK' "$($p.What) listening on $($p.Port) (pid $($l[0].OwningProcess))"
     $componentStatus += "$($p.What): up"
   } else {
-    Say 'WARN' "nothing listening on $($p.Port) yet"
+    Say 'WARN' "nothing listening on 127.0.0.1:$($p.Port) yet"
     $componentStatus += "$($p.What): DOWN"
   }
 }
