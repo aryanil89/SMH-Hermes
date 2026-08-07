@@ -34,7 +34,7 @@ param()
 
 $SupervisorTask = 'SMH-Hermes-GenieX-Supervisor'
 $PhoneBase      = '/data/local/tmp/hermes-npu-bench'
-$GatewayLog     = "$env:LOCALAPPDATA\hermes\logs\gateway.log"
+$GatewayLog     = "$env:LOCALAPPDATA\hermes\logs\gateway-stdio.log"
 $AdbDefault     = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Genymobile.scrcpy_Microsoft.Winget.Source_8wekyb3d8bbwe\scrcpy-win64-v3.3.2\adb.exe"
 
 function Say([string]$Level, [string]$Message) {

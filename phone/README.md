@@ -192,7 +192,7 @@ what it can do rather than claiming a match it never made. `face-cpu` is opt-in 
 2026-08-06, ~5s, process-scope env only) — `stub` stays the process default. If that changes,
 this table is the place to update.
 
-## On-phone inference — benchmarked 2026-08-06; serving still not implemented
+## On-phone inference — benchmarked, then wired in as the failover brain (2026-08-06)
 
 The CLI-over-`adb` path predicted above worked: the `qualcomm/Qwen3-4B-Instruct-2507`
 pre-compiled AI Hub Genie bundle (w4a16, ctx 4096) ran on this phone's Hexagon via
@@ -200,10 +200,20 @@ pre-compiled AI Hub Genie bundle (w4a16, ctx 4096) ran on this phone's Hexagon v
 23.1 ± 1.3 tok/s, TTFT 0.65 s**, warmup + 5 reps, numbers and every config caveat in
 [../llm-serving-bench/RESULTS.md](../llm-serving-bench/RESULTS.md#phone-benchmark-snapdragon-8-elite--2026-08-06).
 The 12 GB memory risk did not bite at ctx 4096 (~5.4 GB free before load, no OOM); the
-phone stayed a working approval terminal throughout and all bench artifacts were deleted
-after. Setup gotcha worth recording: Samsung's **Auto Blocker** silently blocks USB
-debugging — it must be off before `adb` can see the device.
+phone stayed a working approval terminal throughout. Setup gotcha worth recording:
+Samsung's **Auto Blocker** silently blocks USB debugging — it must be off before `adb`
+can see the device.
 
-**Still not implemented:** an on-phone *serving* endpoint (the bench is a one-shot CLI —
-no tool-calling, no sustained load tested), the "failover brain" demo beat, and phone-side
-energy measurement. See [../docs/HARDWARE_UTILIZATION.md](../docs/HARDWARE_UTILIZATION.md).
+**The same path now serves as the failover brain** (built + verified live the same day):
+when a TCP connect to the laptop's GenieX is refused — process dead, not merely busy — a
+gateway hook answers the inbound Telegram question on this phone's NPU instead, one-shot,
+no tools, delivered to Telegram and the wall labeled *📱 phone-NPU failover — degraded
+mode, no tools*. Measured **12.0 s** message→delivered answer (9.3 s of it is the phone).
+It is *compute* failover, not an offline mode — Telegram still needs internet. Design,
+limits and the demo arm/disarm scripts: [../hermes-hooks/README.md](../hermes-hooks/README.md).
+Demo dependency through Friday: the bundle stays staged at
+`/data/local/tmp/hermes-npu-bench`, USB debugging on, Auto Blocker off.
+
+**Still not implemented:** an on-phone *serving* endpoint (both the bench and the failover
+are one-shot CLI runs — no tool-calling, no sustained load tested) and phone-side energy
+measurement. See [../docs/HARDWARE_UTILIZATION.md](../docs/HARDWARE_UTILIZATION.md).

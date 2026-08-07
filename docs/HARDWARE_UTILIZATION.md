@@ -237,6 +237,13 @@ claims, or they won't land with judges:
   avoid the unfalsifiable absolute "none of them can learn."
 - **Proactive alert + physical trigger** — trip the UNO Q's environmental sensor live on stage,
   phone gets a real push notification in real time. The single most visceral moment available.
+- **Compute failover to the second NPU in the room — built and verified live 2026-08-06.** Arm
+  with `scripts\demo-failover-ON.ps1` (it disables the supervisor that would otherwise resurrect
+  GenieX in ~15s, and preflights the phone), kill GenieX on stage, and the next Telegram question
+  is answered by the S25 Ultra's 8 Elite NPU over `adb` — labeled *degraded mode, no tools*,
+  **~12s end-to-end** (measured). This is *compute* failover, not an offline claim — Telegram
+  still needs internet (see the beat below for why that distinction is load-bearing). Restore
+  with `demo-failover-OFF.ps1`. Details: [../hermes-hooks/README.md](../hermes-hooks/README.md).
 - **On-device inference-without-cloud proof — scoped correctly.** Disconnect WiFi/internet and
   query the agent **directly on the laptop, not through Telegram**, to prove the LLM+MCP-tool
   reasoning itself needs no cloud. Telegram cannot be part of this specific demo beat — the
