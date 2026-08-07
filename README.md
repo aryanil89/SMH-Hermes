@@ -89,7 +89,7 @@ higher rungs need specific hardware. Every step says what "worked" looks like.
 cd mcp-tools
 npm install
 npm run build
-npm test                       # expect: Test Files 29 passed (29), Tests 327 passed (327)
+npm test                       # expect: Test Files 29 passed (29), Tests 333 passed (333)
 npm run start:dashboard        # then open http://127.0.0.1:7788
 ```
 
@@ -121,7 +121,7 @@ state machine.
 **Benchmark evidence:** [docs/EVIDENCE.md](docs/EVIDENCE.md) indexes every measured claim —
 NPU vs CPU throughput ([llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md)),
 joules-per-query, per-op Hexagon profiling ([docs/BENCHMARKS.md](docs/BENCHMARKS.md)).
-Test suite: **29 files / 327 tests, all passing** (verified 2026-08-06).
+Test suite: **29 files / 333 tests, all passing** (verified 2026-08-06).
 
 ## Run it yourself — the whole flow, in start order
 
@@ -168,7 +168,7 @@ for anywhere else.
 & "$env:LOCALAPPDATA\GenieX CLI\geniex.exe" ls          # expect the Q4_0 precision listed
 
 # 2. MCP tool servers
-cd mcp-tools; npm install; npm run build; npm test      # expect 327/327 passing
+cd mcp-tools; npm install; npm run build; npm test      # expect 333/333 passing
 cd ..
 
 # 3. Hermes Agent — native ARM64 installer → %LOCALAPPDATA%\hermes\  (this is HERMES_HOME;
