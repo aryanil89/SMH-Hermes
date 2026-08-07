@@ -343,7 +343,9 @@ display all quote the same number —
 [mcp-tools/README.md](mcp-tools/README.md#one-decimal-place-applied-on-the-way-in).
 
 **Worked when:** `arduino_uno_q-sensor_log.json` at the repo root gets a fresh `sensor_tick` line
-every ~10–20s. If you edited the board app, redeploy over USB:
+every ~10–20s. (The file is runtime output from the board's push pipeline — not tracked in git;
+it appears once the board pushes, and every reader degrades to labeled mock data until then.)
+If you edited the board app, redeploy over USB:
 ```powershell
 adb push uno-q\hermes-sensor-logger\sketch\sketch.ino /home/arduino/ArduinoApps/hermes-sensor-logger/sketch/sketch.ino
 adb push uno-q\hermes-sensor-logger\python\main.py /home/arduino/ArduinoApps/hermes-sensor-logger/python/main.py

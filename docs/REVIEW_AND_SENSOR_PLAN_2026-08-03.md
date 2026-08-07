@@ -1,5 +1,10 @@
 # Code Review + Sensor Plan — 2026-08-03
 
+> **Superseded detail (2026-08-05):** the level-leak path verified below later went inert — the
+> board stopped emitting `distance_mm` on periodic `sensor_tick` lines, so `UNOQ_LEAK_DISTANCE_MM`
+> is **demoted from the demo** and **Button C is the leak trigger**
+> ([mcp-tools/README](../mcp-tools/README.md) § environmental). The rest of the status note stands.
+
 **Status update (late 2026-08-03): CR-1, CR-2, CR-3, CR-5 and S-1 are implemented and
 live-verified** — see PROGRESS.md NEXT 9 for the evidence trail (periodic `sensor_tick`,
 `distanceMm` end-to-end, level-leak via `UNOQ_LEAK_DISTANCE_MM` with `leakVia`, NaN env guard,

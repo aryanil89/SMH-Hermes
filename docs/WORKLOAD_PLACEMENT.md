@@ -98,6 +98,7 @@ rebalancing action available today: the one real NPU-class workload is correctly
 numbers to back it, face identification landed on CPU exactly where this doc already expected the
 non-NPU fallback to sit, and the GPU tier still has no occupant **on this laptop**. The two concrete, already-known
 triggers for revisiting this are unchanged by this audit: a GenieX release that fixes GPU +
+tool-calling, or an NPU-executing `ACCESS_VISION_SCRIPT` landing.
 
 **Update 2026-08-06 — a GPU tier occupant showed up, on the UNO Q, not the laptop.** The board's
 QRB2210 turned out to have a real Adreno 702 GPU (Turnip/Vulkan) that this doc and
@@ -108,4 +109,3 @@ when it didn't crash — no matrix cores on this integrated GPU). Same conclusio
 reached for the laptop's GPU tier, independently arrived at on different silicon: a detected,
 working accelerator is not automatically a faster one for a given workload. The verdict table above
 is laptop-scoped and unchanged by this.
-tool-calling, or an NPU-executing `ACCESS_VISION_SCRIPT` landing.

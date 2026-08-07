@@ -1,6 +1,0 @@
-[33mSoX is not installed, some features may not work. Try:[0m
-[33m  winget install --id=ChrisBagwell.SoX -e[0m
-[33mThen restart your terminal to make sure sox is in PATH[0m
-[34mLocal hosting on http://127.0.0.1:18191/[0m
-[GIN] 2026/08/05 - 01:51:41 | 200 |      1.6016ms |       127.0.0.1 | GET      "/v1/models"
-[GIN] 2026/08/05 - 01:51:55 | 500 |   14.4220213s |       127.0.0.1 | POST     "/v1/chat/completions"

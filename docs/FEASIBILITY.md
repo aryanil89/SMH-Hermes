@@ -1,5 +1,10 @@
 # Feasibility Analysis
 
+> **Historical (early Aug 2026, pre-build), kept for the decision trail.** The two inaccurate
+> pitch claims called out below **were fixed before submission** — the approved current wording
+> lives in [POSITIONING.md](POSITIONING.md) and the README. Where this page and the README
+> disagree, **the README is current**.
+
 Researched against current (Aug 2026) state of each dependency. Verdict: **mostly achievable**,
 but two claims in the original pitch are not accurate as literally written and should be fixed
 before the pitch is presented to judges, not discovered on stage.

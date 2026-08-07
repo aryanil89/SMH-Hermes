@@ -1,5 +1,0 @@
-[33mSoX is not installed, some features may not work. Try:[0m
-[33m  winget install --id=ChrisBagwell.SoX -e[0m
-[33mThen restart your terminal to make sure sox is in PATH[0m
-[34mLocal hosting on http://127.0.0.1:18181/[0m
-[31mHTTP/HTTPS Server Error: listen tcp 127.0.0.1:18181: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.[0m
