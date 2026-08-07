@@ -235,6 +235,28 @@ async function postJson(url, body) {
 }
 
 /**
+ * What to tell the person holding the phone when a POST did not succeed.
+ *
+ * 401 needs its own wording. The server answers `x-access-secret required or
+ * incorrect`, which names an HTTP header -- true, and useless at the rack,
+ * because the remedy is not to add a header, it is to reopen the page from the
+ * link that carries `?secret=`. Shown verbatim it reads as a crash.
+ *
+ * Approve/deny was worse than useless: it toasted `data.reason` only, and a 401
+ * body carries `error`, not `reason` -- so being locked out surfaced as a flat
+ * "Could not record that." with nothing pointing at the cause. Every POST on
+ * this page now goes through here.
+ */
+function failureMessage(res, fallback) {
+  if (res.status === 401) {
+    return SECRET
+      ? "This page's access key is no longer accepted -- the dashboard was restarted with a different key. Reopen the phone link (the one ending in ?secret=...)."
+      : "This page was opened without its access key. Reopen the phone link (the one ending in ?secret=...) rather than from a bookmark or history.";
+  }
+  return res.data.reason || res.data.error || fallback;
+}
+
+/**
  * Downscale before upload.
  *
  * A 200MP capture is tens of megabytes and the embedding model wants a few
@@ -376,7 +398,7 @@ $("shot").addEventListener("change", async (event) => {
   try {
     const [imageBase64, badges] = await Promise.all([downscale(file), readBadges(file)]);
     const res = await postJson("/api/access/capture", { imageBase64, badges });
-    toast(res.ok ? "Capture sent." : (res.data.reason || res.data.error || "Capture rejected."));
+    toast(res.ok ? "Capture sent." : failureMessage(res, "Capture rejected."));
   } catch (err) {
     toast(err.message || "Could not read that photo.");
   }
@@ -392,7 +414,7 @@ for (const [id, decision] of [["approve", "approved"], ["deny", "denied"]]) {
       decision,
       decidedBy: "on-call · phone",
     });
-    toast(res.ok ? `Recorded: ${decision}.` : (res.data.reason || "Could not record that."));
+    toast(res.ok ? `Recorded: ${decision}.` : failureMessage(res, "Could not record that."));
   });
 }
 
@@ -403,7 +425,7 @@ $("enrol").addEventListener("click", async () => {
   // embedding. Face enrolment posts a real vector to this same endpoint.
   const res = await postJson("/api/access/enroll", { name, embedding: [1], method: "qr-badge" });
   if (res.ok) { $("enrolName").value = ""; toast(`${name} enrolled.`); }
-  else toast(res.data.reason || "Could not enrol.");
+  else toast(failureMessage(res, "Could not enrol."));
 });
 
 // Live updates over the same SSE stream the wall uses, so the two views cannot
