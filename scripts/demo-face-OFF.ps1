@@ -16,7 +16,7 @@
        not loopback -- this only ever touches a loopback listener owned by a
        'node' process, so tailscaled is never at risk.
     2. Set process-scope env vars for THIS shell only (never setx / User /
-       Machine scope) so the identity method is explicitly 'stub' -- a judge
+       Machine scope) so the identity method is explicitly 'stub' -- anyone
        reading the config should see intent, not an unset fallback -- and the
        face-vision vars are cleared so the child process does not see them.
     3. Relaunch the dashboard, stdout/stderr redirected to the usual logs.

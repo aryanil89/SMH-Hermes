@@ -98,7 +98,7 @@ while the wall still shows a live feed, and the two will contradict each other.
 | **Logical architecture** | What *moves* — the six stages from a bus read to a page on the phone, and the three branches that are allowed to act | Static |
 | **Live system** | The projector-scale summary — risk verdict, four channel tiles, network/storage/compute, and the phone thread, 60/40 split. Defaults into **demo mode** (below) the moment you navigate to it | Every 2s, or scripted in demo mode |
 | **Live details** | The full technical dashboard this used to be alone: sparklines, evidence, per-device feeders, the processing log. Always the real feed — demo mode never touches it | Every 2s |
-| **Detailed architecture** | Conceptual + logical, stacked on one scrolling panel, for a judge Q&A that wants both without flipping tabs | Static |
+| **Detailed architecture** | Conceptual + logical, stacked on one scrolling panel, for a Q&A that wants both without flipping tabs | Static |
 
 The four prose/summary tabs (Executive overview, Conceptual architecture,
 Logical architecture, Live system) are sized for a projector — read from the
@@ -205,7 +205,7 @@ Three things the card refuses to do:
   standing at the rack is not a resolved situation.
 - **One visit is one record.** The challenge stays open until presence ends, then
   files itself once. An earlier build retired it on approval, which freed the slot
-  and re-challenged the same person on the next tick — approving a judge and then
+  and re-challenged the same person on the next tick — approving a volunteer and then
   accusing them two seconds later.
 
 Identity comes from a swappable rung (`ACCESS_IDENTITY_METHOD`); the process default is
@@ -288,7 +288,7 @@ the page dims the trace, captions it "last logged trend · N old", and adds
 The wall reads the sensor log directly rather than going through the environmental MCP tool, so it
 applies the **same rounding at the same point** — `round1()` from `common/round.ts`, on the way in.
 Without that, the sparkline and the agent would quote the same sample to different precision, and a
-judge comparing the screen to the phone would find them disagreeing in the last digit.
+viewer comparing the screen to the phone would find them disagreeing in the last digit.
 
 Whole numbers stay whole in the data (`25`, not `25.0`); only alert *text* pads to a fixed decimal.
 Contract and rationale: [mcp-tools/README.md](../mcp-tools/README.md#one-decimal-place-applied-on-the-way-in).
@@ -402,7 +402,7 @@ delivered reply would put words on the wall the on-call never received.
 
 `node:sqlite` is Node 22.5+ and this package's floor is Node 20, so on an older
 runtime the bridge reports that on the panel instead of failing — as it does when
-there is no Hermes install at all, which is the normal case for a judge who just
+there is no Hermes install at all, which is the normal case for someone who just
 cloned the repo.
 
 Two alternatives, for a machine with no Hermes on it:
@@ -481,7 +481,7 @@ anything other than loopback; the three write routes then require it as
 `?secret=…` in the URL. The server prints a warning at startup if you bind to a
 network without one.
 
-It is opt-in and unset by default on purpose: a judge must be able to clone and
+It is opt-in and unset by default on purpose: anyone must be able to clone and
 run this from the README, and a mandatory secret turns that into a support ticket.
 It is also one lock on one door, not an auth system — say that rather than
 implying more.

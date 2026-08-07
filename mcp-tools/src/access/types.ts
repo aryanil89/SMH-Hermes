@@ -35,7 +35,7 @@ export interface FaceMatch {
  * Which rung of the identity ladder produced the match.
  *
  * The ladder is a risk control, not an implementation detail, so it travels with
- * the data: a judge asking "is that really running on the NPU?" gets an answer
+ * the data: a skeptic asking "is that really running on the NPU?" gets an answer
  * from the record rather than from a slide. Rungs degrade without changing any
  * downstream logic -- the decision matrix, approval loop and audit trail are
  * identical whether identity came from a face embedding or a printed QR badge.

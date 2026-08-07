@@ -34,7 +34,7 @@ must demo to be eligible for a prize.**
   - [x] Setup instructions from scratch, including dependencies —
     [README §0. Setting this up on a fresh machine](README.md#0-setting-this-up-on-a-fresh-machine).
   - [x] Run and usage instructions —
-    [README § Judge quickstart](README.md#judge-quickstart--three-rungs-pick-your-hardware)
+    [README § Quickstart](README.md#quickstart--three-rungs-pick-your-hardware)
     (minimum path, expected outputs, fallback modes) and
     [README § Run it yourself](README.md#run-it-yourself--the-whole-flow-in-start-order)
     (the full seven-piece flow).
@@ -57,10 +57,8 @@ must demo to be eligible for a prize.**
 - [ ] **Submit the GitHub link via the Microsoft Form by Friday 12:00 PM PST** — one
   submission per team. The plan of record ([PROGRESS.md](PROGRESS.md)) says **submit
   early** — do not wait for the deadline.
-- [ ] **Every team member submits the feedback form by Friday noon** — one member's
-  submission confirmed 2026-08-06; still needs an explicit "submitted" from each of the
-  other two. Mandatory per deck p.7 and p.9 — a missing survey risks eligibility, not
-  points.
+- [x] **Every team member submits the feedback form by Friday noon** — all three
+  members confirmed submitted (2026-08-06). Mandatory per deck p.7 and p.9.
 
 ## Recommended (optional per the deck — all present)
 
@@ -80,13 +78,13 @@ must demo to be eligible for a prize.**
 |---|---|
 | Technical Implementation (40) — resource utilization, optimization, latency, energy | [docs/EVIDENCE.md](docs/EVIDENCE.md) — the one-stop index: NPU 382 tok/s vs CPU 35 prefill, 471 J/query NPU vs ~8.7× CPU energy/token, per-op Hexagon profiling, prompt-composition optimization, and the same model measured on a **second Hexagon NPU** (S25 Ultra 8 Elite: 1,918 tok/s prefill / 23.1 decode, w4a16 via `genie-t2t-run` over `adb` — labeled as a different config), now wired in as a live-verified **compute failover**: dead GenieX → the phone NPU answers in ~12 s, labeled degraded |
 | Use-Case and Innovation (25) | README intro + [docs/POSITIONING.md](docs/POSITIONING.md); the access sentry (presence → face-cpu → human approval → audit trail; known responder suppresses the page) |
-| Deployment and Accessibility (20) | [README § Judge quickstart](README.md#judge-quickstart--three-rungs-pick-your-hardware) — rung 1 runs on any Node 22+ machine in ~5 min |
-| Presentation and Documentation (15) | [docs/JUDGE_GUIDE.md](docs/JUDGE_GUIDE.md) — the five-minute judge path (demo beats, real-vs-simulated, all measured numbers); candid built-vs-planned line ([README § Today vs. planned](README.md#today-vs-planned)), 333 passing tests, [docs/RUNBOOK.md](docs/RUNBOOK.md), troubleshooting tables from real incidents |
+| Deployment and Accessibility (20) | [README § Quickstart](README.md#quickstart--three-rungs-pick-your-hardware) — rung 1 runs on any Node 22+ machine in ~5 min |
+| Presentation and Documentation (15) | [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md) — the five-minute demo path (demo beats, real-vs-simulated, all measured numbers); candid built-vs-planned line ([README § Today vs. planned](README.md#today-vs-planned)), 333 passing tests, [docs/RUNBOOK.md](docs/RUNBOOK.md), troubleshooting tables from real incidents |
 
 ## Open decisions before the demo (not submission blockers, but demo blockers)
 
 - [ ] **Face-roster consent policy** — OPEN, and it blocks any face capture
-  ([PROGRESS.md](PROGRESS.md) item 12). Options on the table: enrol judges live (consent
+  ([PROGRESS.md](PROGRESS.md) item 12). Options on the table: enrol volunteers live (consent
   as a visible act), pre-enrol consenting team members, or badge-free `stub` mode (the
   working default — the full loop, matrix, and audit trail run either way).
 - [ ] **Benchmark screenshots** — capture list and instructions in

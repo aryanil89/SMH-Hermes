@@ -138,7 +138,7 @@ or the challenge is abandoned — held, not retained.
 Enrolment keeps `{name, embedding, enrolledAt, method}` in `mcp-tools/.state/roster.json` and
 discards the source photo. You cannot reconstruct a face from that file, and it is safe to open
 on stage — "here is our biometric database", followed by a screen of floats, lands better than
-a claim a judge has to take on trust.
+a claim a reviewer has to take on trust.
 
 This is not decoration. GDPR treats facial-recognition templates as **special-category** data
 requiring explicit consent and a privacy impact assessment, and the recognised

@@ -191,9 +191,13 @@ channel already has a real, trusted detector; routing it through this model
 would only add latency and a new failure mode to a path that's supposed to be
 boring. `mcp-tools/src/dashboard/snapshot.ts`'s `DEVICE_EVENT_LABELS` lookup
 falls through unmapped events (`// sensor_tick and anything unrecognised:
-counted, not streamed`), so an `"activity"` line is inert on the wall today —
-giving it a real panel is a natural follow-up, out of scope here. `npm test`
-in `mcp-tools/` (327/327) confirmed no regression.
+counted, not streamed`), so an `"activity"` line was inert on the wall when
+this first shipped. **Since wired (2026-08-06):** the wall now streams
+activity lines with a human-readable label and status
+(`dashboard/snapshot.ts` + `common/activity.ts`), and the watchdog folds a
+fresh activity line into the Telegram alert text (`alert-skill/tick.ts`).
+`npm test` in `mcp-tools/` (327/327 then, 333/333 with the activity tests)
+confirmed no regression.
 
 ## Testing
 

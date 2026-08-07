@@ -23,7 +23,7 @@ import type { Evidence, Family, IncidentAssessment, Provenance } from "./types.j
  * ten-minute answer. So all the arithmetic -- risk, confidence, evidence -- runs
  * here in TypeScript in microseconds, and the model's only job is to read the
  * summary out loud. It also makes the numbers reproducible: ask twice, get the
- * same score, which a judge can and will check.
+ * same score, which a reviewer can and will check.
  */
 
 export interface AssessOptions {

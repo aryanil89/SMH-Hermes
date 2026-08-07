@@ -9,7 +9,7 @@ import type { EnvironmentalResult } from "../environmental/types.js";
  * watchdog (check-environmental.ts), which actually sends it, and the live
  * dashboard, which shows the on-call phone what the watchdog will send. If the
  * dashboard rendered its own phrasing, the wall display and the phone would
- * disagree mid-demo -- which is exactly the thing a judge notices.
+ * disagree mid-demo -- which is exactly the thing an audience notices.
  */
 export function summarizeReading(reading: EnvironmentalResult): string {
   const leak = reading.leakDetected

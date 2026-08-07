@@ -15,7 +15,7 @@ import type { AccessVerdict, FaceMatch, IdentityMethod } from "./types.js";
  * It is also computed in TypeScript rather than by the model, for the reason
  * REVIEW_3_2026-08-04.md §6 established: each agent iteration re-prefills the
  * whole prompt at ~2-4 minutes, so a verdict the model has to *derive* is a
- * verdict that arrives after the judges have stopped caring. The model narrates
+ * verdict that arrives after the audience has stopped caring. The model narrates
  * what this function decided.
  *
  * The interesting row is `expected`. Every other outcome adds an alarm; that one

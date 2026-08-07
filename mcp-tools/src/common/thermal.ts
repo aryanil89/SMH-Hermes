@@ -10,7 +10,7 @@
  * deterministic and inspectable, so the agent is detecting something that is
  * genuinely there.
  *
- * WHAT TO SAY ON STAGE (say it before a judge asks):
+ * WHAT TO SAY ON STAGE (say it before someone asks):
  *   "Storage and compute are coupled to rack temperature the way thermal
  *    throttling actually behaves. Network is deliberately NOT coupled -- which
  *    is exactly why Hermes rules the network out instead of blaming it."

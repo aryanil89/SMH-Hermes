@@ -6,7 +6,7 @@ import type { Status } from "./types.js";
  *
  * One copy for the two Node-side consumers that need it -- the dashboard's
  * pipeline stream (`dashboard/snapshot.ts`) and the watchdog's Telegram push
- * (`alert-skill/tick.ts`) -- so the wording a judge sees on the wall and the
+ * (`alert-skill/tick.ts`) -- so the wording a viewer sees on the wall and the
  * wording that lands on the phone can never drift apart. `public/app.js`
  * keeps its own duplicate, the same way it already duplicates
  * `DEVICE_EVENT_LABELS` as `EVENT_LABELS`: the browser has no module system

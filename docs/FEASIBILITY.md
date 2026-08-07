@@ -7,7 +7,7 @@
 
 Researched against current (Aug 2026) state of each dependency. Verdict: **mostly achievable**,
 but two claims in the original pitch are not accurate as literally written and should be fixed
-before the pitch is presented to judges, not discovered on stage.
+before the pitch is presented to an audience, not discovered on stage.
 
 ## Component-by-component
 
@@ -99,7 +99,7 @@ Buildable in 5 days **with two amendments**:
    kept as the tested fallback if the NPU path misbehaves.
 2. Either soften the "no cloud hop / air-gapped" claims to match what Telegram actually allows,
    or swap the mobile gateway for a real local-only transport if that claim must survive
-   scrutiny from judges.
+   scrutiny from outside reviewers.
 
 Everything else in the pitch (Hermes Agent, Phi-4-mini, MCP tool wiring, the 5-day shape) is
 accurate and achievable as described.

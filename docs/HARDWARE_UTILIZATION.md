@@ -37,7 +37,7 @@ itself (that's hand-written). Concretely, mapped to the 5-day plan:
 - `quad-profile` — real P50/P95/P99 latency, throughput, and power numbers for the Qwen3-4B NPU
   bundle. This is the benchmark slide, not something to fake.
 - `quad-orchestrate` — NPU vs CPU vs GPU allocation percentages and flags any ops that fell back
-  off the NPU — the "on-device acceleration" proof for judges.
+  off the NPU — the "on-device acceleration" proof.
 - **QAIRT Visualizer** ([docs](https://docs.qualcomm.com/doc/80-87189-1/topic/overview.html)) — added
   after reviewing the deck's resources; not previously in this plan. Where `quad-orchestrate` reports
   *that* ops fell off the NPU, the Visualizer shows *which ops and why*: op-by-op execution-time
@@ -189,7 +189,7 @@ Rationale: wiring real network/storage/server data sources is integration work w
 payoff in a 5-day window and real risk of breaking live during a demo. One real, physically
 tangible data source — the environmental sensor, the one category that's a genuine hardware use
 case rather than a software metric — is enough to make the "not everything is mocked" point to
-judges without betting the whole demo on live infra integrations.
+reviewers without betting the whole demo on live infra integrations.
 
 ## Proactive alerting
 
@@ -218,7 +218,7 @@ times ("I noticed you keep asking about this — I'll watch it and tell you"). S
 ## Demo beats worth scheduling
 
 Differentiators discussed that need to be actual scheduled demo moments, not just architecture
-claims, or they won't land with judges:
+claims, or they won't land:
 
 - **Self-improvement, shown live** — run one incident scenario twice; the second run is visibly
   faster/better because the agent created a skill from the first. **Verified 2026-08-03** (closes
@@ -274,7 +274,7 @@ claims, or they won't land with judges:
   slide 14 — it has no row in the resources table), is a plain Python tool-loop against a local LLM
   server with **no MCP, no memory, no proactive behavior**. It's the closest official prior art to
   Hermes and it is strictly simpler. Worth one presentation slide contrasting against it: same
-  on-device premise, but MCP tools + self-improvement + push alerting. Judges scoring "creativity
+  on-device premise, but MCP tools + self-improvement + push alerting. Anyone scoring "creativity
   and uniqueness" (25 pts) need a reference point, and supplying it beats hoping they infer one.
 
 ## Cloud-dependency check (unchanged from FEASIBILITY.md)
@@ -292,7 +292,7 @@ either softening or a real local-only transport swap. Not decided yet.
 (`aisuite.cirrascale.com`), with free credits on offer, and it explicitly blesses *hybrid* designs —
 its worked example is STT local → LLM cloud → TTS local. Taking it would mean putting a cloud hop
 in the middle of a project whose entire differentiator is that there isn't one, so we don't. Logged
-here because a judge is likely to ask why the credits went unused: the answer is "on-device **is**
+here because a reviewer is likely to ask why the credits went unused: the answer is "on-device **is**
 the product", not "we ran out of time". Note this also makes the Telegram caveat above sharper — it
 is now the *only* remaining cloud hop in the design, and therefore the only thing standing between
 the pitch language and being literally true.
@@ -305,10 +305,10 @@ URLs are in the `hackathon-resources` skill.
 - **Deadline 12:00 PST Fri 7 Aug 2026**, one GitHub repo per team via a Microsoft Form. The deck
   contradicts itself (slides 6/7 say 12pm, slide 41 says 1pm PST) — build to 12:00. A raffle covers
   the first 15 teams to submit a proposal, so submitting early has value independent of quality.
-- **A judge must install and run this on the Copilot+ PC from the README alone.** That makes the
+- **Anyone must be able to install and run this on the Copilot+ PC from the README alone.** That makes the
   from-scratch setup instructions a deliverable with the same weight as code — 20 of 100 points are
   "ease of installation and use". Every mocked-vs-real data source needs to be stated so nothing
-  looks broken when a judge runs it without an UNO Q attached.
+  looks broken when someone runs it without an UNO Q attached.
 - **README must carry names and emails of every team member**, plus a LICENSE file. Missing either
   is a disqualification risk, not a deduction.
 - **Technical Implementation is 40 points and it is a measurement bucket** — resource utilization,
@@ -344,5 +344,5 @@ URLs are in the `hackathon-resources` skill.
   rationale to mobility alone
 - AnythingLLM (`localhost:3001/api/v1`) recorded as the explicit Day-1 runtime fallback
 - `local-agent` identified as the official baseline to contrast against in the presentation
-- Cirrascale / Cloud AI 100 credits declined, with the reasoning recorded for judges
+- Cirrascale / Cloud AI 100 credits declined, with the reasoning recorded
 - UNO Q: official RPC reference confirmed dead; RAM spec conflict (2GB vs deck's 4GB) flagged

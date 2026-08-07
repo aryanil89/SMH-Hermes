@@ -344,7 +344,7 @@ async function accessCapture(req: IncomingMessage, res: ServerResponse): Promise
     now: new Date(),
   });
   // Repaint now: a capture that waits up to 2s for the next tick reads as lag
-  // between the phone and the wall while a judge is watching both.
+  // between the phone and the wall while an audience is watching both.
   void tick();
   sendJson(res, result.ok ? 202 : 409, result);
 }
@@ -483,7 +483,7 @@ async function ingestTelegram(req: IncomingMessage, res: ServerResponse): Promis
  * then badge in as `known`. That is fine on loopback and not fine on the
  * tailnet -- which is exactly where the phone terminal needs it bound.
  *
- * Deliberately opt-in and absent by default: the README promises a judge can
+ * Deliberately opt-in and absent by default: the README promises anyone can
  * clone and run this, and a mandatory secret would turn "npm run start:dashboard"
  * into a support ticket. Set ACCESS_SHARED_SECRET whenever the bind address is
  * anything other than 127.0.0.1, and the startup banner says so if you have not.

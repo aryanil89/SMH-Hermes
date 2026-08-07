@@ -117,7 +117,7 @@ function Invoke-Step([string]$Description, [scriptblock]$Action) {
 }
 
 # Same contract as mcp-tools/src/common/telegram.ts: silent no-op when unset
-# (the default for a judge who just cloned the repo), fire-and-forget, bounded
+# (the default for someone who just cloned the repo), fire-and-forget, bounded
 # by a timeout, and any failure is logged and swallowed rather than thrown --
 # a dead network at startup must not fail an otherwise-successful install.
 function Send-TelegramNotice([string]$Text) {

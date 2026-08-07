@@ -139,7 +139,7 @@ export interface ResolveApprovalResult {
  * The decision is stamped onto the challenge but the challenge is **not** retired
  * -- it stays open until the person actually leaves. That is not bookkeeping
  * tidiness; retiring it here re-opened a fresh challenge on the very next tick,
- * because presence was still active. On stage that reads as approving a judge and
+ * because presence was still active. On stage that reads as approving a volunteer and
  * then challenging them again two seconds later. One visit is one access event.
  *
  * The id must match. A phone left open on an old challenge is the normal way this

@@ -50,7 +50,7 @@
  *
  * `node:sqlite` is Node 22.5+, and the package only requires Node 20, so the
  * driver is loaded lazily and a miss is reported as an inbound status rather than
- * thrown. A machine with no Hermes install (a judge who cloned the repo) has no
+ * thrown. A machine with no Hermes install (anyone who cloned the repo) has no
  * database, which is not an error either -- the panel keeps saying "outbound
  * only" exactly as it did before.
  */

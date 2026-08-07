@@ -1894,7 +1894,7 @@ svg {
 
 /* Detailed architecture is a reference/appendix tab, not part of the demo
    flow -- pinning it to the right of the bar sets it apart from the four
-   tabs a judge actually steps through in order. */
+   tabs a viewer actually steps through in order. */
 .tab-btn--right {
   margin-left: auto;
 }

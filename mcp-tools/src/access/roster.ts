@@ -15,7 +15,7 @@ import type { FaceMatch, IdentityMethod, RosterEntry } from "./types.js";
  *
  * Practically it also means the roster is safe to inspect on stage. "Here is our
  * biometric database" followed by a screen of floats lands better than any claim
- * about privacy that a judge has to take on trust.
+ * about privacy that a visitor has to take on trust.
  */
 
 /**

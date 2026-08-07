@@ -298,7 +298,7 @@ export class SnapshotBuilder {
         // line was written by the board's own on-device LLM correlating the
         // raw physical events, not read directly off a sensor, and not the
         // laptop's own risk assessment either. Kept as its own value (see
-        // PipelineEvent.source) so the wall can tell a judge which tier
+        // PipelineEvent.source) so the wall can tell the viewer which tier
         // produced which line.
         this.pushEvent({
           at: event.at,

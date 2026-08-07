@@ -169,7 +169,7 @@ S-1's water-surface risk proves fatal.
 Then three arguments, in this order:
 
 1. **It is the only ground truth in the system.** Network, storage and compute are mocked. The UNO Q
-   is the one input a judge can **falsify on the spot** — pour water, breathe on the sensor, watch
+   is the one input a viewer can **falsify on the spot** — pour water, breathe on the sensor, watch
    the agent react. Every other tool is a claim; this one is an experiment.
 2. **It is why the offline story is real.** Board → Tailscale → laptop → local NPU. No cloud anywhere
    in the sensing-to-reasoning path, so the WiFi-off beat still answers questions about the

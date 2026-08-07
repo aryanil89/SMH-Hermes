@@ -1,6 +1,12 @@
 # Hermes: On-Device AI Operations Engineer
 Project Hermes — Snapdragon Multiverse Hackathon 2026
 
+<!-- keep the tests badge in sync with the npm test count -->
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-333%20passing-brightgreen)](mcp-tools/#status)
+[![Node](https://img.shields.io/badge/node-%E2%89%A5%2022-339933)](README.md#quickstart--three-rungs-pick-your-hardware)
+[![Inference](https://img.shields.io/badge/inference-Hexagon%20NPU%2C%20on--device-E62E2E)](docs/EVIDENCE.md)
+
 Hermes is an AI operations engineer that runs **entirely on a Snapdragon X Elite** — no cloud AI, no
 data leaving the laptop. It correlates real physical sensor signals with infrastructure telemetry to
 tell an on-call engineer what is wrong, why it matters, and what to do next.
@@ -23,7 +29,7 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 > **runs on** Nous Research's Hermes Agent runtime (MIT). It is not affiliated with, endorsed by, or
 > a product of Nous Research; their Hermes *model* family is not used here (the model is Qwen3).
 
-> **Judges: start at [docs/JUDGE_GUIDE.md](docs/JUDGE_GUIDE.md)** — the five-minute version:
+> **New here? Start at [docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md)** — the five-minute version:
 > demo sequence with expected outcomes, the real-vs-simulated table, every measured number,
 > and where each rubric category's evidence lives. This README is the long-form reference.
 
@@ -60,7 +66,7 @@ NPU-accelerated via Qualcomm GenieX, with infrastructure exposed through MCP too
 
 ## Status
 **[PROGRESS.md](PROGRESS.md)** — the living done/next map. Read this first.
-**[docs/POSITIONING.md](docs/POSITIONING.md)** — the approved wording: pitch, offline claim, judge answers.
+**[docs/POSITIONING.md](docs/POSITIONING.md)** — the approved wording: pitch, offline claim, Q&A answers.
 **[SUBMISSION.md](SUBMISSION.md)** — every hackathon submission requirement, checked off or flagged.
 **[docs/EVIDENCE.md](docs/EVIDENCE.md)** — every measured claim with the measurement behind it.
 
@@ -78,7 +84,7 @@ claims score zero, so the line between them is part of the submission, not a foo
 | Alert suppression | **Wired and verified end to end**: an enrolled responder on site withholds the page; walking away releases it *("held while the on-call was on site; sending now")*; escalation or a stale access state pages regardless | — |
 | Energy | **Measured 2026-08-05** (HWiNFO system-rail integration, 60s idle baseline subtracted, same method as arXiv 2606.11257): NPU **471 J/query** at the real 12.5K-token agent shape (n=5); CPU burns **~8.7× more energy per prompt-token** (0.327 vs 0.0375 J) and lifts the system +21.3 W over idle vs the NPU's +6.3 W — [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md#energy--joules-per-query-measured-2026-08-05-pm) | Same measurement on the **phone's** 8 Elite NPU, with error bars |
 
-## Judge quickstart — three rungs, pick your hardware
+## Quickstart — three rungs, pick your hardware
 
 The fastest path to seeing something real. Rung 1 needs any machine with Node 22+; the
 higher rungs need specific hardware. Every step says what "worked" looks like.

@@ -123,7 +123,7 @@ const els = {
   demoBadge: $("demo-badge"),
 };
 
-/** The board's raw event vocabulary, in words a judge can read off the wall. */
+/** The board's raw event vocabulary, in words anyone can read off the wall. */
 const EVENT_LABELS = {
   sensor_tick: "climate tick",
   door_open: "door opened",

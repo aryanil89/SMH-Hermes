@@ -408,4 +408,4 @@ state reading `idle` with the roster populated.
 
 ⚠️ **An empty `enrolled` list means everyone will read as `unknown`** — the challenge loop still
 works, but the "known responder holds the page" beat cannot fire. Enrol before going on stage, and
-if you are enrolling a judge live, that *is* the beat — do it deliberately and say what it does.
+if you are enrolling a volunteer live, that *is* the beat — do it deliberately and say what it does.

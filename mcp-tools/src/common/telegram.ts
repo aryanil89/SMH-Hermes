@@ -23,7 +23,7 @@ export interface TelegramCredentials {
 /**
  * Credentials, or undefined when this deployment has none.
  *
- * Undefined is a supported, documented state -- not a misconfiguration. A judge
+ * Undefined is a supported, documented state -- not a misconfiguration. Anyone
  * who clones the repo has no bot, and every caller here degrades to a silent
  * no-op rather than an error, exactly as access/notify.ts always has.
  */

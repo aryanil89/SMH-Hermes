@@ -61,7 +61,7 @@ Run the tests with `npm test` (333 tests).
 
 The pitch is that Hermes *correlates* physical and digital signals. If the simulators drew
 independent numbers, "temperature rose, then storage slowed" would be a coincidence the demo
-manufactures — and it would not reproduce on a second run, which is exactly what a technical judge
+manufactures — and it would not reproduce on a second run, which is exactly what a technical reviewer
 will ask for.
 
 So simulated telemetry is a **documented function of the real rack temperature**

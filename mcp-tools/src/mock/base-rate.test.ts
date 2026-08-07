@@ -6,7 +6,7 @@ import { generateComputeReport } from "./compute.js";
 /**
  * Base-rate guard.
  *
- * These simulators are what a judge sees when they ask "is everything healthy?".
+ * These simulators are what a viewer sees when they ask "is everything healthy?".
  * Before calibration each generator drew its incident chance independently *per
  * entity* (5 links / 4 volumes / 6 nodes), so the per-report probability compounded:
  * 68.7% of calls reported at least one CRITICAL subsystem and only 19.3% were
@@ -47,7 +47,7 @@ describe("simulated telemetry base rates", () => {
   const { anyCritical, twoPlus, allOk } = sample();
 
   it("reports an all-clear baseline most of the time", () => {
-    // Measured ~88%. A judge asking "is the rack healthy?" must usually be told yes.
+    // Measured ~88%. A viewer asking "is the rack healthy?" must usually be told yes.
     expect(allOk / N).toBeGreaterThan(0.8);
   });
 

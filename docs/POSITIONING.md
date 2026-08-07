@@ -1,6 +1,6 @@
 # Positioning — the approved wording
 
-The exact sentences to use, so the README, the slides, the demo script and the judge answers all
+The exact sentences to use, so the README, the slides, the demo script and the Q&A answers all
 say the same thing. Copy from here; do not improvise on stage.
 
 Every claim below has been checked against the locked decisions in [../PROGRESS.md](../PROGRESS.md)
@@ -94,7 +94,7 @@ Notification Layer        Messaging gateway — Telegram today, Slack/Teams in a
 The Authorization Layer sits **below** Notification on purpose. The relay may carry the question;
 it may never carry the answer.
 
-## 7. Judge Q&A — scripted answers
+## 7. Q&A — scripted answers
 
 **"Datacenters already have sensors. What is new?"**
 > Correct, and we do not claim otherwise. The sensors are not the contribution — the local reasoning
@@ -178,7 +178,7 @@ it may never carry the answer.
 > which is the license this project runs under.
 
 **"Why Arduino?"**
-> It is our physical rack simulator. Real datacenters have DCIM and BMS; we needed something a judge
+> It is our physical rack simulator. Real datacenters have DCIM and BMS; we needed something an audience
 > can interfere with in the room. It is also the only input in the system you can falsify by hand —
 > put your hand near the sensor and watch the reading move.
 

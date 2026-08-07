@@ -24,9 +24,9 @@ starts here"** below it.
 
 | 12 | **Access sentry — the phone becomes the authorization plane** (2026-08-05). POSITIONING §7 promised *"observe → explain → recommend → **human approves** → act"* and **no approval mechanism existed**; meanwhile the board's `door_*` and `object_*` channels had been reported for days and were only ever *drawn*. Now: presence opens a challenge → the phone captures → identity resolves down a 4-rung ladder → an 8-row decision matrix (incl. **tailgating** = faces vs authorised entries, and **anti-passback** = at the rack with no door edge) → a human approves on the **local** page. Telegram carries the notification; it does not carry the authorisation. Roster holds **embeddings only, never images**, git-ignored before the first capture existed. **50 new tests, suite 189/189**; verified live end to end incl. tailgating → approve → audit | [phone/README.md](phone/README.md), [docs/DASHBOARD.md](docs/DASHBOARD.md) |
 
-| 13 | **Access sentry — claims made true** (2026-08-05), after an independent review. **The centerpiece was dead code**: `shouldSuppressPage` had zero call sites outside its own test and nothing in the paging chain imported `access/`, so "a known responder on site stops it paging you" changed a caption on the wall and pages went out regardless — refutable live by a judge saying *"show me it not paging."* Now wired via `alert-skill/suppress.ts` and verified end to end: on site → silent; walk away → the held page fires; escalate → pages anyway; stale state → pages anyway. Also fixed from the same review: a POST rejection could **kill the whole server** (unguarded `void` dispatch + a routine Windows file lock), a stale board **falsified the audit trail** (filed "presence ended with no decision" when the feed died), and stored **XSS** on the approval terminal. **58 access tests, suite 242/242** | [docs/DASHBOARD.md](docs/DASHBOARD.md) §Access |
+| 13 | **Access sentry — claims made true** (2026-08-05), after an independent review. **The centerpiece was dead code**: `shouldSuppressPage` had zero call sites outside its own test and nothing in the paging chain imported `access/`, so "a known responder on site stops it paging you" changed a caption on the wall and pages went out regardless — refutable live by a skeptic saying *"show me it not paging."* Now wired via `alert-skill/suppress.ts` and verified end to end: on site → silent; walk away → the held page fires; escalate → pages anyway; stale state → pages anyway. Also fixed from the same review: a POST rejection could **kill the whole server** (unguarded `void` dispatch + a routine Windows file lock), a stale board **falsified the audit trail** (filed "presence ended with no decision" when the feed died), and stored **XSS** on the approval terminal. **58 access tests, suite 242/242** | [docs/DASHBOARD.md](docs/DASHBOARD.md) §Access |
 
-| 14 | **Measurement campaign complete** (2026-08-05 PM) — every judge-facing number is now measured, not modeled. §1 served throughput finalized: NPU **382 ± 8.3** prefill (5 nonce-prefixed reps) vs CPU **35 ± 7.2** → **~9× faster agent iterations** (41 s vs 371 s modeled), CPU visibly thermal-throttling (46→27 tok/s) while NPU held steady. Long-context curve measured **directly**: 206 tok/s @ the real 12.7K request shape (honest iteration ≈ **68 s**), 108 tok/s @32K → the worst turn Hermes can send = **293 s**, validating the 900 s stale ceiling with 3× headroom. **Found + documented: ~60K prefill crashes GenieX v0.3.18 on NPU** (`dspqueue_read 0x72`) — `compression.threshold: 0.5` (32K) is the production guard, never raise it. **§2 energy measured: NPU 471 J/query** at the 12.7K shape (inference adds just **+6.3 W** system power) vs CPU **~8.7× more J per token** (+21.3 W and ~7× slower) — HWiNFO CSV integration, arXiv 2606.11257 method | [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md) |
+| 14 | **Measurement campaign complete** (2026-08-05 PM) — every headline number is now measured, not modeled. §1 served throughput finalized: NPU **382 ± 8.3** prefill (5 nonce-prefixed reps) vs CPU **35 ± 7.2** → **~9× faster agent iterations** (41 s vs 371 s modeled), CPU visibly thermal-throttling (46→27 tok/s) while NPU held steady. Long-context curve measured **directly**: 206 tok/s @ the real 12.7K request shape (honest iteration ≈ **68 s**), 108 tok/s @32K → the worst turn Hermes can send = **293 s**, validating the 900 s stale ceiling with 3× headroom. **Found + documented: ~60K prefill crashes GenieX v0.3.18 on NPU** (`dspqueue_read 0x72`) — `compression.threshold: 0.5` (32K) is the production guard, never raise it. **§2 energy measured: NPU 471 J/query** at the 12.7K shape (inference adds just **+6.3 W** system power) vs CPU **~8.7× more J per token** (+21.3 W and ~7× slower) — HWiNFO CSV integration, arXiv 2606.11257 method | [llm-serving-bench/RESULTS.md](llm-serving-bench/RESULTS.md) |
 
 | 15 | **Message receipts — the phone stops guessing** (2026-08-05 PM). Reported from the phone: *"it is not clear the server has received the message and is processing the request. Sometimes it responds a few minutes later, sometimes it does not."* PERF-DESIGN P3 had already verified the Telegram typing indicator works — and it does not solve this: it expires between refreshes, never reaches the notification shade, and looks identical whether the gateway is thinking, wedged, or dead. **The defect was unobservability, not latency**: nothing on the phone distinguished *received-and-working* from *dropped*. Now every inbound message gets an italic one-line receipt in ~2 s, written by the same local model, naming what was asked and carrying a wait estimate learned from that session's own measured turns. It is generated **before** the agent's first model call — GenieX serializes, so a receipt generated afterwards would queue behind the answer it announces — and it asserts no findings (prompt + regex backstop; nothing has been looked up yet). Model down or slow → it still goes out, canned, with the estimate, which turns *"did it hear me?"* into *"it heard me and could not answer."* **43 offline self-test checks, run by the installer before it will install** | [hermes-hooks/README.md](hermes-hooks/README.md), [docs/PERF-DESIGN.md](docs/PERF-DESIGN.md) §P3 follow-up |
 | 16 | **One decimal place, everywhere a number is reported** (2026-08-05 PM). The board logs raw Modulino floats — `"temperature_c": 25.081483840942383` — and those 17 digits were reaching the agent, the alert text, the wall and the learned baselines verbatim. Now every measurement that leaves the system is cut to one decimal by [`common/round.ts`](mcp-tools/src/common/round.ts), applied **at ingestion rather than at each display**, so the number the agent reasons on, the number a threshold is compared against, the number in the Telegram alert and the number on the wall are one number. That ordering fixes a real disagreement, not just presentation: `file-source.ts` now rounds `distance_mm` **before** testing it against `UNOQ_LEAK_DISTANCE_MM`, so a raw 149.96 against a 150mm threshold reports `150` **and** `no leak` instead of paging a leak beside a distance that reads as exactly at the line. Covers temp/humidity/distance, the network/storage/compute mocks, and the baselines quoted back as facts about the room; face embeddings keep 3 decimals, deliberately. Verified on the live feed. **11 new tests (incl. a 60-seed sweep asserting no generated number exceeds 1dp), suite 289/289** | [mcp-tools/README.md](mcp-tools/README.md#one-decimal-place-applied-on-the-way-in) |
@@ -239,9 +239,9 @@ starts here"** below it.
       cron skill + CR-1/CR-2 + BENCHMARKS.md → rehearse ×3 + freeze → README pass + submit early.
 
 11. **NEW Beat 3 — "watch it not page me"** (2026-08-05, from the access sentry). The most
-    memorable thing this system can do in front of a judge, and it needs no new hardware:
+    memorable thing this system can do in front of an audience, and it needs no new hardware:
     1. Rack is at WARNING. On-call is elsewhere. The phone pages.
-    2. Enrol the judge (one field, one tap — consent as a **visible, deliberate act**), then have
+    2. Enrol the volunteer (one field, one tap — consent as a **visible, deliberate act**), then have
        them stand at the sensor. Verdict flips to `expected`; the wall says the page is held.
     3. Run the watchdog again: **silent.** "It knows you're standing in front of it."
     4. They walk away → the alert arrives, marked *"held while the on-call was on site; sending
@@ -252,7 +252,7 @@ starts here"** below it.
 
 12. **Consent policy for the roster — OPEN, blocking any face capture.** Nobody is enrolled and no
     consent has been obtained. Badge mode needs no biometrics and is the working default, so
-    nothing else is blocked. Decide before Friday: enrol judges live (better beat, consent is
+    nothing else is blocked. Decide before Friday: enrol volunteers live (better beat, consent is
     visible), pre-enrol consenting team members, or badge-only.
 
 ## Open risks still live
@@ -285,11 +285,14 @@ starts here"** below it.
   only the dashboard writes. If the wall is not running, that file goes stale and the watchdog
   pages normally — correct (fail open), but it means **step 6 is now a dependency of the step 5
   demo beat**, not an optional display. Start it before rehearsing.
-- **The phone's 8 Elite NPU is idle.** The phone is the authorisation surface, the rack camera and
-  the identity store — but no inference runs on it. This is a real gap against the 40-point
-  resource-utilisation bucket and the honest answer if a judge asks. The measurement (not the
-  feature) is a ~4h `adb` timebox where both outcomes are publishable; still deferred. (The
-  identity rung that plan also proposed shipped separately, as `face-cpu` on the laptop's CPU,
-  not the phone's NPU — see [phone/README.md](phone/README.md#the-identity-ladder).)
-- **Nothing is committed.** Two sessions have been building all week and the working tree is the
-  only copy. A checkpoint commit + push, with a secret sweep, is overdue.
+- ~~**The phone's 8 Elite NPU is idle.**~~ ✅ **closed 2026-08-06** — measured (prefill
+  1,918 ± 16.9 tok/s, decode 23.1 ± 1.3, `genie-t2t-run` over `adb`) and then wired in as the
+  live **compute failover**: dead GenieX (TCP connect refused) → the phone's NPU answers the
+  Telegram question, labeled degraded, **12.0 s** message→delivered
+  ([hermes-hooks/README.md](hermes-hooks/README.md)). (The identity rung that plan also
+  proposed shipped separately, as `face-cpu` on the laptop's CPU, not the phone's NPU — see
+  [phone/README.md](phone/README.md#the-identity-ladder).)
+- ~~**Nothing is committed.**~~ ✅ **closed 2026-08-04** — the repo lives on GitHub as two
+  synced public mirrors (`aryanil89/SMH-Hermes`, the submission URL, and
+  `chrisxgould/SMH-Hermes`), committed and pushed continuously since; the secret sweep is
+  enforced by `.gitignore` and the checklist in [SUBMISSION.md](SUBMISSION.md).

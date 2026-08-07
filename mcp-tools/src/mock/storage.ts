@@ -85,7 +85,7 @@ function buildVolume(rng: Rng, id: string, zone: string, ambientC?: number): Sto
   const failureRiskScore = stressed ? range(rng, 55, 95) : range(rng, 2, 35);
 
   // Only the instrumented zone feels the heat. zone-west is the control: if a
-  // judge asks "how do you know it's thermal?", the answer is that the other
+  // reviewer asks "how do you know it's thermal?", the answer is that the other
   // zone, running the same simulator, did not move.
   const affected = zone === THERMAL_ZONE && ambientC !== undefined;
   const excessC = affected ? thermalExcessC(ambientC) : 0;

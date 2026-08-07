@@ -80,6 +80,18 @@ flowchart TD
 Everything inside the laptop box survives a WiFi cut — that is the scoped offline demo beat.
 Telegram (and only Telegram) needs the internet.
 
+> **Two later additions this diagram predates** (the validated figure is left as-is on purpose;
+> each addition has its own doc). **(1) Phone-NPU failover** — the S25 Ultra is no longer only
+> the Telegram surface: when GenieX dies (TCP connect refused, never an HTTP probe), the
+> inbound question is answered by the phone's 8 Elite NPU over `adb` (one-shot
+> `genie-t2t-run`, no tools, labeled degraded; measured **12.0 s** message→delivered —
+> [../hermes-hooks/README.md](../hermes-hooks/README.md)). **(2) On-board activity inference**
+> — the UNO Q itself runs SmolLM2-135M on its CPU, correlating its recent sensor history into
+> `activity-*` lines that ride the same push pipeline; the watchdog folds fresh ones into the
+> Telegram alert text and the wall streams them ([ONDEVICE_ACTIVITY.md](ONDEVICE_ACTIVITY.md)).
+> Net effect: **three devices, three inference tiers** — X Elite Hexagon (the agent), 8 Elite
+> Hexagon (failover), UNO Q Cortex-A53 (edge pre-correlation) — each sized to the job it does.
+
 The **wall display** is drawn with dashed edges deliberately: it is a read-only observer, not part
 of the reasoning path. It re-derives its numbers by calling the same functions the MCP tools call
 (`getEnvironmentalReading`, `assessIncident`, the three family generators) rather than intercepting

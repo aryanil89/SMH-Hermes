@@ -1,4 +1,4 @@
-# Judge guide — the five-minute version
+# Demo guide — the five-minute version
 
 Hermes is an on-device AI ops engineer: a 4B-parameter LLM served from the Snapdragon X
 Elite's Hexagon NPU watches a (mostly simulated) datacenter, explains incidents over real
@@ -25,7 +25,7 @@ approval gate still holds; phone unreachable → the wall's approval panel does 
 
 | Status | What |
 |---|---|
-| **Real, measured** | NPU LLM serving (GenieX), energy/latency benchmarks, environmental sensors (UNO Q push log), face-cpu identity, access flow + audit trail, 15 s watchdog, phone-NPU failover |
+| **Real, measured** | NPU LLM serving (GenieX), energy/latency benchmarks, environmental sensors (UNO Q push log), face-cpu identity, access flow + audit trail, 15 s watchdog, phone-NPU failover, on-board activity inference (SmolLM2-135M running **on the UNO Q itself**, surfaced on the wall and folded into Telegram alerts) |
 | **Simulated, labeled** | Network / storage / compute telemetry (mock MCP servers; the assessment sets `simulatedInputs: true` and the wall says so) |
 | **Planned, not built** | `face-npu` (same models on Hexagon), phone *serving* endpoint (today: one-shot failover, no tools), level-based leak threshold (demoted — Button C is the leak trigger) |
 | **Unsupported today** | GPU tool-calling — fails in GenieX (`SDKError`), reproduced twice; capability matrix in [WORKLOAD_PLACEMENT.md](WORKLOAD_PLACEMENT.md) |
@@ -48,5 +48,5 @@ approval gate still holds; phone unreachable → the wall's approval panel does 
 |---|---|
 | Technical Implementation (40) | [EVIDENCE.md](EVIDENCE.md) → RESULTS.md, per-op Hexagon profiling, prompt-composition optimization, failover |
 | Use-Case & Innovation (25) | README intro, [POSITIONING.md](POSITIONING.md), the access sentry (beat 4) |
-| Deployment & Accessibility (20) | README § Judge quickstart — rung 1 is `npm install && npm run build && npm test` on any Node 22+ machine, ~5 min, no hardware |
+| Deployment & Accessibility (20) | README § Quickstart — rung 1 is `npm install && npm run build && npm test` on any Node 22+ machine, ~5 min, no hardware |
 | Presentation & Documentation (15) | This guide, candid README § Today vs. planned, [RUNBOOK.md](RUNBOOK.md) troubleshooting from real incidents |

@@ -3,7 +3,7 @@
 Standalone GenieX serving-mode benchmark for Snapdragon X Elite.
 
 Project-independent: measures every (compute-mode x model) config against the
-axes the hackathon judges score (latency/performance, resource utilization,
+axes the hackathon rubric scores (latency/performance, resource utilization,
 energy-efficiency proxy) and declares a winner under the hard constraint that
 OpenAI tool-calling must work (an agent is useless without it).
 

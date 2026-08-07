@@ -31,7 +31,7 @@ GGUF available.
    calling claimed, ~1.15–1.3× baseline speed expected. Low risk, but quality delta may be ~0.
    Confirm a Q4_0 GGUF exists before bothering.
 4. **Qwen3.5-2B** — cheap curiosity: if benchmarked on CPU it may embarrass the NPU numbers
-   (hybrid models are very fast on Oryon), which is worth knowing before a judge asks.
+   (hybrid models are very fast on Oryon), which is worth knowing before someone asks.
 
 Rejected outright: Qwen3.6-35B-A3B and Nemotron-3-Nano-30B (weights alone bust RAM), Granite
 4.x (Mamba fallback), LFM2.x (sub-64K context), Gemma 4 E-series (unproven architecture on
