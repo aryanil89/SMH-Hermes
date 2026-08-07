@@ -345,7 +345,7 @@ node $R\mcp-tools\dist\alert-skill\check-environmental.js
 | Enrolled person at the sensor, incident live | `NO_ALERT`, and `heldPage` appears in `.state\environmental-watch.json` |
 | Same, run again | `NO_ALERT`, and `heldPage.since` is **unchanged** |
 | They step away, run again | `ALERT …` ending **"(held while the on-call was on site; sending now)"** |
-| Status escalates while they stand there | `ALERT …` — escalation always wins |
+| Status escalates while they stand there | `ALERT …` ending **"(escalated while the on-call was on site — paging anyway)"** — escalation always wins, and must NOT read as the deferred-page wording above |
 | Dashboard stopped, so `access.json` goes stale | `ALERT …` — it fails open |
 
 **If it pages when it should hold**, check in this order: is the verdict actually `expected` on the

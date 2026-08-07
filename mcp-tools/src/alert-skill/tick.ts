@@ -262,10 +262,25 @@ export async function runWatchTick(opts: WatchTickOptions = {}): Promise<WatchTi
 
   if (!opts.dryRun) await writeState(statePath, nextState);
 
+  // Two different events end a hold, and they must not read the same.
+  //
+  // The responder walked away: a deferred page arriving late, nothing new about
+  // the rack. "Held ...; sending now" is exactly right for that.
+  //
+  // The rack got WORSE while they stood there: an escalation that broke through
+  // the hold, which is the more urgent of the two and the reason suppress.ts
+  // treats escalation as inviolable. The old wording applied to both, so the one
+  // page that means "this deteriorated under a responder's nose" read as routine
+  // catch-up -- and the on-call, seeing "held while you were on site", would
+  // reasonably conclude nothing had changed since they were there.
+  const releaseNote = suppression.escalatedPastResponder
+    ? "(escalated while the on-call was on site -- paging anyway)"
+    : "(held while the on-call was on site; sending now)";
+
   const alertText =
     decision.shouldAlert && decision.message && !suppression.hold
       ? released
-        ? `${decision.message} (held while the on-call was on site; sending now)`
+        ? `${decision.message} ${releaseNote}`
         : decision.message
       : undefined;
 

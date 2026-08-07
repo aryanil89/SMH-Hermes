@@ -39,6 +39,15 @@ export interface SuppressionDecision {
   hold: boolean;
   /** Always populated -- the reason a page went out matters as much as why one didn't. */
   reason: string;
+  /**
+   * Set only for property 1 above: a known responder IS on site and would have
+   * earned a hold, but the status got worse than it was when they arrived.
+   *
+   * A flag rather than the caller matching on `reason`, because the two ways a
+   * hold ends have to be told apart in the message and prose is the wrong seam
+   * for that. The other way -- the responder walked away -- leaves this unset.
+   */
+  escalatedPastResponder?: boolean;
 }
 
 export interface EvaluateSuppressionInput {
@@ -105,6 +114,7 @@ export function evaluateSuppression(input: EvaluateSuppressionInput): Suppressio
   if (!suppress) {
     return {
       hold: false,
+      escalatedPastResponder: true,
       reason: `status escalated from ${baseline} to ${currentStatus} after the responder arrived -- paging anyway`,
     };
   }

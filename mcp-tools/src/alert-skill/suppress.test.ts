@@ -124,6 +124,25 @@ describe("evaluateSuppression -- holding", () => {
     });
     expect(r.hold).toBe(false);
     expect(r.reason).toMatch(/escalated from warning to critical/);
+    // Flagged, not just described. tick.ts has to tell this apart from "the
+    // responder left" to word the page correctly, and matching on prose would
+    // make the wording of a reason string load-bearing.
+    expect(r.escalatedPastResponder).toBe(true);
+  });
+
+  it("does not flag an escalation when the hold simply was not earned", () => {
+    // Every other no-hold path -- stale state, wrong verdict, nobody there --
+    // must leave the flag unset, or a page released because the responder walked
+    // away would be announced as a deterioration that never happened.
+    for (const r of [
+      evaluateSuppression({ access: undefined, currentStatus: "critical", now: at(5) }),
+      evaluateSuppression({ access: accessState(), currentStatus: "critical", now: at(600) }),
+      evaluateSuppression({ access: accessState({ verdict: "challenge" }), currentStatus: "critical", now: at(30) }),
+      evaluateSuppression({ access: accessState({ pending: false }), currentStatus: "critical", now: at(30) }),
+    ]) {
+      expect(r.hold).toBe(false);
+      expect(r.escalatedPastResponder).toBeUndefined();
+    }
   });
 
   it("holds right up to the staleness boundary and pages past it", () => {

@@ -489,7 +489,9 @@ whole reason the loop exists — [docs/WATCHDOG.md](docs/WATCHDOG.md) has the fu
 while an incident is live (step 7), the page is **withheld** — you are looking at the thing it
 would have told you about. It is a deferral, not a cancellation: walk away and the alert arrives
 marked *"held while the on-call was on site; sending now."* Escalation while you stand there pages
-anyway, and if the wall isn't running the state goes stale and it pages regardless. So "no alert"
+anyway — and says so differently, *"escalated while the on-call was on site — paging anyway"*, so a
+rack that got worse under your nose is never mistaken for a deferred page arriving late. If the
+wall isn't running the state goes stale and it pages regardless. So "no alert"
 has two causes now — nothing wrong, or someone is on site. The wall says which.
 
 ### 6. The wall display — one page showing all of the above

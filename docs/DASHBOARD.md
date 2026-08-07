@@ -246,6 +246,13 @@ Three properties, in the order they matter:
    using it made *every* first alert an escalation and suppression never engaged
    at all. You know about the situation you walked into; you do not know about
    anything that got worse afterwards.
+
+   Such a page is annotated *"escalated while the on-call was on site — paging
+   anyway"*, **not** the property-1 wording above. Both sentences describe a hold
+   ending, and for a while both were the same sentence — so the one page meaning
+   "this deteriorated while you were standing next to it" read as routine
+   catch-up for a rack that had not changed. The two are now told apart by a
+   flag on the suppression decision, not by matching on its reason text.
 3. **Fail open.** Suppression depends on the *dashboard* being alive to write
    `access.json`. If the wall is down that file goes stale, and past
    `ACCESS_SUPPRESS_MAX_AGE_S` the watchdog pages regardless. A watchdog silenced

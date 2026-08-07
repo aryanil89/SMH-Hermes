@@ -217,3 +217,97 @@ describe("runWatchTick — on-device activity push", () => {
     expect(result.nextState.lastActivityAt).toBeUndefined();
   });
 });
+
+describe("runWatchTick — how a held page is worded when it finally goes out", () => {
+  /**
+   * A hold ends two different ways and the on-call has to be able to tell them
+   * apart from the message alone. Both paths were previously untested, which is
+   * why both produced the same sentence for two years' worth of very different
+   * situations: "held while the on-call was on site; sending now" was applied to
+   * a rack that had quietly deteriorated under a responder's nose.
+   */
+  async function writeAccess(now: Date, present: boolean): Promise<void> {
+    if (!present) {
+      // Nobody at the rack. Not a deleted file -- the sentry is alive and
+      // reporting an empty rack, which is the ordinary "they walked away" case.
+      await writeFile(
+        process.env.ACCESS_STATE_PATH as string,
+        JSON.stringify({ updatedAt: now.toISOString(), log: [] }),
+        "utf8",
+      );
+      return;
+    }
+    await writeFile(
+      process.env.ACCESS_STATE_PATH as string,
+      JSON.stringify({
+        updatedAt: now.toISOString(),
+        log: [],
+        pending: {
+          id: "acc_20260805T120000Z",
+          at: "2026-08-05T12:00:00.000Z",
+          zone: "zone-east",
+          trigger: "object_entered",
+          faces: [{ match: "known", name: "Lauren R", similarity: 0.81 }],
+          identityMethod: "qr-badge",
+          doorOpenCount: 1,
+          verdict: "expected",
+          severity: "ok",
+          reasons: [],
+          approval: { required: false, state: "not-required" },
+        },
+      }),
+      "utf8",
+    );
+  }
+
+  // Anchored to the wall clock, unlike the fixed dates elsewhere in this file.
+  // getEnvironmentalReading calls readSensorLogReading without a `now`, so the
+  // sensor log's freshness is judged against the real clock no matter what is
+  // injected here -- a fixed 2026-08-05 fixture reads as days stale, the source
+  // falls back to mock, and decideAlert returns `untrusted-reading` for it. The
+  // suppression path is then never reached and the test passes vacuously.
+  const t0 = new Date(Date.now() - 5_000);
+  const t1 = new Date(t0.getTime() + 15_000);
+
+  /** Warning-level rack (>30C) with a known responder standing at it. */
+  async function holdOnePage(): Promise<void> {
+    await writeLog(t0, 32);
+    await writeAccess(t0, true);
+    const held = await runWatchTick({ now: t0, statePath });
+    // Guard the premise: if this stopped holding, the tests below would pass
+    // for the wrong reason.
+    expect(held.suppression.hold).toBe(true);
+    expect(held.parts).toEqual([]);
+    expect(held.nextState.heldPage?.heldStatus).toBe("warning");
+  }
+
+  it("says the page was merely deferred when the responder walks away", async () => {
+    await holdOnePage();
+
+    await writeLog(t1, 32); // unchanged rack -- only the human moved
+    await writeAccess(t1, false);
+    const out = await runWatchTick({ now: t1, statePath });
+
+    expect(out.released).toBe(true);
+    expect(out.parts.join("\n")).toContain("held while the on-call was on site; sending now");
+    expect(out.nextState.heldPage).toBeUndefined();
+  });
+
+  it("says the rack escalated, not that the page was merely deferred", async () => {
+    await holdOnePage();
+
+    // The responder never left. The rack got worse while they stood there --
+    // the one case suppression is forbidden to swallow.
+    await writeLog(t1, 38); // critical
+    await writeAccess(t1, true);
+    const out = await runWatchTick({ now: t1, statePath });
+
+    const text = out.parts.join("\n");
+    expect(out.released).toBe(true);
+    expect(out.suppression.escalatedPastResponder).toBe(true);
+    expect(text).toContain("escalated while the on-call was on site");
+    // The old wording would have told the on-call nothing had changed since
+    // they were standing there, which is the opposite of what happened.
+    expect(text).not.toContain("sending now");
+  });
+});
