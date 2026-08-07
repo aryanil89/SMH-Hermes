@@ -23,22 +23,70 @@
     4. Poll / until it answers 200, then report FACE OFF, or print the tail
        of the error log if it never came up.
 
+.PARAMETER Secret
+  ACCESS_SHARED_SECRET for the dashboard's write routes. If omitted, the one
+  persisted at %LOCALAPPDATA%\hermes\access-secret.txt is reused (or created)
+  so the phone's already-open page keeps working across the flip to stub.
+  Pass -NoSecret to run open (loopback-only rehearsal).
+
+.PARAMETER NoSecret
+  Run with the write routes open. Only sane when nothing proxies port 7788
+  off loopback.
+
+.PARAMETER NodeExe
+  Path to node.exe. Defaults to node on PATH, then the standard install path.
+
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\demo-face-OFF.ps1
 #>
 [CmdletBinding()]
-param()
+param(
+  [string]$Secret = '',
+  [switch]$NoSecret,
+  [string]$NodeExe = ''
+)
 
-$McpTools = Join-Path (Split-Path $PSScriptRoot -Parent) 'mcp-tools'
-$NodeExe  = 'C:\Program Files\nodejs\node.exe'
-$LogOut   = 'C:\Users\qc_de\Downloads\QUAD\hermes-dashboard.log'
-$LogErr   = 'C:\Users\qc_de\Downloads\QUAD\hermes-dashboard.err.log'
+# Paths derive from the script's own location -- no machine-specific absolute
+# paths. Logs sit NEXT TO the checkout (see demo-face-ON.ps1 for the layout).
+$RepoRoot = Split-Path $PSScriptRoot -Parent
+$WorkDir  = Split-Path $RepoRoot -Parent
+$McpTools = Join-Path $RepoRoot 'mcp-tools'
+$LogOut   = Join-Path $WorkDir 'hermes-dashboard.log'
+$LogErr   = Join-Path $WorkDir 'hermes-dashboard.err.log'
 $Port     = 7788
 $Url      = 'http://127.0.0.1:7788/'
+if ($NodeExe -eq '') {
+  $nodeCmd = Get-Command node -ErrorAction SilentlyContinue
+  $NodeExe = if ($nodeCmd) { $nodeCmd.Source } else { 'C:\Program Files\nodejs\node.exe' }
+}
 
 function Say([string]$Level, [string]$Message) {
   $color = switch ($Level) { 'OK' {'Green'} 'WARN' {'Yellow'} 'FAIL' {'Red'} default {'Gray'} }
   Write-Host ("[{0}] {1}" -f $Level, $Message) -ForegroundColor $color
+}
+
+# ── 0. Sanity check and the shared secret ──────────────────────────────────
+if (-not (Test-Path $NodeExe)) {
+  Say 'FAIL' "node.exe not found ($NodeExe) -- install Node 22+ or pass -NodeExe"
+  exit 1
+}
+
+# Same locked-by-default posture as demo-face-ON.ps1: this escape hatch must
+# not silently DROP the lock on the write routes when it flips identity mode.
+$SecretFile = Join-Path $env:LOCALAPPDATA 'hermes\access-secret.txt'
+if ($NoSecret) {
+  $Secret = ''
+  Say 'WARN' 'write routes OPEN (-NoSecret) -- loopback-only rehearsal mode'
+} elseif ($Secret -eq '') {
+  if (Test-Path $SecretFile) { $Secret = (Get-Content $SecretFile -TotalCount 1).Trim() }
+  if (-not $Secret) {
+    $rngBytes = New-Object byte[] 18
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($rngBytes)
+    $Secret = [Convert]::ToBase64String($rngBytes) -replace '[+/=]', ''
+    New-Item -ItemType Directory -Force (Split-Path $SecretFile -Parent) | Out-Null
+    Set-Content -Path $SecretFile -Value $Secret -Encoding ascii
+    Say 'OK' "generated shared secret -> $SecretFile"
+  }
 }
 
 # ── 1. Stop whatever currently owns the dashboard port ─────────────────────
@@ -69,7 +117,7 @@ $env:ACCESS_PYTHON            = $null
 $env:ACCESS_VISION_SCRIPT     = $null
 $env:ACCESS_VISION_TIMEOUT_MS = $null
 $env:ACCESS_MATCH_THRESHOLD   = $null
-$env:ACCESS_SHARED_SECRET     = $null
+if ($Secret -ne '') { $env:ACCESS_SHARED_SECRET = $Secret } else { $env:ACCESS_SHARED_SECRET = $null }
 $env:DASHBOARD_OPEN_BROWSER   = '0'
 
 # ── 3. Relaunch ──────────────────────────────────────────────────────────
@@ -98,6 +146,10 @@ while ((Get-Date) -lt $deadline) {
 
 if ($up) {
   Say 'OK' 'FACE OFF -- dashboard up (stub)'
+  if ($Secret -ne '') {
+    Say 'INFO' "wall:  http://127.0.0.1:$Port/?secret=$Secret"
+    Say 'INFO' "phone: append ?secret=$Secret to the tailnet phone.html URL"
+  }
   exit 0
 } else {
   Say 'FAIL' "dashboard did not come up within 10s -- tail of $LogErr :"

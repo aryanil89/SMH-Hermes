@@ -121,10 +121,14 @@ Configure with `UNOQ_SENSOR_LOG`, `UNOQ_HOST`, `UNOQ_USER`, `UNOQ_TIMEOUT_MS`,
 degrades to mock rather than reporting stale data as real) and `UNOQ_LEAK_DISTANCE_MM` (water-level
 leak threshold; unset = level detection off, event-based leak still works).
 
-⚠️ `UNOQ_LEAK_DISTANCE_MM` is **currently inert even if set**: the board stopped putting
-`distance_mm` on `sensor_tick` lines on 2026-08-05, and this reader takes distance from the newest
-line — which is nearly always a tick. Distance now only arrives on presence/button lines. Restoring
-level detection means putting `distance_mm` back on the tick, board-side.
+⚠️ `UNOQ_LEAK_DISTANCE_MM` is **currently inert even if set, and demoted from the demo**: the
+board stopped putting `distance_mm` on `sensor_tick` lines on 2026-08-05, and this reader takes
+distance from the newest line — which is nearly always a tick. Distance now only arrives on
+presence/button lines. **Button C is the leak trigger** (event-based, works today); do not build
+a demo beat on the level threshold. Restoring level detection means putting `distance_mm` back on
+the tick, board-side (`uno-q/hermes-sensor-logger/sketch/sketch.ino`, `sensor_tick` composer) —
+deliberately not attempted before the demo, because reflashing working firmware the day before is
+a worse risk than living without one redundant trigger.
 
 Background on the push pipeline:
 [../uno-q/hermes-sensor-logger/README.md](../uno-q/hermes-sensor-logger/README.md).
