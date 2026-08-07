@@ -696,6 +696,12 @@ Full end-to-end test procedure, layer by layer: **[docs/E2E_TEST.md](docs/E2E_TE
 - [Benchmarks](docs/BENCHMARKS.md) — per-op Hexagon profiling results for the W4A16 bundle (all 8
   graphs, rc=0) with method + caveats; methodology in [docs/BENCHMARK_PLAN.md](docs/BENCHMARK_PLAN.md);
   harness in `bench/`
+- [On-device activity inference (2026-08-06)](docs/ONDEVICE_ACTIVITY.md) — a small local LLM
+  (SmolLM2-135M-Instruct) now runs **on the UNO Q itself**, correlating recent sensor history into
+  `activity-*` log lines (e.g. `activity-possible_fire_risk`, `activity-person_entered_room`).
+  Covers the newly-found Adreno 702 GPU on the board, why CPU beat it on measurement (Vulkan crashed
+  under load), why blind LLM classification needed a deterministic fallback to be reliable at this
+  model size, and the full test/benchmark methodology
 - [Code review + sensor plan (2026-08-03)](docs/REVIEW_AND_SENSOR_PLAN_2026-08-03.md) — findings
   CR-1..CR-8 and sensor upgrades S-1..S-6 with status markers (CR-1/2/3/5 + S-1 done, live-verified)
 
